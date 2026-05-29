@@ -66,10 +66,14 @@ class ApiService {
         final String uid =
             payload?['uid']?.toString() ?? payload?['sub']?.toString() ?? email;
 
+        final String userEmail = data['email'] ?? email;
+        final String calculatedUsername = userEmail.split('@')[0];
+
         return UserProfile(
           uid: uid,
           displayName: data['name'] ?? data['full_name'] ?? 'User',
-          email: data['email'] ?? email,
+          email: userEmail,
+          username: calculatedUsername,
           avatarUrl:
               'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80',
           completedTripsCount: 0,
