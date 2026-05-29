@@ -9,6 +9,7 @@ import '../../providers/trip_provider.dart';
 import '../../models/destination.dart';
 import '../../models/trip.dart';
 import '../../models/planner_draft.dart';
+import '../destinations/destination_details_screen.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -60,6 +61,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   final List<String> _travelerCounts = ['2', '3', '4', '5', '6+'];
 
   bool _isDestinationMode = false;
+  bool _extractedDays = false;
+  bool _extractedTravelType = false;
+  bool _extractedBudget = false;
 
   @override
   void initState() {
@@ -137,6 +141,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _messages.clear();
       _currentStep = 7; // Configure to fully free-form conversation!
       _isDestinationMode = false;
+      _extractedDays = false;
+      _extractedTravelType = false;
+      _extractedBudget = false;
       _selectedDistrict = '';
       _selectedDays = 3;
       _selectedVibe = '';
@@ -261,24 +268,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
         } else {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
-          _currentStep = 4;
-          aiResponse = "A solo adventure! 🎒 What kind of travel vibe or theme do you prefer?";
+          _currentStep = 5;
+          aiResponse = "A solo adventure! 🎒 What is your estimated budget for this adventure?";
         }
         break;
       case 3:
         final count = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 2;
         _numTravelers = count;
-        _currentStep = 4;
-        aiResponse = "Got it, $_numTravelers travelers! 🌟 What kind of travel vibe or theme do you prefer?";
-        break;
-      case 4:
-        _selectedVibe = text;
         _currentStep = 5;
-        aiResponse = "Awesome! A $_selectedVibe trip sounds perfect. 🎒\n\nFinally, what is your estimated budget for this adventure?";
+        aiResponse = "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this adventure?";
         break;
       case 5:
         final clean = double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
         _selectedBudget = clean;
+        _currentStep = 4;
+        aiResponse = "Got it! A budget of ₱${_selectedBudget.toStringAsFixed(0)} is set. 💰\n\nWhat kind of travel vibe or theme do you prefer?";
+        break;
+      case 4:
+        _selectedVibe = text;
         _currentStep = 6;
         aiResponse =
             "Wonderful! I am now generating your custom $_selectedVibe itinerary in $_selectedDistrict "
@@ -312,7 +319,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           });
         } else {
           setState(() {
-            _currentStep = 5;
+            _currentStep = 4;
             _messages.add(_ChatMessage(
               text: "Ah, I ran into an error generating your plan. Please check your options and try again!",
               isUser: false,
@@ -348,8 +355,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     // Save standard steps (convert dynamically)
     int draftStep = 1;
-    if (_currentStep == 4) draftStep = 2;
-    if (_currentStep == 5) draftStep = 3;
+    if (_currentStep == 4) draftStep = 3;
+    if (_currentStep == 5) draftStep = 2;
 
     tripProv.updateDraft(PlannerDraft(
       destinationName: _selectedDistrict,
@@ -361,9 +368,225 @@ class _PlannerScreenState extends State<PlannerScreen> {
     ));
   }
 
+  bool _isPastDate(String input) {
+    final text = input.toLowerCase().trim();
+    if (text.contains('yesterday') || text.contains('last week') || text.contains('last month') || text.contains('ago') || text.contains('previous')) {
+      return true;
+    }
+    
+    final parsed = _parseSmartDate(input);
+    final today = DateTime.now();
+    final todayMidnight = DateTime(today.year, today.month, today.day);
+    if (parsed.isBefore(todayMidnight)) {
+      return true;
+    }
+    
+    return false;
+  }
+
+  DateTime _parseSmartDate(String input) {
+    final text = input.trim();
+    final today = DateTime.now();
+    
+    // Check if input is a pure number (e.g. "2" or "15" or "31")
+    final pureDayReg = RegExp(r'^(\d{1,2})$');
+    final match = pureDayReg.firstMatch(text);
+    if (match != null) {
+      final day = int.tryParse(match.group(1) ?? '');
+      if (day != null && day >= 1 && day <= 31) {
+        try {
+          DateTime candidate = DateTime(today.year, today.month, day);
+          final todayMidnight = DateTime(today.year, today.month, today.day);
+          if (candidate.isBefore(todayMidnight)) {
+            int nextMonth = today.month + 1;
+            int year = today.year;
+            if (nextMonth > 12) {
+              nextMonth = 1;
+              year += 1;
+            }
+            candidate = _safeDateTime(year, nextMonth, day);
+          }
+          return candidate;
+        } catch (_) {}
+      }
+    }
+    
+    final textLower = text.toLowerCase();
+    if (textLower == 'this weekend') {
+      final daysUntilSat = (6 - today.weekday) % 7;
+      return today.add(Duration(days: daysUntilSat == 0 ? 7 : daysUntilSat));
+    } else if (textLower == 'next weekend') {
+      final daysUntilSat = (6 - today.weekday) % 7;
+      return today.add(Duration(days: daysUntilSat + 7));
+    } else if (textLower == 'next month') {
+      return DateTime(today.year, today.month + 1, 1);
+    }
+    
+    final parsed = DateTime.tryParse(text);
+    if (parsed != null) {
+      return parsed;
+    }
+    
+    final monthDayReg1 = RegExp(r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b', caseSensitive: false);
+    final m1 = monthDayReg1.firstMatch(textLower);
+    if (m1 != null) {
+      final monthStr = m1.group(1)!;
+      final day = int.tryParse(m1.group(2) ?? '') ?? today.day;
+      final month = _monthNumber(monthStr);
+      DateTime candidate = _safeDateTime(today.year, month, day);
+      final todayMidnight = DateTime(today.year, today.month, today.day);
+      if (candidate.isBefore(todayMidnight)) {
+        candidate = _safeDateTime(today.year + 1, month, day);
+      }
+      return candidate;
+    }
+
+    final monthDayReg2 = RegExp(r'\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b', caseSensitive: false);
+    final m2 = monthDayReg2.firstMatch(textLower);
+    if (m2 != null) {
+      final day = int.tryParse(m2.group(1) ?? '') ?? today.day;
+      final monthStr = m2.group(2)!;
+      final month = _monthNumber(monthStr);
+      DateTime candidate = _safeDateTime(today.year, month, day);
+      final todayMidnight = DateTime(today.year, today.month, today.day);
+      if (candidate.isBefore(todayMidnight)) {
+        candidate = _safeDateTime(today.year + 1, month, day);
+      }
+      return candidate;
+    }
+
+    return today;
+  }
+
+  int _monthNumber(String shortMonth) {
+    const list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    final idx = list.indexOf(shortMonth.toLowerCase());
+    return idx != -1 ? idx + 1 : DateTime.now().month;
+  }
+
+  DateTime _safeDateTime(int year, int month, int day) {
+    final lastDay = DateTime(year, month + 1, 0).day;
+    final clampedDay = day.clamp(1, lastDay);
+    return DateTime(year, month, clampedDay);
+  }
+
+  void _extractPrefsFromPrompt(String prompt) {
+    final text = prompt.toLowerCase();
+    
+    // 1. Extract days
+    final daysMatch = RegExp(r'\b(\d+)\s*(?:day|days)\b').firstMatch(text);
+    if (daysMatch != null) {
+      final val = int.tryParse(daysMatch.group(1) ?? '');
+      if (val != null && val > 0) {
+        _selectedDays = val;
+        _extractedDays = true;
+      }
+    }
+    
+    // 2. Extract travel type & traveler count
+    if (text.contains('solo') || text.contains('myself') || text.contains('alone') || text.contains('single traveler')) {
+      _selectedTravelType = 'Solo';
+      _numTravelers = 1;
+      _extractedTravelType = true;
+    } else {
+      final groupMatch = RegExp(r'\b(?:group of|we are|splitting with|split between)\s*(\d+)\b|\b(\d+)\s*(?:pax|people|persons|members|friends|head|guests|of us)\b').firstMatch(text);
+      if (groupMatch != null) {
+        final countStr = groupMatch.group(1) ?? groupMatch.group(2);
+        final count = int.tryParse(countStr ?? '');
+        if (count != null && count > 1) {
+          _selectedTravelType = 'Group';
+          _numTravelers = count;
+          _extractedTravelType = true;
+        }
+      } else if (text.contains('group') || text.contains('family') || text.contains('friends') || text.contains('couple') || text.contains('we ')) {
+        _selectedTravelType = 'Group';
+        _extractedTravelType = true;
+      }
+    }
+    
+    // 3. Extract budget style
+    if (text.contains('low') || text.contains('cheap') || text.contains('budget') || text.contains('essential') || text.contains('affordable')) {
+      final budgetMatch = RegExp(r'\b(\d+[\d,]*)\s*(k)?\b').firstMatch(text);
+      if (budgetMatch != null) {
+        var valStr = budgetMatch.group(1)!.replaceAll(',', '');
+        var val = double.tryParse(valStr) ?? 0.0;
+        if (budgetMatch.group(2) == 'k') {
+          val *= 1000;
+        }
+        if (val > 0) {
+          if (val <= 3000) {
+            _selectedBudgetCategory = 'Low Budget';
+          } else if (val <= 10000) {
+            _selectedBudgetCategory = 'Balanced Budget';
+          } else {
+            _selectedBudgetCategory = 'High Budget';
+          }
+          _extractedBudget = true;
+        }
+      } else {
+        if (text.contains('low') || text.contains('cheap')) {
+          _selectedBudgetCategory = 'Low Budget';
+          _extractedBudget = true;
+        } else if (text.contains('affordable') || text.contains('moderate') || text.contains('comfort')) {
+          _selectedBudgetCategory = 'Balanced Budget';
+          _extractedBudget = true;
+        }
+      }
+    } else if (text.contains('luxury') || text.contains('premium') || text.contains('high') || text.contains('expensive')) {
+      _selectedBudgetCategory = 'High Budget';
+      _extractedBudget = true;
+    }
+  }
+
   // =========================================================================
   //  DESTINATION-SPECIFIC FLOW
   // =========================================================================
+  Future<void> _generateAndShowDestinationPlan(Destination dest) async {
+    setState(() {
+      _isTyping = true;
+    });
+    
+    final aiResponse =
+        "Excellent! Preparing your **$_selectedBudgetCategory** plan for "
+        "${dest.name} ($_selectedDays day${_selectedDays > 1 ? 's' : ''}, $_selectedDate)... ⏳";
+
+    _appendAIMessage(aiResponse);
+
+    // Generate the trip with budget-aware logic
+    final trip = await _generateDestinationPlan(dest);
+
+    if (!mounted) return;
+    setState(() { _isTyping = false; });
+
+    // Build cost breakdown message
+    final costBreakdown = _buildCostBreakdownText(dest);
+
+    setState(() {
+      _currentStep = 15;
+      _messages.add(_ChatMessage(
+        text: costBreakdown,
+        isUser: false,
+        timestamp: DateTime.now(),
+      ));
+    });
+    _scrollToBottom();
+
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+
+    setState(() {
+      _messages.add(_ChatMessage(
+        text:
+            "Here is your personalised **$_selectedBudgetCategory** itinerary for ${dest.name}! 🎉\n"
+            "Tap the bookmark icon to save it to My Trips.",
+        isUser: false,
+        timestamp: DateTime.now(),
+        generatedTrip: trip,
+      ));
+    });
+    _scrollToBottom();
+  }
+
   Future<void> _handleDestinationFlowStep(String text) async {
     String aiResponse = '';
     final dest = _activeDest!;
@@ -371,38 +594,83 @@ class _PlannerScreenState extends State<PlannerScreen> {
     switch (_currentStep) {
       // Step 10 — user picks a travel date
       case 10:
-        _selectedDate = text;
-        _currentStep = 11;
-        aiResponse =
-            "📅 Perfect! **$_selectedDate** it is.\n\n"
-            "How many days would you like to spend at **${dest.name}**?";
+        if (_isPastDate(text)) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(_ChatMessage(
+              text: "⚠️ Please choose an upcoming travel date. Yesterday and past dates cannot be selected!",
+              isUser: false,
+              timestamp: DateTime.now(),
+            ));
+          });
+          _scrollToBottom();
+          return;
+        }
+
+        final parsedDate = _parseSmartDate(text);
+        _selectedDate = _formatDate(parsedDate);
+        _extractPrefsFromPrompt(text);
+
+        // Determine where to go next based on extracted preferences
+        if (!_extractedDays) {
+          _currentStep = 11;
+          aiResponse =
+              "📅 Perfect! **$_selectedDate** it is.\n\n"
+              "How many days would you like to spend at **${dest.name}**?";
+        } else if (!_extractedTravelType) {
+          _currentStep = 12;
+          aiResponse =
+              "📅 Perfect! **$_selectedDate** for **$_selectedDays day${_selectedDays > 1 ? 's' : ''}** it is. 🌿\n\n"
+              "Who will you be traveling with? Solo or with a Group?";
+        } else if (!_extractedBudget) {
+          _currentStep = 128;
+          aiResponse =
+              "📅 Perfect! **$_selectedDate** for **$_selectedDays day${_selectedDays > 1 ? 's' : ''}** it is. 🎒\n\n"
+              "What is your estimated budget for this trip?";
+        } else {
+          await _generateAndShowDestinationPlan(dest);
+          return;
+        }
         break;
 
       // Step 11 — user picks duration
       case 11:
         final parsed = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
         _selectedDays = parsed;
-        _currentStep = 12;
-        aiResponse =
-            "Great — a **$_selectedDays-day** adventure at ${dest.name}! 🌿\n\n"
-            "Who will you be traveling with? Solo or with a Group?";
+        _extractedDays = true;
+        _extractPrefsFromPrompt(text);
+
+        if (!_extractedTravelType) {
+          _currentStep = 12;
+          aiResponse =
+              "Great — a **$_selectedDays-day** adventure at ${dest.name}! 🌿\n\n"
+              "Who will you be traveling with? Solo or with a Group?";
+        } else if (!_extractedBudget) {
+          _currentStep = 128;
+          aiResponse =
+              "Great — a **$_selectedDays-day** adventure at ${dest.name}! 🎒\n\n"
+              "What is your estimated budget for this trip?";
+        } else {
+          await _generateAndShowDestinationPlan(dest);
+          return;
+        }
         break;
 
       // Step 12 — user picks travel type
       case 12:
         _selectedTravelType = text;
+        _extractedTravelType = true;
+        _extractPrefsFromPrompt(text);
+
         if (text.toLowerCase().contains('group')) {
           _currentStep = 125;
           aiResponse = "Awesome, a group trip! 👥 How many travelers will be joining?";
         } else {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
-          _currentStep = 13;
-          aiResponse =
-              "A solo adventure! 🎒 Last question: What is your budget style for this trip?\n\n"
-              "🟢 **Low Budget** — bare essentials\n"
-              "🟡 **Balanced Budget** — comfort + affordability\n"
-              "🔴 **High Budget** — premium experience";
+          
+          _currentStep = 128;
+          aiResponse = "A solo adventure! 🎒 What is your estimated budget for this trip?";
         }
         break;
 
@@ -410,66 +678,40 @@ class _PlannerScreenState extends State<PlannerScreen> {
       case 125:
         final count = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 2;
         _numTravelers = count;
+        _extractPrefsFromPrompt(text);
+
+        _currentStep = 128;
+        aiResponse = "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this group trip?";
+        break;
+
+      // Step 128 — user sets their estimated budget
+      case 128:
+        final clean = double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
+        _selectedBudget = clean;
         _currentStep = 13;
-        aiResponse =
-            "Got it, $_numTravelers travelers! 👥 Last question: What is your budget style for this trip?\n\n"
-            "🟢 **Low Budget** — bare essentials\n"
-            "🟡 **Balanced Budget** — comfort + affordability\n"
-            "🔴 **High Budget** — premium experience";
+        aiResponse = _buildSuggestedBudgetPrompt(dest);
         break;
 
       // Step 13 — user picks budget category
       case 13:
-        _selectedBudgetCategory = text;
-        _currentStep = 14;
-        aiResponse =
-            "Excellent! Preparing your **$_selectedBudgetCategory** plan for "
-            "${dest.name} ($_selectedDays day${_selectedDays > 1 ? 's' : ''}, $_selectedDate)... ⏳";
-
-        _appendAIMessage(aiResponse);
-
-        // Generate the trip with budget-aware logic
-        final trip = await _generateDestinationPlan(dest);
-
-        if (!mounted) return;
-        setState(() { _isTyping = false; });
-
-        // Build cost breakdown message
-        final costBreakdown = _buildCostBreakdownText(dest);
-
-        setState(() {
-          _currentStep = 15;
-          _messages.add(_ChatMessage(
-            text: costBreakdown,
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-        });
-        _scrollToBottom();
-
-        await Future.delayed(const Duration(milliseconds: 600));
-        if (!mounted) return;
-
-        setState(() {
-          _messages.add(_ChatMessage(
-            text:
-                "Here is your personalised **$_selectedBudgetCategory** itinerary for ${dest.name}! 🎉\n"
-                "Tap the bookmark icon to save it to My Trips.",
-            isUser: false,
-            timestamp: DateTime.now(),
-            generatedTrip: trip,
-          ));
-        });
-        _scrollToBottom();
-
-        // Clear the active destination context
-        context.read<TripProvider>().setActivePlanDestination(null);
+        final cleanInput = text.toLowerCase();
+        if (cleanInput.contains('low')) {
+          _selectedBudgetCategory = 'Low Budget';
+        } else if (cleanInput.contains('high') || cleanInput.contains('premium')) {
+          _selectedBudgetCategory = 'High Budget';
+        } else {
+          _selectedBudgetCategory = 'Balanced Budget';
+        }
+        _extractedBudget = true;
+        await _generateAndShowDestinationPlan(dest);
         return;
     }
 
     setState(() {
       _isTyping = false;
-      _messages.add(_ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()));
+      if (aiResponse.isNotEmpty) {
+        _messages.add(_ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()));
+      }
     });
     _scrollToBottom();
   }
@@ -578,6 +820,114 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
   }
 
+  String _formatCurrency(double amount) {
+    final str = amount.toStringAsFixed(0);
+    final reg = RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))');
+    return str.replaceAllMapped(reg, (Match m) => '${m[1]},');
+  }
+
+  double _calculateOptionCost(Destination dest, String category) {
+    final extra = dest.extra;
+    final isLow = category == 'Low Budget';
+    final isHigh = category == 'High Budget';
+
+    // 1. Transport
+    final double totalTransport = _getTransportCost(dest, category);
+
+    // 2. Meals
+    final double mealsPerDay = isLow ? 150.0 * 3 : isHigh ? 600.0 * 3 : 300.0 * 3;
+    final double totalMeals = mealsPerDay * _selectedDays;
+
+    // 3. Activities
+    final double totalActivities = _getActivitiesCost(dest, category);
+
+    // 4. Accommodation
+    final double accommodationPerNight = _getAccommodationCost(dest, category);
+    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
+
+    // 5. Environmental & Entrance Fees
+    final double environmentalFee = _parsePrice(extra.environmentalFee);
+    final double entranceFee = _parsePrice(dest.entranceFee);
+
+    return totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+  }
+
+  double _calculateOptimizedCost(Destination dest, String transCat, String accommCat, String mealCat, String actCat) {
+    final extra = dest.extra;
+    final isLowMeal = mealCat == 'Low Budget';
+    final isHighMeal = mealCat == 'High Budget';
+
+    // 1. Transport
+    final double totalTransport = _getTransportCost(dest, transCat);
+
+    // 2. Meals
+    final double mealsPerDay = isLowMeal ? 150.0 * 3 : isHighMeal ? 600.0 * 3 : 300.0 * 3;
+    final double totalMeals = mealsPerDay * _selectedDays;
+
+    // 3. Activities
+    final double totalActivities = _getActivitiesCost(dest, actCat);
+
+    // 4. Accommodation
+    final double accommodationPerNight = _getAccommodationCost(dest, accommCat);
+    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
+
+    // 5. Environmental & Entrance Fees
+    final double environmentalFee = _parsePrice(extra.environmentalFee);
+    final double entranceFee = _parsePrice(dest.entranceFee);
+
+    return totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+  }
+
+
+
+  String _buildSuggestedBudgetPrompt(Destination dest) {
+    final lowCost = _calculateOptionCost(dest, 'Low Budget');
+    final balancedCost = _calculateOptionCost(dest, 'Balanced Budget');
+    final highCost = _calculateOptionCost(dest, 'High Budget');
+
+    final isGroup = _selectedTravelType.toLowerCase().contains('group');
+    final numTravelers = isGroup ? _numTravelers : 1;
+    
+    // Suggest based on per-person cost
+    double userPerPersonBudget = _selectedBudget;
+    if (isGroup && _selectedBudget > 5000) {
+      userPerPersonBudget = _selectedBudget / numTravelers;
+    }
+
+    final minRequired = lowCost * numTravelers;
+    String warningText = '';
+    if (_selectedBudget < minRequired) {
+      warningText = "⚠️ **WARNING**: Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** is lower than the minimum required expense of **₱${_formatCurrency(minRequired)}** for this trip. We highly recommend saving more money before traveling, to ensure a safe, comfortable, and stress-free journey! 🎒💰\n\n";
+    }
+
+    String suggestion = '';
+    if (userPerPersonBudget >= highCost) {
+      suggestion = "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our premium **High Budget** style! This includes all activities and premium lodging.";
+    } else if (userPerPersonBudget >= balancedCost) {
+      suggestion = "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our **Balanced Budget** style (₱${_formatCurrency(balancedCost)} per person) for a comfortable and complete experience!";
+    } else {
+      suggestion = "To fit your estimated budget of **₱${_formatCurrency(_selectedBudget)}**, we suggest our value-conscious **Low Budget** style (₱${_formatCurrency(lowCost)} per person) covering essential transit and entrance fees.";
+    }
+
+    String lowText = "🟢 **Low Budget** — ₱${_formatCurrency(lowCost)} per person";
+    String balancedText = "🟡 **Balanced Budget** — ₱${_formatCurrency(balancedCost)} per person";
+    String highText = "🔴 **High Budget** — ₱${_formatCurrency(highCost)} per person";
+
+    if (isGroup) {
+      lowText += " (Group Total: ₱${_formatCurrency(lowCost * numTravelers)})";
+      balancedText += " (Group Total: ₱${_formatCurrency(balancedCost * numTravelers)})";
+      highText += " (Group Total: ₱${_formatCurrency(highCost * numTravelers)})";
+    }
+
+    return "${warningText}Thank you! Based on your estimated budget of **₱${_formatCurrency(_selectedBudget)}**:\n\n"
+        "💡 **AI Recommendation**: $suggestion\n\n"
+        "Here are the available budget styles for **${dest.name}**:\n\n"
+        "$lowText\n"
+        "$balancedText\n"
+        "$highText\n\n"
+        "Which budget style would you like to select for your customized trip? (Low, Balanced, or High)";
+  }
+
   /// Builds a richly formatted cost breakdown string using actual destination financial data
   String _buildCostBreakdownText(Destination dest) {
     final extra = dest.extra;
@@ -646,31 +996,78 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Future<Trip> _generateDestinationPlan(Destination dest) async {
     await Future.delayed(const Duration(milliseconds: 1800));
 
-    final isLow = _selectedBudgetCategory == 'Low Budget';
-    final isHigh = _selectedBudgetCategory == 'High Budget';
-
     // Compute a real start date
-    DateTime startDate = DateTime.now();
-    if (_selectedDate == 'This Weekend') {
-      final daysUntilSat = (6 - startDate.weekday) % 7;
-      startDate = startDate.add(Duration(days: daysUntilSat == 0 ? 7 : daysUntilSat));
-    } else if (_selectedDate == 'Next Weekend') {
-      final daysUntilSat = (6 - startDate.weekday) % 7;
-      startDate = startDate.add(Duration(days: daysUntilSat + 7));
-    } else if (_selectedDate == 'Next Month') {
-      startDate = DateTime(startDate.year, startDate.month + 1, 1);
-    }
+    final startDate = _parseSmartDate(_selectedDate);
 
     final endDate = startDate.add(Duration(days: _selectedDays - 1));
     final dateRange = _selectedDays == 1
         ? _formatDate(startDate)
         : '${_formatDate(startDate)} – ${_formatDate(endDate)}';
 
+    // User's per-person budget limit
+    final double perPersonLimit = _selectedBudget / (_numTravelers > 0 ? _numTravelers : 1);
+
+    // Intelligently select category if not explicitly chosen
+    String activeCategory = _selectedBudgetCategory;
+    if (activeCategory.isEmpty) {
+      final double balancedCost = _calculateOptionCost(dest, 'Balanced Budget');
+      if (perPersonLimit >= _calculateOptionCost(dest, 'High Budget')) {
+        activeCategory = 'High Budget';
+      } else if (perPersonLimit >= balancedCost) {
+        activeCategory = 'Balanced Budget';
+      } else {
+        activeCategory = 'Low Budget';
+      }
+      _selectedBudgetCategory = activeCategory;
+    }
+
+    // Check if the chosen category cost exceeds the user's financial limit
+    bool needsCostOptimization = _calculateOptionCost(dest, activeCategory) > perPersonLimit;
+
+    // Optimization modifiers per category
+    String transportCategory = activeCategory;
+    String accommCategory = activeCategory;
+    String mealCategory = activeCategory;
+    String activityCategory = activeCategory;
+
+    if (needsCostOptimization) {
+      // Intelligently minimize costs step-by-step to fit within the limit
+      // 1. First downgrade transport to Low Budget (commuter transit)
+      transportCategory = 'Low Budget';
+      double optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+
+      // 2. If still exceeding, downgrade accommodation to Low Budget (camp space/hostel)
+      if (optimizedCost > perPersonLimit) {
+        accommCategory = 'Low Budget';
+        optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+      }
+
+      // 3. If still exceeding, downgrade meals to Low Budget
+      if (optimizedCost > perPersonLimit) {
+        mealCategory = 'Low Budget';
+        optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+      }
+
+      // 4. If still exceeding, downgrade activities to Low Budget (focus on free activities)
+      if (optimizedCost > perPersonLimit) {
+        activityCategory = 'Low Budget';
+      }
+    }
+
+    final isLowMeal = mealCategory == 'Low Budget';
+    final isHighMeal = mealCategory == 'High Budget';
+
+    final isLowAct = activityCategory == 'Low Budget';
+    final isHighAct = activityCategory == 'High Budget';
+
+    final isLowAcc = accommCategory == 'Low Budget';
+    final isHighAcc = accommCategory == 'High Budget';
+
     // Build day-by-day itinerary based on destination
     final Map<int, List<TripActivity>> agenda = {};
     final extra = dest.extra;
 
-    final transportOpt = _getTransportOption(dest, _selectedBudgetCategory);
+    final transportOpt = _getTransportOption(dest, transportCategory);
 
     for (int day = 1; day <= _selectedDays; day++) {
       final List<TripActivity> dayPlan = [];
@@ -716,18 +1113,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
         );
         if (matchingKey.isNotEmpty) {
           actPrice = prices[matchingKey]!;
-        } else if (isLow) {
+        } else if (isLowAct) {
           actPrice = 'Free';
         } else {
-          actPrice = isHigh ? '₱400' : '₱200';
+          actPrice = isHighAct ? '₱400' : '₱200';
         }
 
         dayPlan.add(TripActivity(
           time: '10:30 AM',
           title: actName,
-          description: isLow
+          description: isLowAct
               ? 'Budget-friendly option — enjoy $actName with value-conscious settings.'
-              : isHigh
+              : isHighAct
                   ? 'Premium private guided $actName with top-tier equipment and priority access.'
                   : 'Standard experience of $actName with standard equipment.',
           cost: actPrice,
@@ -739,12 +1136,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
       dayPlan.add(TripActivity(
         time: '12:30 PM',
         title: 'Lunch Break',
-        description: isLow
+        description: isLowMeal
             ? 'Affordable local eateries or packed lunch. Karinderia-style meals available nearby.'
-            : isHigh
+            : isHighMeal
                 ? 'Premium in-resort dining or top-rated restaurant nearby.'
                 : 'Mid-range restaurant or in-resort café.',
-        cost: isLow ? '₱150' : isHigh ? '₱600' : '₱300',
+        cost: isLowMeal ? '₱150' : isHighMeal ? '₱600' : '₱300',
         location: loc,
       ));
 
@@ -754,7 +1151,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         title: 'Afternoon ${dest.category} Experience',
         description: 'Explore more of ${dest.name}. '
             '${extra.travelNotes.isNotEmpty ? extra.travelNotes.first : 'Enjoy the scenery and take photos.'}',
-        cost: isLow ? '₱100' : isHigh ? '₱500' : '₱250',
+        cost: isLowAct ? '₱100' : isHighAct ? '₱500' : '₱250',
         location: loc,
       ));
 
@@ -764,7 +1161,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         String accommName = 'Standard Room';
         String accommPrice = '₱800–₱1,200 / night';
         if (accommTypes.isNotEmpty) {
-          int accommIdx = isLow ? 0 : isHigh ? accommTypes.length - 1 : accommTypes.length ~/ 2;
+          int accommIdx = isLowAcc ? 0 : isHighAcc ? accommTypes.length - 1 : accommTypes.length ~/ 2;
           accommIdx = accommIdx.clamp(0, accommTypes.length - 1);
           accommName = accommTypes[accommIdx]['type'] ?? accommName;
           accommPrice = accommTypes[accommIdx]['price'] ?? accommPrice;
@@ -789,15 +1186,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       agenda[day] = dayPlan;
     }
 
-    final double accommodationPerNight = _getAccommodationCost(dest, _selectedBudgetCategory);
-    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
-    final double totalTransport = _getTransportCost(dest, _selectedBudgetCategory);
-    final double mealsPerDay = isLow ? 150.0 * 3 : isHigh ? 600.0 * 3 : 300.0 * 3;
-    final double totalMeals = mealsPerDay * _selectedDays;
-    final double totalActivities = _getActivitiesCost(dest, _selectedBudgetCategory);
-    final double environmentalFee = _parsePrice(dest.extra.environmentalFee);
-    final double entranceFee = _parsePrice(dest.entranceFee);
-    final double budgetEst = totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+    final double budgetEst = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
 
     return Trip(
       id: 'ai-dest-trip-${DateTime.now().millisecondsSinceEpoch}',
@@ -835,7 +1224,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: AppTheme.primaryBlue,
@@ -923,14 +1312,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildDestinationBanner(Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.secondaryGreen.withValues(alpha: 0.15), AppTheme.primaryBlue.withValues(alpha: 0.08)],
+          colors: isDark
+              ? [AppTheme.secondaryGreen.withValues(alpha: 0.08), AppTheme.primaryBlue.withValues(alpha: 0.04)]
+              : [AppTheme.secondaryGreen.withValues(alpha: 0.15), AppTheme.primaryBlue.withValues(alpha: 0.08)],
         ),
-        border: Border(bottom: BorderSide(color: AppTheme.secondaryGreen.withValues(alpha: 0.3))),
+        border: Border(bottom: BorderSide(color: isDark ? AppTheme.secondaryGreen.withValues(alpha: 0.15) : AppTheme.secondaryGreen.withValues(alpha: 0.3))),
       ),
       child: Row(
         children: [
@@ -943,11 +1335,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 Text(
                   dest.name,
                   style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue),
+                      fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.primaryBlue),
                 ),
                 Text(
                   dest.location,
-                  style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.textSecondaryLight),
+                  style: GoogleFonts.outfit(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                 ),
               ],
             ),
@@ -969,6 +1361,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildChatItem(_ChatMessage message) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     if (message.isUser) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
@@ -1003,7 +1396,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
-            backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+            backgroundColor: isDark
+                ? AppTheme.secondaryGreen.withValues(alpha: 0.2)
+                : AppTheme.secondaryGreen.withValues(alpha: 0.12),
             child: const Icon(Icons.psychology_rounded, color: AppTheme.primaryBlue, size: 20),
           ),
           const SizedBox(width: AppConstants.spaceM),
@@ -1014,16 +1409,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).cardColor,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(20),
                       topRight: Radius.circular(20),
                       bottomRight: Radius.circular(20),
                     ),
-                    border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.03),
+                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.03),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1032,7 +1427,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   child: Text(
                     message.text,
                     style: GoogleFonts.outfit(
-                        color: AppTheme.textPrimaryLight, fontSize: 14, height: 1.5),
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight, fontSize: 14, height: 1.5),
                   ),
                 ),
                 if (message.generatedTrip != null) ...[
@@ -1051,6 +1446,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildRecommendations(List<Destination> recommendations) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1062,7 +1458,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             style: GoogleFonts.outfit(
               fontSize: 13,
               fontWeight: FontWeight.bold,
-              color: AppTheme.primaryBlue,
+              color: isDark ? Colors.white : AppTheme.primaryBlue,
             ),
           ),
         ),
@@ -1073,144 +1469,160 @@ class _PlannerScreenState extends State<PlannerScreen> {
             itemCount: recommendations.length,
             itemBuilder: (context, index) {
               final dest = recommendations[index];
-              return Container(
-                width: 150,
-                margin: const EdgeInsets.only(right: 12, bottom: 4),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.04),
-                      blurRadius: 6,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                  border: Border.all(color: Colors.black.withValues(alpha: 0.05)),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Destination Image
-                      Expanded(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image.network(
-                              dest.imageUrl,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                                child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
-                              ),
-                            ),
-                            Positioned(
-                              top: 6,
-                              right: 6,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.6),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.star_rounded, color: Colors.amber, size: 10),
-                                    const SizedBox(width: 2),
-                                    Text(
-                                      dest.rating.toStringAsFixed(1),
-                                      style: GoogleFonts.outfit(
-                                        color: Colors.white,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DestinationDetailsScreen(
+                        destination: dest,
+                        isFromRecommendation: true,
                       ),
-                      // Destination Details
-                      Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              dest.name,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimaryLight,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Row(
-                              children: [
-                                const Icon(Icons.location_on_rounded, color: Colors.grey, size: 10),
-                                const SizedBox(width: 2),
-                                Expanded(
-                                  child: Text(
-                                    dest.district,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: GoogleFonts.outfit(
-                                      fontSize: 9,
-                                      color: AppTheme.textSecondaryLight,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            SizedBox(
-                              width: double.infinity,
-                              height: 24,
-                              child: ElevatedButton(
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.secondaryGreen,
-                                  foregroundColor: Colors.white,
-                                  padding: EdgeInsets.zero,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  elevation: 0,
-                                ),
-                                onPressed: () {
-                                  // Switch to Destination flow
-                                  setState(() {
-                                    _activeDest = dest;
-                                    _isDestinationMode = true;
-                                    _currentStep = 10;
-                                    
-                                    _messages.add(_ChatMessage(
-                                      text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
-                                      isUser: false,
-                                      timestamp: DateTime.now(),
-                                    ));
-                                  });
-                                  _scrollToBottom();
-                                },
-                                child: Text(
-                                  'Plan Trip',
-                                  style: GoogleFonts.outfit(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 150,
+                  margin: const EdgeInsets.only(right: 12, bottom: 4),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 6,
+                        offset: const Offset(0, 2),
                       ),
                     ],
+                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05)),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Destination Image
+                        Expanded(
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              Image.network(
+                                dest.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                                ),
+                              ),
+                              Positioned(
+                                top: 6,
+                                right: 6,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withValues(alpha: 0.6),
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      const Icon(Icons.star_rounded, color: Colors.amber, size: 10),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        dest.rating.toStringAsFixed(1),
+                                        style: GoogleFonts.outfit(
+                                          color: Colors.white,
+                                          fontSize: 9,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Destination Details
+                        Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                dest.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Row(
+                                children: [
+                                  const Icon(Icons.location_on_rounded, color: Colors.grey, size: 10),
+                                  const SizedBox(width: 2),
+                                  Expanded(
+                                    child: Text(
+                                      dest.district,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 9,
+                                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              SizedBox(
+                                width: double.infinity,
+                                height: 24,
+                                child: ElevatedButton(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.secondaryGreen,
+                                    foregroundColor: Colors.white,
+                                    padding: EdgeInsets.zero,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  onPressed: () {
+                                    // Switch to Destination flow
+                                    setState(() {
+                                      _activeDest = dest;
+                                      _isDestinationMode = true;
+                                      _currentStep = 10;
+                                      _extractedDays = false;
+                                      _extractedTravelType = false;
+                                      _extractedBudget = false;
+                                      
+                                      _messages.add(_ChatMessage(
+                                        text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+                                        isUser: false,
+                                        timestamp: DateTime.now(),
+                                      ));
+                                    });
+                                    _scrollToBottom();
+                                  },
+                                  child: Text(
+                                    'Plan Trip',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               );
@@ -1222,10 +1634,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildTripCard(Trip trip) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         boxShadow: AppConstants.premiumShadow,
         border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.2)),
@@ -1292,9 +1705,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow(Icons.location_on_rounded, trip.destinationName, AppTheme.textSecondaryLight),
+                  _infoRow(Icons.location_on_rounded, trip.destinationName, isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                   const SizedBox(height: 6),
-                  _infoRow(Icons.calendar_today_rounded, trip.dateRange, AppTheme.textSecondaryLight),
+                  _infoRow(Icons.calendar_today_rounded, trip.dateRange, isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                   const SizedBox(height: 6),
                   _infoRow(Icons.payments_rounded,
                       'Est. Total: ₱${trip.budget.toStringAsFixed(0)}', AppTheme.secondaryGreen,
@@ -1318,7 +1731,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                             Navigator.pushNamed(
                               context,
                               AppRoutes.plannerResults,
-                              arguments: trip.itinerary.length,
+                              arguments: trip,
                             );
                           },
                         ),
@@ -1386,6 +1799,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildTypingIndicator() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
       child: Row(
@@ -1399,13 +1813,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: Theme.of(context).cardColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(20),
                 topRight: Radius.circular(20),
                 bottomRight: Radius.circular(20),
               ),
-              border: Border.all(color: Colors.black.withValues(alpha: 0.06)),
+              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -1452,13 +1866,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildInputBar() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -1471,18 +1886,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.grey.withValues(alpha: 0.06),
+                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.black12.withValues(alpha: 0.08)),
+                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black12.withValues(alpha: 0.08)),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
                   controller: _messageCtrl,
                   onSubmitted: _handleSendMessage,
-                  decoration: const InputDecoration(
+                  decoration: InputDecoration(
                     hintText: 'Type your message...',
                     border: InputBorder.none,
-                    hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                    hintStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey, fontSize: 14),
                   ),
                   style: GoogleFonts.outfit(fontSize: 14),
                 ),
@@ -1515,12 +1930,38 @@ class _ChatMessage {
   final List<Destination>? recommendations;
 
   _ChatMessage({
-    required this.text,
+    required String text,
     required this.isUser,
     required this.timestamp,
     this.generatedTrip,
     this.recommendations,
-  });
+  }) : text = isUser ? text : _cleanMarkdown(text);
+
+  static String _cleanMarkdown(String rawText) {
+    String cleaned = rawText;
+
+    // 1. Replace headers: lines starting with one or more '#' followed by spaces
+    cleaned = cleaned.replaceAllMapped(RegExp(r'^#+\s*(.*)$', multiLine: true), (match) {
+      return match.group(1) ?? '';
+    });
+
+    // 2. Convert list item asterisks or hyphens to a nice bullet point
+    cleaned = cleaned.replaceAllMapped(RegExp(r'^\s*[\*\-]\s+', multiLine: true), (match) {
+      return '• ';
+    });
+
+    // 3. Remove bold / italic symbols: '**', '*', '__', '_'
+    cleaned = cleaned.replaceAll('**', '');
+    cleaned = cleaned.replaceAll('___', '');
+    cleaned = cleaned.replaceAll('__', '');
+    cleaned = cleaned.replaceAll('*', '');
+    cleaned = cleaned.replaceAll('_', '');
+
+    // 4. Normalize consecutive newlines
+    cleaned = cleaned.replaceAll(RegExp(r'\n{3,}'), '\n\n');
+
+    return cleaned.trim();
+  }
 }
 
 class _TypingDot extends StatefulWidget {

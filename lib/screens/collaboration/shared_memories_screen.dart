@@ -43,6 +43,7 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Container(
@@ -50,9 +51,9 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                 left: 24, right: 24, top: 20,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.surface,
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -64,7 +65,10 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                   Center(
                     child: Container(
                       width: 50, height: 5,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -76,6 +80,10 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                   TextField(
                     controller: captionController,
                     maxLines: 3,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Caption',
                       hintText: 'Share details of this amazing moment...',
@@ -85,6 +93,10 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: locationController,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Location Tag',
                       hintText: 'e.g. Pearl Farm Beach Resort',

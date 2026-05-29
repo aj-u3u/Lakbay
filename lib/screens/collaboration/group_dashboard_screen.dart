@@ -570,7 +570,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           Navigator.pushNamed(
                             context,
                             AppRoutes.plannerResults,
-                            arguments: activeTrip.itinerary.length,
+                            arguments: activeTrip,
                           );
                         }),
                     ),

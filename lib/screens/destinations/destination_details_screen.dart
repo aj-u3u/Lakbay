@@ -14,7 +14,12 @@ import '../../widgets/buttons/custom_button.dart';
 
 class DestinationDetailsScreen extends StatefulWidget {
   final Destination destination;
-  const DestinationDetailsScreen({super.key, required this.destination});
+  final bool isFromRecommendation;
+  const DestinationDetailsScreen({
+    super.key,
+    required this.destination,
+    this.isFromRecommendation = false,
+  });
 
   @override
   State<DestinationDetailsScreen> createState() => _DestinationDetailsScreenState();
@@ -57,6 +62,36 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     if (lowerName.contains('camping') && prices.containsKey('Tent Pitching')) return prices['Tent Pitching'];
     
     return 'Free';
+  }
+
+  List<MapEntry<String, String>> _getUnifiedActivityPrices(Destination dest) {
+    final Map<String, String> unified = {};
+    
+    // 1. Add all explicit activity prices from extra
+    dest.extra.activityPrices.forEach((key, value) {
+      unified[key] = value;
+    });
+    
+    // 2. For each activity in the destination, if it's not already in the map,
+    // look up its price. If it is already represented, make sure it has the correct price.
+    for (final activity in dest.activities) {
+      bool exists = false;
+      final lowerAct = activity.toLowerCase();
+      for (final key in unified.keys) {
+        final lowerKey = key.toLowerCase();
+        if (lowerKey == lowerAct || lowerKey.contains(lowerAct) || lowerAct.contains(lowerKey)) {
+          exists = true;
+          break;
+        }
+      }
+      
+      if (!exists) {
+        final price = _getActivityPrice(activity, dest);
+        unified[activity] = price ?? 'Free';
+      }
+    }
+    
+    return unified.entries.toList();
   }
 
   Future<void> _requestLocationAndRoute() async {
@@ -130,6 +165,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final dest = widget.destination;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -260,8 +296,6 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     spacing: AppConstants.spaceS,
                     runSpacing: AppConstants.spaceS,
                     children: dest.activities.map((a) {
-                      final price = _getActivityPrice(a, dest);
-                      final isFree = price == null || price.toLowerCase().contains('free');
                       return Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
@@ -275,24 +309,6 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             const Icon(Icons.check_circle_outline_rounded, size: 13, color: AppTheme.secondaryGreen),
                             const SizedBox(width: 5),
                             Text(a, style: const TextStyle(fontSize: 12, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: isFree
-                                    ? AppTheme.secondaryGreen.withValues(alpha: 0.15)
-                                    : AppTheme.primaryBlue.withValues(alpha: 0.15),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                isFree ? 'Free' : price,
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.bold,
-                                  color: isFree ? AppTheme.secondaryGreen : AppTheme.primaryBlue,
-                                ),
-                              ),
-                            ),
                           ],
                         ),
                       );
@@ -339,60 +355,90 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   ),
 
                   // Activity Pricing
-                  if (dest.extra.activityPrices.isNotEmpty) ...[
-                    const SizedBox(height: AppConstants.spaceXL),
-                    Text('Activity Pricing', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                    const SizedBox(height: AppConstants.spaceM),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: dest.extra.activityPrices.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
-                      itemBuilder: (context, index) {
-                        final key = dest.extra.activityPrices.keys.elementAt(index);
-                        final price = dest.extra.activityPrices[key]!;
-                        return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS + 2),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.local_activity_rounded, color: AppTheme.accentTeal, size: 18),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Expanded(
-                                child: Text(
-                                  key,
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  Builder(
+                    builder: (context) {
+                      final unifiedPrices = _getUnifiedActivityPrices(dest);
+                      if (unifiedPrices.isEmpty) return const SizedBox.shrink();
+                      
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: AppConstants.spaceXL),
+                          Text('Activity Pricing', style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                          const SizedBox(height: AppConstants.spaceM),
+                          ListView.separated(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: unifiedPrices.length,
+                            separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
+                            itemBuilder: (context, index) {
+                              final entry = unifiedPrices[index];
+                              final key = entry.key;
+                              final price = entry.value;
+                              final isFree = price.toLowerCase().contains('free');
+                              
+                              return Container(
+                                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS + 2),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.accentTeal.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(6),
+                                  color: isDark ? Theme.of(context).cardColor : Colors.white,
+                                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                                  border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.3)),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.05),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 ),
-                                child: Text(price, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: AppTheme.accentTeal)),
-                              ),
-                            ],
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isFree ? Icons.check_circle_outline_rounded : Icons.local_activity_rounded,
+                                      color: isFree ? AppTheme.secondaryGreen : AppTheme.accentTeal,
+                                      size: 18,
+                                    ),
+                                    const SizedBox(width: AppConstants.spaceM),
+                                    Expanded(
+                                      child: Text(
+                                        key,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600, 
+                                          fontSize: 13,
+                                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppConstants.spaceM),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: isFree
+                                            ? AppTheme.secondaryGreen.withValues(alpha: 0.1)
+                                            : AppTheme.accentTeal.withValues(alpha: 0.1),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        price,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12,
+                                          color: isFree ? AppTheme.secondaryGreen : AppTheme.accentTeal,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
-                    ),
-                  ],
+                        ],
+                      );
+                    },
+                  ),
 
                   // Accommodation Options
                   if (dest.extra.accommodationTypes.isNotEmpty) ...[
@@ -412,12 +458,12 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         return Container(
                           padding: const EdgeInsets.all(AppConstants.spaceM),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? Theme.of(context).cardColor : Colors.white,
                             borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                            border: Border.all(color: isDark ? Colors.white12 : Colors.grey.withOpacity(0.3)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withOpacity(0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -428,7 +474,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(Icons.king_bed_rounded, color: AppTheme.primaryBlue, size: 22),
@@ -438,9 +484,22 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(type, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight)),
+                                    Text(
+                                      type, 
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold, 
+                                        fontSize: 14, 
+                                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
                                     const SizedBox(height: 2),
-                                    const Text('Available for overnight stay', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                                    Text(
+                                      'Available for overnight stay', 
+                                      style: TextStyle(
+                                        fontSize: 11, 
+                                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
@@ -466,19 +525,28 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.2)),
                       ),
                       child: Column(
-                        children: dest.extra.mealInclusions.map((meal) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.restaurant_rounded, color: AppTheme.secondaryGreen, size: 16),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Expanded(
-                                child: Text(meal, style: const TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textPrimaryLight)),
-                              ),
-                            ],
-                          ),
-                        )).toList(),
+                        children: dest.extra.mealInclusions.map((meal) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.restaurant_rounded, color: AppTheme.secondaryGreen, size: 16),
+                                const SizedBox(width: AppConstants.spaceM),
+                                Expanded(
+                                  child: Text(
+                                    meal, 
+                                    style: TextStyle(
+                                      fontSize: 13, 
+                                      height: 1.4, 
+                                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                   ],
@@ -497,19 +565,28 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         border: Border.all(color: Colors.amber.withValues(alpha: 0.2)),
                       ),
                       child: Column(
-                        children: dest.extra.travelNotes.map((note) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4.0),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Icon(Icons.lightbulb_rounded, color: Colors.amber, size: 16),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Expanded(
-                                child: Text(note, style: const TextStyle(fontSize: 13, height: 1.4, color: AppTheme.textPrimaryLight)),
-                              ),
-                            ],
-                          ),
-                        )).toList(),
+                        children: dest.extra.travelNotes.map((note) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 4.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.lightbulb_rounded, color: Colors.amber, size: 16),
+                                const SizedBox(width: AppConstants.spaceM),
+                                Expanded(
+                                  child: Text(
+                                    note, 
+                                    style: TextStyle(
+                                      fontSize: 13, 
+                                      height: 1.4, 
+                                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
                       ),
                     ),
                   ],
@@ -522,12 +599,12 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   Container(
                     height: 280,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: isDark ? Theme.of(context).cardColor : Colors.white,
                       borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                      border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                      border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.3)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: Colors.black.withOpacity(0.05),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -632,14 +709,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         // Location Info Bar / Call-to-action
                         Container(
                           padding: const EdgeInsets.all(AppConstants.spaceM),
-                          color: Colors.grey.withValues(alpha: 0.1),
+                          color: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.withOpacity(0.1),
                           child: Row(
                             children: [
                               Expanded(
                                 child: _userPosition == null
-                                    ? const Text(
+                                    ? Text(
                                         'Visualize location & plan your route',
-                                        style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                                       )
                                     : Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -718,12 +795,12 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         return Container(
                           padding: const EdgeInsets.all(AppConstants.spaceM),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isDark ? Theme.of(context).cardColor : Colors.white,
                             borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                            border: Border.all(color: Colors.grey.withValues(alpha: 0.3)),
+                            border: Border.all(color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.3)),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withOpacity(0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -734,7 +811,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(transportIcon, color: AppTheme.primaryBlue, size: 22),
@@ -744,7 +821,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(vehicle, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryLight)),
+                                    Text(
+                                      vehicle, 
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold, 
+                                        fontSize: 13, 
+                                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
                                     const SizedBox(height: 3),
                                     if (from != null && to != null) ...[
                                       Row(
@@ -754,7 +838,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                           Expanded(
                                             child: Text(
                                               '$from to $to',
-                                              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: AppTheme.textSecondaryLight),
+                                              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w500, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                                             ),
                                           ),
                                         ],
@@ -769,7 +853,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                           Expanded(
                                             child: Text(
                                               'Duration: $duration',
-                                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                                               maxLines: 1,
                                               overflow: TextOverflow.ellipsis,
                                             ),
@@ -777,7 +861,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                         ],
                                       ),
                                     ] else ...[
-                                      const Text('Estimated average fare', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                                      Text('Estimated average fare', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
                                     ],
                                   ],
                                 ),
@@ -799,29 +883,31 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   const SizedBox(height: AppConstants.spaceXXL),
 
                   // Action buttons
-                  CustomButton(
-                    label: 'Add to My Trip',
-                    onPressed: () => _showAddToTripBottomSheet(context, dest),
-                    variant: ButtonVariant.primary,
-                    width: double.infinity,
-                    leadingIcon: Icons.add_location_rounded,
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  CustomButton(
-                    label: 'Plan with AI',
-                    onPressed: () {
-                      // Store the destination context in provider
-                      context.read<TripProvider>().setActivePlanDestination(dest);
-                      // Switch bottom nav to Planner tab (index 1)
-                      context.read<NavProvider>().setIndex(1);
-                      // Pop back to the navigation shell
-                      Navigator.of(context).popUntil((route) => route.isFirst);
-                    },
-                    variant: ButtonVariant.ghost,
-                    width: double.infinity,
-                    leadingIcon: Icons.psychology_rounded,
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
+                  if (!widget.isFromRecommendation) ...[
+                    CustomButton(
+                      label: 'Add to My Trip',
+                      onPressed: () => _showAddToTripBottomSheet(context, dest),
+                      variant: ButtonVariant.primary,
+                      width: double.infinity,
+                      leadingIcon: Icons.add_location_rounded,
+                    ),
+                    const SizedBox(height: AppConstants.spaceM),
+                    CustomButton(
+                      label: 'Plan with AI',
+                      onPressed: () {
+                        // Store the destination context in provider
+                        context.read<TripProvider>().setActivePlanDestination(dest);
+                        // Switch bottom nav to Planner tab (index 1)
+                        context.read<NavProvider>().setIndex(1);
+                        // Pop back to the navigation shell
+                        Navigator.of(context).popUntil((route) => route.isFirst);
+                      },
+                      variant: ButtonVariant.ghost,
+                      width: double.infinity,
+                      leadingIcon: Icons.psychology_rounded,
+                    ),
+                    const SizedBox(height: AppConstants.spaceXL),
+                  ],
                 ],
               ),
             ),
@@ -832,9 +918,10 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   }
 
   void _showAddToTripBottomSheet(BuildContext context, Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -853,7 +940,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       width: 40,
                       height: 5,
                       decoration: BoxDecoration(
-                        color: Colors.grey.withValues(alpha: 0.3),
+                        color: isDark ? Colors.grey[800] : Colors.grey.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -870,7 +957,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Select a trip to add ${dest.name}',
-                    style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(fontSize: 13, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                   ),
                   const SizedBox(height: AppConstants.spaceL),
                   
@@ -880,16 +967,16 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.secondaryGreen.withValues(alpha: 0.1),
+                        color: AppTheme.secondaryGreen.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.add_rounded, color: AppTheme.secondaryGreen, size: 24),
                     ),
-                    title: const Text(
+                    title: Text(
                       'Create a New Trip',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
                     ),
-                    subtitle: const Text('Start fresh with a brand new itinerary', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                    subtitle: Text('Start fresh with a brand new itinerary', style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
                     trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                     onTap: () {
                       Navigator.pop(sheetContext);
@@ -905,7 +992,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         child: Text(
                           'No upcoming trips yet.\nCreate one to get started!',
                           textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 13, color: Colors.grey.withValues(alpha: 0.8)),
+                          style: TextStyle(fontSize: 13, color: isDark ? AppTheme.textSecondaryDark.withOpacity(0.8) : Colors.grey.withOpacity(0.8)),
                         ),
                       ),
                     )
@@ -941,13 +1028,13 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               trip.title,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textPrimaryLight),
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
                             ),
                             subtitle: Text(
                               '${trip.dateRange} • ${trip.itinerary.length} Days',
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                              style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                             ),
                             trailing: const Icon(Icons.chevron_right_rounded, color: Colors.grey),
                             onTap: () {
@@ -984,6 +1071,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
 
   void _showCreateTripDialog(BuildContext context, Destination dest) {
     final TextEditingController nameController = TextEditingController();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (dialogContext) {
@@ -998,20 +1086,24 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Where are you planning to go? Give your new adventure a sweet title!',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, height: 1.4),
+                style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight, height: 1.4),
               ),
               const SizedBox(height: AppConstants.spaceM),
               TextField(
                 controller: nameController,
                 autofocus: true,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Trip Name',
                   hintText: 'e.g. Davao Escapade 2026',
                   labelStyle: const TextStyle(color: AppTheme.primaryBlue),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryBlue.withValues(alpha: 0.3)),
+                    borderSide: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.3)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -1052,15 +1144,27 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   },
                 );
 
-                context.read<TripProvider>().addNewTrip(newTrip);
-                Navigator.pop(dialogContext);
-
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('New Trip "$title" created and ${dest.name} added!'),
-                    backgroundColor: AppTheme.secondaryGreen,
-                  ),
-                );
+                final provider = context.read<TripProvider>();
+                provider.addNewTrip(newTrip).then((success) {
+                  if (mounted) {
+                    Navigator.pop(dialogContext);
+                    if (success) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('New Trip "$title" created and ${dest.name} added!'),
+                          backgroundColor: AppTheme.secondaryGreen,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(provider.errorMessage ?? 'Failed to save trip. Please try again.'),
+                          backgroundColor: Colors.redAccent,
+                        ),
+                      );
+                    }
+                  }
+                });
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.secondaryGreen,
@@ -1078,18 +1182,26 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   }
 
   Widget _feeRow(IconData icon, String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+            color: AppTheme.primaryBlue.withOpacity(0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: AppTheme.primaryBlue, size: 18),
         ),
         const SizedBox(width: AppConstants.spaceM),
-        Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryLight)),
+        Text(
+          label, 
+          style: TextStyle(
+            fontWeight: FontWeight.w600, 
+            fontSize: 13, 
+            color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+          ),
+        ),
         const SizedBox(width: AppConstants.spaceM),
         Expanded(
           child: Text(
@@ -1103,13 +1215,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   }
 
   Widget _infoBox(IconData icon, String value, String label, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(AppConstants.spaceM),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
+          color: color.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withOpacity(0.2)),
         ),
         child: Column(
           children: [
@@ -1117,7 +1230,13 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
             const SizedBox(height: 5),
             Text(value, textAlign: TextAlign.center,
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
-            Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryLight)),
+            Text(
+              label, 
+              style: TextStyle(
+                fontSize: 10, 
+                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+              ),
+            ),
           ],
         ),
       ),
@@ -1125,12 +1244,13 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   }
 
   Widget _infoSection(BuildContext ctx, String title, IconData icon, String content, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(AppConstants.spaceM),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
+        color: color.withOpacity(0.08),
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        border: Border.all(color: color.withValues(alpha: 0.2)),
+        border: Border.all(color: color.withOpacity(0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1143,7 +1263,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
               children: [
                 Text(title, style: TextStyle(fontWeight: FontWeight.bold, color: color)),
                 const SizedBox(height: 4),
-                Text(content, style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight, height: 1.4)),
+                Text(
+                  content, 
+                  style: TextStyle(
+                    fontSize: 13, 
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight, 
+                    height: 1.4,
+                  ),
+                ),
               ],
             ),
           ),

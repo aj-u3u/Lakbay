@@ -59,10 +59,20 @@ class AppRoutes {
           builder: (_) => DestinationDetailsScreen(destination: destination),
         );
       case plannerResults:
-        final tripDuration = settings.arguments as int? ?? 3;
-        return MaterialPageRoute(
-          builder: (_) => PlannerResultsScreen(durationDays: tripDuration),
-        );
+        if (settings.arguments is Trip) {
+          final trip = settings.arguments as Trip;
+          return MaterialPageRoute(
+            builder: (_) => PlannerResultsScreen(
+              durationDays: trip.itinerary.length,
+              trip: trip,
+            ),
+          );
+        } else {
+          final tripDuration = settings.arguments as int? ?? 3;
+          return MaterialPageRoute(
+            builder: (_) => PlannerResultsScreen(durationDays: tripDuration),
+          );
+        }
       case groupDashboard:
         final trip = settings.arguments as Trip?;
         return MaterialPageRoute(builder: (_) => GroupDashboardScreen(trip: trip));

@@ -58,9 +58,10 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
   }
 
   void _showCreateTripOptions(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -102,11 +103,21 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   ),
                   child: const Icon(Icons.edit_note_rounded, color: AppTheme.primaryBlue, size: 24),
                 ),
-                title: const Text(
+                title: Text(
                   'Manual Trip',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  ),
                 ),
-                subtitle: const Text('Create a customized trip manually with your own details', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                subtitle: Text(
+                  'Create a customized trip manually with your own details',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   showModalBottomSheet(
@@ -129,11 +140,21 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   ),
                   child: const Icon(Icons.psychology_rounded, color: AppTheme.secondaryGreen, size: 24),
                 ),
-                title: const Text(
+                title: Text(
                   'AI Trip Planner',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  ),
                 ),
-                subtitle: const Text('Let our intelligent chatbot map out a custom itinerary', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                subtitle: Text(
+                  'Let our intelligent chatbot map out a custom itinerary',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   context.read<NavProvider>().setIndex(1); // Swaps tab to Planner
@@ -151,11 +172,21 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   ),
                   child: const Icon(Icons.link_rounded, color: Colors.amber, size: 24),
                 ),
-                title: const Text(
+                title: Text(
                   'Join via Link',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  ),
                 ),
-                subtitle: const Text('Paste a shared group link to join an existing group itinerary', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                subtitle: Text(
+                  'Paste a shared group link to join an existing group itinerary',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  ),
+                ),
                 onTap: () {
                   Navigator.pop(sheetContext);
                   _showJoinLinkDialog(context);
@@ -169,6 +200,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
   }
 
   void _showJoinLinkDialog(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final TextEditingController linkController = TextEditingController();
     showDialog(
       context: context,
@@ -184,9 +216,13 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Paste the shared group invite link below to sync this trip to your dashboard.',
-                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, height: 1.4),
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  height: 1.4,
+                ),
               ),
               const SizedBox(height: AppConstants.spaceM),
               TextField(
@@ -506,10 +542,12 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
   }
 
   Future<void> _selectDates() async {
+    final now = DateTime.now();
+    final todayMidnight = DateTime(now.year, now.month, now.day);
     final picked = await showDateRangePicker(
       context: context,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365 * 2)),
+      firstDate: todayMidnight,
+      lastDate: todayMidnight.add(const Duration(days: 365 * 2)),
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
@@ -541,7 +579,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
     return '${_formatDate(_selectedDateRange!.start)} - ${_formatDate(_selectedDateRange!.end)}';
   }
 
-  void _submit() {
+  Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDateRange == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -577,19 +615,33 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
       },
     );
 
-    context.read<TripProvider>().addNewTrip(newTrip);
-    Navigator.pop(context);
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Trip "${newTrip.title}" successfully created! ✈️'),
-        backgroundColor: AppTheme.secondaryGreen,
-      ),
-    );
+    // Show loading indicator or block UI
+    final provider = context.read<TripProvider>();
+    final success = await provider.addNewTrip(newTrip);
+    
+    if (!mounted) return;
+    
+    if (success) {
+      Navigator.pop(context);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Trip "${newTrip.title}" successfully created! ✈️'),
+          backgroundColor: AppTheme.secondaryGreen,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage ?? 'Failed to save trip. Please try again.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     return Container(
       padding: EdgeInsets.only(
@@ -598,9 +650,9 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
         top: AppConstants.spaceL,
         bottom: AppConstants.spaceL + bottomInset,
       ),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: SingleChildScrollView(
         child: Form(
@@ -629,7 +681,10 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
               const SizedBox(height: AppConstants.spaceM),
               TextFormField(
                 controller: _titleController,
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Trip Name',
                   hintText: 'e.g. Samal Summer Getaway',
@@ -645,7 +700,10 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
               const SizedBox(height: AppConstants.spaceM),
               TextFormField(
                 controller: _destController,
-                style: const TextStyle(fontSize: 14),
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Where to?',
                   hintText: 'e.g. Samal Island, Davao del Norte',
@@ -687,7 +745,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                                     style: TextStyle(
                                       fontSize: 12,
                                       fontWeight: _selectedDateRange == null ? FontWeight.normal : FontWeight.bold,
-                                      color: _selectedDateRange == null ? Colors.grey : AppTheme.textPrimaryLight,
+                                      color: _selectedDateRange == null ? Colors.grey : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
                                     ),
                                   ),
                                 ],
@@ -702,7 +760,10 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                   Expanded(
                     child: TextFormField(
                       controller: _budgetController,
-                      style: const TextStyle(fontSize: 14),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                      ),
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: 'Budget (PHP)',
@@ -729,7 +790,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryLight,
+                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                 ),
               ),
               const SizedBox(height: AppConstants.spaceS),
@@ -745,7 +806,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       selectedColor: AppTheme.primaryBlue.withOpacity(0.12),
                       checkmarkColor: AppTheme.primaryBlue,
                       labelStyle: TextStyle(
-                        color: !_isGroup ? AppTheme.primaryBlue : AppTheme.textSecondaryLight,
+                        color: !_isGroup ? AppTheme.primaryBlue : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -762,7 +823,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       selectedColor: AppTheme.secondaryGreen.withOpacity(0.12),
                       checkmarkColor: AppTheme.secondaryGreen,
                       labelStyle: TextStyle(
-                        color: _isGroup ? AppTheme.secondaryGreen : AppTheme.textSecondaryLight,
+                        color: _isGroup ? AppTheme.secondaryGreen : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -776,7 +837,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimaryLight,
+                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                 ),
               ),
               const SizedBox(height: AppConstants.spaceS),

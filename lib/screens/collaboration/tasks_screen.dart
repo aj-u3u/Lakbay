@@ -69,6 +69,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Container(
@@ -76,9 +77,9 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                 left: 24, right: 24, top: 20,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: Theme.of(ctx).colorScheme.surface,
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -90,7 +91,10 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                   Center(
                     child: Container(
                       width: 50, height: 5,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -101,6 +105,10 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                   const SizedBox(height: 16),
                   TextField(
                     controller: taskController,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: const InputDecoration(
                       labelText: 'Task Title',
                       hintText: 'e.g. Confirm hotel shuttle timing',
@@ -110,7 +118,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                   const SizedBox(height: 16),
                   
                   // Category Chips
-                  Text('Category', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textSecondaryLight)),
+                  Text('Category', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 8,
@@ -118,10 +126,16 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                     children: categories.map((cat) {
                       final isSelected = selectedCategory == cat;
                       return ChoiceChip(
-                        label: Text(cat, style: TextStyle(color: isSelected ? Colors.white : AppTheme.primaryBlue, fontSize: 11)),
+                        label: Text(
+                          cat, 
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : (isDark ? AppTheme.textSecondaryDark : AppTheme.primaryBlue), 
+                            fontSize: 11,
+                          ),
+                        ),
                         selected: isSelected,
                         selectedColor: AppTheme.primaryBlue,
-                        backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.05),
+                        backgroundColor: isDark ? Colors.white10 : AppTheme.primaryBlue.withOpacity(0.05),
                         onSelected: (val) {
                           if (val) setSheetState(() => selectedCategory = cat);
                         },
@@ -131,21 +145,28 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                   const SizedBox(height: 16),
                   
                   // Assignee Dropdown
-                  Text('Assign to Member', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.textSecondaryLight)),
+                  Text('Assign to Member', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
                   const SizedBox(height: 6),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
                     decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey[300]!),
+                      border: Border.all(color: isDark ? Colors.white24 : Colors.grey[300]!),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<String>(
                         value: selectedAssignee,
                         isExpanded: true,
+                        dropdownColor: Theme.of(ctx).colorScheme.surface,
                         items: assignees.map((name) => DropdownMenuItem(
                           value: name,
-                          child: Text(name, style: const TextStyle(fontSize: 14)),
+                          child: Text(
+                            name, 
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                            ),
+                          ),
                         )).toList(),
                         onChanged: (val) {
                           if (val != null) {

@@ -205,20 +205,119 @@ class ApiService {
     return null;
   }
 
-  // Mock trips
+  // Fetch saved trips from PostgreSQL database
   Future<List<Trip>> fetchUserTrips() async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
 
+      final response = await http.get(
+        Uri.parse('$baseUrl/trips'),
+        headers: headers,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((item) {
+          // Reconstruct itinerary map
+          final Map<String, dynamic> itineraryJson = item['itinerary'] ?? {};
+          final Map<int, List<TripActivity>> itinerary = {};
+          itineraryJson.forEach((dayStr, list) {
+            final day = int.tryParse(dayStr) ?? 1;
+            final List<dynamic> actList = list;
+            itinerary[day] = actList.map((act) => TripActivity(
+              time: act['time'] ?? '',
+              title: act['title'] ?? '',
+              description: act['description'] ?? '',
+              cost: act['cost'] ?? 'Free',
+              location: act['location'] ?? '',
+            )).toList();
+          });
+
+          return Trip(
+            id: item['id'] ?? '',
+            title: item['title'] ?? '',
+            destinationName: item['destinationName'] ?? '',
+            dateRange: item['dateRange'] ?? '',
+            budget: (item['budget'] as num?)?.toDouble() ?? 0.0,
+            imageUrl: item['imageUrl'] ?? '',
+            itinerary: itinerary,
+            isGroup: item['isGroup'] ?? false,
+            numTravelers: item['numTravelers'] ?? 1,
+            notes: item['notes'] ?? '',
+            tasks: List<Map<String, dynamic>>.from(item['tasks'] ?? []),
+            memories: List<Map<String, dynamic>>.from(item['memories'] ?? []),
+          );
+        }).toList();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching user trips from backend: $e. Falling back to mocks.');
+      }
+    }
     return Trip.mockTrips;
   }
 
+  // Save trip itinerary and metadata to PostgreSQL database
   Future<bool> createTrip(Trip newTrip) async {
-    await Future.delayed(const Duration(milliseconds: 300));
+    try {
+      final headers = {
+        'Content-Type': 'application/json',
+      };
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
 
-    if (kDebugMode) {
-      print('Trip created locally: ${newTrip.title}');
+      // Convert itinerary map to JSON structure expected by backend
+      final Map<String, dynamic> itineraryJson = {};
+      newTrip.itinerary.forEach((day, list) {
+        itineraryJson[day.toString()] = list.map((act) => {
+          'time': act.time,
+          'title': act.title,
+          'description': act.description,
+          'cost': act.cost,
+          'location': act.location
+        }).toList();
+      });
+
+      final body = {
+        'id': newTrip.id,
+        'title': newTrip.title,
+        'destinationName': newTrip.destinationName,
+        'dateRange': newTrip.dateRange,
+        'budget': newTrip.budget,
+        'imageUrl': newTrip.imageUrl,
+        'itinerary': itineraryJson,
+        'isGroup': newTrip.isGroup,
+        'numTravelers': newTrip.numTravelers,
+        'notes': newTrip.notes
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/trips'),
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      if (response.statusCode == 201) {
+        if (kDebugMode) {
+          print('Trip successfully saved to database: ${newTrip.title}');
+        }
+        return true;
+      } else {
+        if (kDebugMode) {
+          print('Failed to save trip. status: ${response.statusCode}, body: ${response.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error saving trip: $e');
+      }
     }
-
-    return true;
+    return false;
   }
 }

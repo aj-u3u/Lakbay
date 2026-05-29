@@ -824,10 +824,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _showFilterBottomSheet() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
       ),
@@ -841,15 +842,17 @@ class _HomeScreenState extends State<HomeScreen> {
                   duration: AppConstants.animDurationFast,
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isSelected ? AppTheme.primaryBlue : Colors.white,
+                    color: isSelected 
+                        ? AppTheme.primaryBlue 
+                        : (isDark ? Colors.white10 : Colors.white),
                     borderRadius: BorderRadius.circular(99),
                     border: Border.all(
-                      color: isSelected ? AppTheme.primaryBlue : Colors.black12,
+                      color: isSelected ? AppTheme.primaryBlue : (isDark ? Colors.white12 : Colors.black12),
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                              color: AppTheme.primaryBlue.withOpacity(0.2),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             )
@@ -859,7 +862,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Text(
                     text,
                     style: TextStyle(
-                      color: isSelected ? Colors.white : AppTheme.textSecondaryLight,
+                      color: isSelected 
+                          ? Colors.white 
+                          : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                       fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
                       fontSize: 13,
                     ),
@@ -885,7 +890,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           width: 40,
                           height: 5,
                           decoration: BoxDecoration(
-                            color: Colors.black12,
+                            color: isDark ? Colors.white24 : Colors.black12,
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
@@ -927,7 +932,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryLight,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -954,7 +959,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryLight,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -984,7 +989,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: AppTheme.textPrimaryLight,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
@@ -1062,6 +1067,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   OverlayEntry _createSuggestionsOverlay() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return OverlayEntry(
       builder: (context) {
         final allDests = context.read<TripProvider>().destinations.isNotEmpty
@@ -1081,15 +1087,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Material(
                 elevation: 8,
                 borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                color: Colors.white,
+                color: Theme.of(context).colorScheme.surface,
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                    border: Border.all(color: Colors.black12),
+                    border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.08),
+                        color: Colors.black.withOpacity(0.08),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -1108,8 +1114,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: isDistrict
-                                ? AppTheme.primaryBlue.withValues(alpha: 0.08)
-                                : AppTheme.secondaryGreen.withValues(alpha: 0.08),
+                                ? AppTheme.primaryBlue.withOpacity(0.08)
+                                : AppTheme.secondaryGreen.withOpacity(0.08),
                             child: Icon(
                               isDistrict ? Icons.location_on_rounded : Icons.place_rounded,
                               color: isDistrict ? AppTheme.primaryBlue : AppTheme.secondaryGreen,
@@ -1121,12 +1127,12 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: GoogleFonts.outfit(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
-                              color: AppTheme.textPrimaryLight,
+                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                             ),
                           ),
                           subtitle: Text(
                             isDistrict ? 'District / Province' : item['subtitle']!,
-                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                           ),
                           onTap: () {
                             if (isDistrict) {
@@ -1165,21 +1171,22 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildContinuePlanningSliver(BuildContext context, PlannerDraft draft) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverToBoxAdapter(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(AppConstants.spaceM, AppConstants.spaceL, AppConstants.spaceM, 0),
         child: Container(
           padding: const EdgeInsets.all(AppConstants.spaceM),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? Theme.of(context).cardColor : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: AppTheme.secondaryGreen.withValues(alpha: 0.15),
+              color: AppTheme.secondaryGreen.withOpacity(0.15),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: Colors.black.withOpacity(0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -1197,7 +1204,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     draft.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
-                      color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                      color: AppTheme.primaryBlue.withOpacity(0.1),
                       child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
                     ),
                   ),
@@ -1222,7 +1229,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       draft.progressText,
                       style: GoogleFonts.outfit(
                         fontSize: 11,
-                        color: AppTheme.textSecondaryLight,
+                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                         fontWeight: FontWeight.w500,
                       ),
                     ),

@@ -57,6 +57,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return Container(
           padding: EdgeInsets.only(
             left: AppConstants.spaceL,
@@ -64,9 +65,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             top: AppConstants.spaceL,
             bottom: AppConstants.spaceL + MediaQuery.of(sheetCtx).viewInsets.bottom,
           ),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: SingleChildScrollView(
             child: Form(
@@ -97,6 +98,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Full Name
                   TextFormField(
                     controller: nameCtrl,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Full Name',
                       prefixIcon: const Icon(Icons.person_rounded, color: AppTheme.primaryBlue),
@@ -111,6 +116,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Username
                   TextFormField(
                     controller: usernameCtrl,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Username',
                       prefixIcon: const Icon(Icons.alternate_email_rounded, color: AppTheme.primaryBlue),
@@ -125,6 +134,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Email
                   TextFormField(
                     controller: emailCtrl,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Email Address',
                       prefixIcon: const Icon(Icons.email_rounded, color: AppTheme.primaryBlue),
@@ -148,6 +161,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   TextFormField(
                     controller: phoneCtrl,
                     keyboardType: TextInputType.phone,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Phone Number (Optional)',
                       hintText: '+639171234567',
@@ -160,6 +177,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   // Emergency Contact (Optional)
                   TextFormField(
                     controller: emergencyCtrl,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    ),
                     decoration: InputDecoration(
                       labelText: 'Emergency Contact Name & Number (Optional)',
                       hintText: 'Name • Number',
@@ -218,11 +239,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return Container(
           padding: const EdgeInsets.all(AppConstants.spaceL),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -231,7 +253,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Center(
                 child: Container(
                   width: 50, height: 5,
-                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey[800] : Colors.grey[300],
+                    borderRadius: BorderRadius.circular(10),
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
@@ -293,13 +318,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setLocalState) {
             return Container(
               padding: const EdgeInsets.all(AppConstants.spaceL),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -318,8 +344,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const SizedBox(height: AppConstants.spaceS),
                   SwitchListTile(
-                    title: const Text('Push Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text('Alerts about active trips and schedules', style: TextStyle(fontSize: 12)),
+                    title: Text(
+                      'Push Notifications',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Alerts about active trips and schedules',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      ),
+                    ),
                     value: _pushNotifications,
                     activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
@@ -329,8 +368,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const Divider(),
                   SwitchListTile(
-                    title: const Text('Email Marketing Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text('Deals, promos, and destination recommendations', style: TextStyle(fontSize: 12)),
+                    title: Text(
+                      'Email Marketing Alerts',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Deals, promos, and destination recommendations',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      ),
+                    ),
                     value: _emailUpdates,
                     activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
@@ -340,8 +392,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   const Divider(),
                   SwitchListTile(
-                    title: const Text('Weekly Digest', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    subtitle: const Text('Weekly summaries of shared trip memories', style: TextStyle(fontSize: 12)),
+                    title: Text(
+                      'Weekly Digest',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                      ),
+                    ),
+                    subtitle: Text(
+                      'Weekly summaries of shared trip memories',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      ),
+                    ),
                     value: _weeklyDigest,
                     activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
@@ -366,13 +431,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setLocalState) {
             return Container(
               padding: const EdgeInsets.all(AppConstants.spaceL),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -396,7 +462,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return ListTile(
                         title: Text(lang, style: TextStyle(
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimaryLight,
+                          color: isSelected ? AppTheme.primaryBlue : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
                         )),
                         trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryBlue) : null,
                         onTap: () {
@@ -431,13 +497,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setLocalState) {
             return Container(
               padding: const EdgeInsets.all(AppConstants.spaceL),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -466,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                         title: Text(themeMode, style: TextStyle(
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          color: isSelected ? AppTheme.primaryBlue : AppTheme.textPrimaryLight,
+                          color: isSelected ? AppTheme.primaryBlue : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
                         )),
                         trailing: isSelected ? const Icon(Icons.radio_button_checked_rounded, color: AppTheme.primaryBlue) : const Icon(Icons.radio_button_off_rounded),
                         onTap: () {
@@ -510,12 +577,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return Container(
           height: MediaQuery.of(context).size.height * 0.75,
           padding: const EdgeInsets.all(AppConstants.spaceL),
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: Theme.of(sheetCtx).colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -537,22 +605,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Frequently Asked Questions',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryLight),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 15, 
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                       ),
                       const SizedBox(height: AppConstants.spaceS),
                       ...faqs.map((faq) => Card(
                         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
                         elevation: 0,
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.04),
+                        color: AppTheme.primaryBlue.withOpacity(0.04),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ExpansionTile(
                           title: Text(faq['q']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue)),
                           children: [
                             Padding(
                               padding: const EdgeInsets.all(AppConstants.spaceM),
-                              child: Text(faq['a']!, style: const TextStyle(fontSize: 12, height: 1.5, color: AppTheme.textSecondaryLight)),
+                              child: Text(
+                                faq['a']!, 
+                                style: TextStyle(
+                                  fontSize: 12, 
+                                  height: 1.5, 
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -560,16 +639,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       const SizedBox(height: AppConstants.spaceL),
                       const Divider(),
                       const SizedBox(height: AppConstants.spaceL),
-                      const Text(
+                      Text(
                         'Still Need Help? Contact Us',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.textPrimaryLight),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold, 
+                          fontSize: 15, 
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                       ),
                       const SizedBox(height: AppConstants.spaceM),
                       TextField(
                         maxLines: 3,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                         decoration: InputDecoration(
                           hintText: 'Enter your inquiry here... Our support team replies within 24 hours!',
-                          hintStyle: const TextStyle(fontSize: 12),
+                          hintStyle: TextStyle(
+                            fontSize: 12,
+                            color: isDark ? AppTheme.textSecondaryDark.withOpacity(0.7) : AppTheme.textSecondaryLight.withOpacity(0.7),
+                          ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
                       ),
@@ -607,6 +697,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // 6. Privacy Policy sheet
   void _showPrivacySheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -618,16 +709,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: SingleChildScrollView(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Text('Last Updated: May 2026\n', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.grey)),
+                children: [
+                  Text('Last Updated: May 2026\n', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: isDark ? AppTheme.textSecondaryDark : Colors.grey)),
                   Text(
                     '1. Data Collection\nWe respect your digital boundaries. Lakbay+ securely collects trip specifications, preferences, and names solely to generate custom travel itineraries using Gemini AI model processors. Your private communication details are never shared with advertising third-parties.',
-                    style: TextStyle(fontSize: 12, height: 1.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(fontSize: 12, height: 1.5, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                   ),
-                  SizedBox(height: AppConstants.spaceM),
+                  const SizedBox(height: AppConstants.spaceM),
                   Text(
                     '2. Offline Data Storage\nAll trip records, photo albums, and schedule markers are stored securely in local database tables. This assures offline accessibility and limits cloud leaks.',
-                    style: TextStyle(fontSize: 12, height: 1.5, color: AppTheme.textSecondaryLight),
+                    style: TextStyle(fontSize: 12, height: 1.5, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                   ),
                 ],
               ),
@@ -646,6 +737,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // 7. About Lakbay+ brand overlay modal
   void _showAboutSheet(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       builder: (dialogCtx) {
@@ -659,21 +751,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                    color: AppTheme.primaryBlue.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.flight_takeoff_rounded, color: AppTheme.primaryBlue, size: 40),
                 ),
                 const SizedBox(height: AppConstants.spaceM),
                 Text('Lakbay+', style: GoogleFonts.outfit(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                const Text('Your Premium Travel AI Companion', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
+                Text('Your Premium Travel AI Companion', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
                 const SizedBox(height: AppConstants.spaceM),
                 const Divider(),
                 const SizedBox(height: AppConstants.spaceM),
-                const Text(
+                Text(
                   'Version 1.2.4 (Build 4122)\nDeveloped by Lakbay Tech Labs.\nGoogle DeepMind pair-programmed architecture.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 11, height: 1.5, color: Colors.grey),
+                  style: TextStyle(fontSize: 11, height: 1.5, color: isDark ? AppTheme.textSecondaryDark : Colors.grey),
                 ),
                 const SizedBox(height: AppConstants.spaceL),
                 SizedBox(
@@ -713,6 +805,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (sheetCtx) {
+        final isDark = Theme.of(sheetCtx).brightness == Brightness.dark;
         return StatefulBuilder(
           builder: (context, setSheetState) {
             return Container(
@@ -722,9 +815,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 top: AppConstants.spaceL,
                 bottom: AppConstants.spaceL + MediaQuery.of(sheetCtx).viewInsets.bottom,
               ),
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              decoration: BoxDecoration(
+                color: Theme.of(sheetCtx).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
               ),
               child: SingleChildScrollView(
                 child: Form(
@@ -756,6 +849,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextFormField(
                         controller: currentPasswordCtrl,
                         obscureText: !showCurrent,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Current Password',
                           prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryBlue),
@@ -773,6 +870,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextFormField(
                         controller: newPasswordCtrl,
                         obscureText: !showNew,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'New Password',
                           prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.primaryBlue),
@@ -801,6 +902,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       TextFormField(
                         controller: confirmPasswordCtrl,
                         obscureText: !showConfirm,
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        ),
                         decoration: InputDecoration(
                           labelText: 'Confirm New Password',
                           prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.primaryBlue),
