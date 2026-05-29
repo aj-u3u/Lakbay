@@ -962,7 +962,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: AppConstants.spaceM),
                   Text(user.displayName, style: GoogleFonts.outfit(
                     fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text('@${user.username} • ${user.email}', style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                  Text(user.email, style: const TextStyle(color: Colors.white60, fontSize: 13)),
                   const SizedBox(height: AppConstants.spaceL),
                   
                   // Premium stats box (Dynamically calculated counts)
