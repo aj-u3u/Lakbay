@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/nav_provider.dart';
 import '../../widgets/buttons/custom_button.dart';
 import '../../widgets/inputs/custom_input_field.dart';
 
@@ -33,6 +34,10 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthProvider>();
     final success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
     if (success && mounted) {
+      // Reset navigation index to Home (0)
+      try {
+        context.read<NavProvider>().reset();
+      } catch (_) {}
       Navigator.pushReplacementNamed(context, AppRoutes.navShell);
     }
   }
