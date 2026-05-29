@@ -4,7 +4,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
-  const SplashScreen({Key? key}) : super(key: key);
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -56,7 +56,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
         ),
         child: AnimatedBuilder(
           animation: _controller,
-          builder: (_, __) => Center(
+          builder: (context, child) => Center(
             child: FadeTransition(
               opacity: _fadeAnim,
               child: ScaleTransition(
@@ -72,7 +72,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         borderRadius: BorderRadius.circular(28),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.15),
+                            color: Colors.black.withValues(alpha: 0.15),
                             blurRadius: 16,
                             offset: const Offset(0, 8),
                           ),
@@ -110,7 +110,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       child: CircularProgressIndicator(
                         strokeWidth: 2.5,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                          AppTheme.secondaryGreen.withOpacity(0.8),
+                          AppTheme.secondaryGreen.withValues(alpha: 0.8),
                         ),
                       ),
                     ),

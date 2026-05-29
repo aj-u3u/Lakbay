@@ -1,31 +1,62 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/destination.dart';
-import '../../widgets/shared/section_header.dart';
+import '../../providers/trip_provider.dart';
 import '../../widgets/cards/destination_card.dart';
 
 class DestinationListScreen extends StatefulWidget {
-  const DestinationListScreen({Key? key}) : super(key: key);
+  /// Optional pre-selected filter category (e.g. 'Beach', 'Nature').
+  /// When provided the list opens already filtered to that category.
+  final String? initialFilter;
+
+  const DestinationListScreen({super.key, this.initialFilter});
 
   @override
   State<DestinationListScreen> createState() => _DestinationListScreenState();
 }
 
 class _DestinationListScreenState extends State<DestinationListScreen> {
-  String _selectedFilter = 'All';
-  final _filters = ['All', 'Nature', 'Beach', 'Mountain', 'Urban', 'Culture', 'Wildlife'];
+  late String _selectedFilter;
+  final _filters = ['All', 'Nature', 'Beach', 'Mountain', 'Urban', 'Culture', 'Wildlife', 'Adventure'];
 
-  List<Destination> get _filtered {
-    if (_selectedFilter == 'All') return Destination.davaoDestinations;
-    return Destination.davaoDestinations.where((d) =>
+  @override
+  void initState() {
+    super.initState();
+    // Use initialFilter if provided, else default to 'All'
+    _selectedFilter = widget.initialFilter ?? 'All';
+  }
+
+  List<Destination> _getFiltered(List<Destination> all) {
+    if (_selectedFilter == 'All') return all;
+    // Check if the filter matches a district name
+    final isDistrict = all.any((d) => d.district.toLowerCase() == _selectedFilter.toLowerCase());
+    if (isDistrict) {
+      return all.where((d) => d.district.toLowerCase() == _selectedFilter.toLowerCase()).toList();
+    }
+    return all.where((d) =>
       d.category.toLowerCase().contains(_selectedFilter.toLowerCase())).toList();
+  }
+
+  List<String> get _displayFilters {
+    final list = List<String>.from(_filters);
+    if (_selectedFilter != 'All' && !_filters.contains(_selectedFilter)) {
+      list.insert(1, _selectedFilter);
+    }
+    return list;
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<TripProvider>();
+    final allDestinations = provider.destinations.isNotEmpty
+        ? provider.destinations
+        : Destination.davaoDestinations; // fallback to local mocks
+    final filtered = _getFiltered(allDestinations);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -51,7 +82,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                 child: SafeArea(
                   child: Padding(
                     padding: const EdgeInsets.fromLTRB(AppConstants.spaceL, 56, AppConstants.spaceL, 0),
-                    child: Text('${Destination.davaoDestinations.length} destinations across 5 provinces',
+                    child: Text('${allDestinations.length} destinations across 5 provinces',
                       style: GoogleFonts.outfit(color: Colors.white60, fontSize: 13)),
                   ),
                 ),
@@ -64,14 +95,14 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
             pinned: true,
             delegate: _FilterDelegate(
               child: Container(
-                color: Theme.of(context).colorScheme.background,
+                color: Theme.of(context).colorScheme.surface,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(
                     horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS),
-                  itemCount: _filters.length,
+                  itemCount: _displayFilters.length,
                   itemBuilder: (_, i) {
-                    final f = _filters[i];
+                    final f = _displayFilters[i];
                     final isSelected = f == _selectedFilter;
                     return GestureDetector(
                       onTap: () => setState(() => _selectedFilter = f),
@@ -83,7 +114,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                           color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
                           borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withOpacity(0.3),
+                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Text(f, style: TextStyle(
@@ -99,31 +130,37 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
             ),
           ),
 
+          // Loading state
+          if (provider.isLoading)
+            const SliverFillRemaining(
+              child: Center(child: CircularProgressIndicator()),
+            )
           // Destination grid
-          SliverPadding(
-            padding: const EdgeInsets.all(AppConstants.spaceM),
-            sliver: SliverGrid(
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.72,
-                crossAxisSpacing: AppConstants.spaceM,
-                mainAxisSpacing: AppConstants.spaceM,
-              ),
-              delegate: SliverChildBuilderDelegate(
-                (context, i) => DestinationCard(
-                  destination: _filtered[i],
-                  width: double.infinity,
-                  height: double.infinity,
-                  onTap: () => Navigator.pushNamed(
-                    context,
-                    AppRoutes.destinationDetail,
-                    arguments: _filtered[i],
-                  ),
+          else
+            SliverPadding(
+              padding: const EdgeInsets.all(AppConstants.spaceM),
+              sliver: SliverGrid(
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2,
+                  childAspectRatio: 0.72,
+                  crossAxisSpacing: AppConstants.spaceM,
+                  mainAxisSpacing: AppConstants.spaceM,
                 ),
-                childCount: _filtered.length,
+                delegate: SliverChildBuilderDelegate(
+                  (context, i) => DestinationCard(
+                    destination: filtered[i],
+                    width: double.infinity,
+                    height: double.infinity,
+                    onTap: () => Navigator.pushNamed(
+                      context,
+                      AppRoutes.destinationDetail,
+                      arguments: filtered[i],
+                    ),
+                  ),
+                  childCount: filtered.length,
+                ),
               ),
             ),
-          ),
 
           const SliverToBoxAdapter(child: SizedBox(height: AppConstants.spaceXL)),
         ],

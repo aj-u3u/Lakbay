@@ -6,7 +6,7 @@ import '../../core/theme/app_theme.dart';
 /// A full-page centered loading spinner
 class LoadingIndicator extends StatelessWidget {
   final String? message;
-  const LoadingIndicator({Key? key, this.message}) : super(key: key);
+  const LoadingIndicator({super.key, this.message});
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class ShimmerCard extends StatefulWidget {
   final double width;
   final double height;
 
-  const ShimmerCard({Key? key, this.width = double.infinity, this.height = 120}) : super(key: key);
+  const ShimmerCard({super.key, this.width = double.infinity, this.height = 120});
 
   @override
   State<ShimmerCard> createState() => _ShimmerCardState();
@@ -70,15 +70,15 @@ class _ShimmerCardState extends State<ShimmerCard> with SingleTickerProviderStat
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: _animation,
-      builder: (_, __) => Container(
+      builder: (_, _) => Container(
         width: widget.width,
         height: widget.height,
         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-          color: AppTheme.primaryBlue.withOpacity(_animation.value * 0.08),
+          color: AppTheme.primaryBlue.withValues(alpha: _animation.value * 0.08),
           border: Border.all(
-            color: AppTheme.primaryBlue.withOpacity(0.06),
+            color: AppTheme.primaryBlue.withValues(alpha: 0.06),
           ),
         ),
       ),

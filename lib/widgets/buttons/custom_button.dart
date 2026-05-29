@@ -15,7 +15,7 @@ class CustomButton extends StatelessWidget {
   final double? width;
 
   const CustomButton({
-    Key? key,
+    super.key,
     required this.label,
     required this.onPressed,
     this.variant = ButtonVariant.primary,
@@ -23,7 +23,7 @@ class CustomButton extends StatelessWidget {
     this.leadingIcon,
     this.trailingIcon,
     this.width,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class CustomButton extends StatelessWidget {
         borderSide = BorderSide(color: theme.colorScheme.primary, width: 1.5);
         break;
       case ButtonVariant.ghost:
-        bgColor = theme.colorScheme.primary.withOpacity(0.08);
+        bgColor = theme.colorScheme.primary.withValues(alpha: 0.08);
         fgColor = theme.colorScheme.primary;
         borderSide = BorderSide.none;
         break;
@@ -53,6 +53,17 @@ class CustomButton extends StatelessWidget {
         bgColor = AppTheme.primaryBlue;
         fgColor = Colors.white;
         borderSide = BorderSide.none;
+    }
+
+    final bool isButtonDisabled = onPressed == null || isLoading;
+    if (isButtonDisabled) {
+      bgColor = theme.brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.08)
+          : Colors.grey.shade300;
+      fgColor = theme.brightness == Brightness.dark
+          ? Colors.white.withValues(alpha: 0.24)
+          : Colors.grey.shade500;
+      borderSide = BorderSide.none;
     }
 
     return SizedBox(

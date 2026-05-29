@@ -15,7 +15,7 @@ class CustomInputField extends StatefulWidget {
   final int maxLines;
 
   const CustomInputField({
-    Key? key,
+    super.key,
     required this.label,
     required this.hint,
     this.controller,
@@ -26,7 +26,7 @@ class CustomInputField extends StatefulWidget {
     this.keyboardType = TextInputType.text,
     this.validator,
     this.maxLines = 1,
-  }) : super(key: key);
+  });
 
   @override
   State<CustomInputField> createState() => _CustomInputFieldState();

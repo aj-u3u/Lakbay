@@ -9,7 +9,7 @@ import '../../widgets/buttons/custom_button.dart';
 import '../../widgets/inputs/custom_input_field.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({Key? key}) : super(key: key);
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -62,7 +62,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 200,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: AppTheme.secondaryGreen.withOpacity(0.12),
+                      color: AppTheme.secondaryGreen.withValues(alpha: 0.12),
                     ),
                   ),
                 ),
@@ -74,7 +74,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     height: 150,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: Colors.white.withOpacity(0.05),
+                      color: Colors.white.withValues(alpha: 0.05),
                     ),
                   ),
                 ),
@@ -134,7 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   // White card form
                   Container(
                     decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.background,
+                      color: Theme.of(context).colorScheme.surface,
                       borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                     ),
                     padding: const EdgeInsets.all(AppConstants.spaceXL),
@@ -179,16 +179,16 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
 
                           Consumer<AuthProvider>(
-                            builder: (_, auth, __) {
+                            builder: (_, auth, _) {
                               if (auth.errorMessage != null) {
                                 return Padding(
                                   padding: const EdgeInsets.only(bottom: AppConstants.spaceM),
                                   child: Container(
                                     padding: const EdgeInsets.all(AppConstants.spaceM),
                                     decoration: BoxDecoration(
-                                      color: Colors.red.withOpacity(0.08),
+                                      color: Colors.red.withValues(alpha: 0.08),
                                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                                      border: Border.all(color: Colors.red.withValues(alpha: 0.3)),
                                     ),
                                     child: Row(children: [
                                       const Icon(Icons.error_outline, color: Colors.red, size: 18),
@@ -205,7 +205,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           const SizedBox(height: AppConstants.spaceM),
                           Consumer<AuthProvider>(
-                            builder: (_, auth, __) => CustomButton(
+                            builder: (_, auth, _) => CustomButton(
                               label: 'Sign In',
                               onPressed: _handleLogin,
                               isLoading: auth.isLoading,

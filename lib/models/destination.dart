@@ -323,6 +323,38 @@ class Destination {
     ),
   ];
 
+  factory Destination.fromJson(Map<String, dynamic> json) {
+    String categoryStr = '';
+    if (json['category'] is List) {
+      categoryStr = (json['category'] as List).join(', ');
+    } else if (json['category'] is String) {
+      categoryStr = json['category'];
+    }
+
+    final accessibility = json['accessibility'] as Map<String, dynamic>? ?? {};
+
+    return Destination(
+      id: json['id'] ?? json['destination_id'] ?? 0,
+      name: json['name'] ?? '',
+      description: json['description'] ?? '',
+      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
+      estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? (json['cost'] as num?)?.toDouble() ?? 0.0,
+      district: json['district'] ?? '',
+      location: json['location'] ?? '',
+      category: categoryStr,
+      imageUrl: json['imageUrl'] ?? json['image'] ?? json['image_url'] ?? '',
+      entranceFee: json['entranceFee'] ?? json['entrance_fee'] ?? 'Free',
+      operatingHours: json['operatingHours'] ?? json['operating_hours'] ?? '24 hours',
+      activities: List<String>.from(json['activities'] ?? []),
+      isKidFriendly: accessibility['isKidFriendly'] ?? json['is_kid_friendly'] ?? true,
+      isWheelchairAccessible: accessibility['isWheelchairAccessible'] ?? json['is_wheelchair_accessible'] ?? false,
+      isPetFriendly: accessibility['isPetFriendly'] ?? json['is_pet_friendly'] ?? false,
+      isElderlyFriendly: accessibility['isElderlyFriendly'] ?? json['is_elderly_friendly'] ?? true,
+      latitude: (json['latitude'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble() ?? 0.0,
+      longitude: (json['longitude'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? 0.0,
+    );
+  }
+
   DestinationExtra get extra {
     switch (id) {
       case 1:

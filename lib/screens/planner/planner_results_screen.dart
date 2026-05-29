@@ -9,12 +9,12 @@ import '../../models/trip.dart';
 
 class PlannerResultsScreen extends StatelessWidget {
   final int durationDays;
-  const PlannerResultsScreen({Key? key, required this.durationDays}) : super(key: key);
+  const PlannerResultsScreen({super.key, required this.durationDays});
 
   @override
   Widget build(BuildContext context) {
     return Consumer<TripProvider>(
-      builder: (_, provider, __) {
+      builder: (_, provider, _) {
         final trip = provider.latestGeneratedTrip ?? Trip.mockTrips.first;
         return Scaffold(
           body: CustomScrollView(
@@ -34,7 +34,7 @@ class PlannerResultsScreen extends StatelessWidget {
                     fit: StackFit.expand,
                     children: [
                       Image.network(trip.imageUrl, fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => Container(color: AppTheme.primaryBlue)),
+                        errorBuilder: (_, _, _) => Container(color: AppTheme.primaryBlue)),
                       DecoratedBox(decoration: BoxDecoration(
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
@@ -136,7 +136,7 @@ class PlannerResultsScreen extends StatelessWidget {
                               color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
                           ),
                           const SizedBox(height: AppConstants.spaceM),
-                          ...activities.map((activity) => _buildActivityTile(activity)).toList(),
+                          ...activities.map((activity) => _buildActivityTile(activity)),
                         ],
                       ),
                     );

@@ -7,11 +7,11 @@ class SectionHeader extends StatelessWidget {
   final VoidCallback? onActionPressed;
 
   const SectionHeader({
-    Key? key,
+    super.key,
     required this.title,
     this.actionText = 'View All',
     this.onActionPressed,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,7 +28,7 @@ class SectionHeader extends StatelessWidget {
             title,
             style: theme.textTheme.titleLarge?.copyWith(
               fontWeight: FontWeight.bold,
-              color: theme.colorScheme.onBackground,
+              color: theme.colorScheme.onSurface,
             ),
           ),
           if (onActionPressed != null)

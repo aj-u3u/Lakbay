@@ -6,37 +6,35 @@ import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/user_profile.dart';
 import '../../widgets/buttons/custom_button.dart';
-import '../../widgets/inputs/preference_selector.dart';
 import '../../providers/theme_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/trip_provider.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({Key? key}) : super(key: key);
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  final user = UserProfile.defaultProfile;
-  List<String> _selectedPrefs = ['Nature', 'Beach', 'Food & Culture'];
-
-  // Local state for interactive settings
-  late String _displayName;
-  late String _email;
+  // Local settings preferences state
   bool _pushNotifications = true;
   bool _emailUpdates = false;
   bool _weeklyDigest = true;
   String _selectedLanguage = 'English';
 
-  @override
-  void initState() {
-    super.initState();
-    _displayName = user.displayName;
-    _email = user.email;
-  }
+  final List<String> _avatars = [
+    'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80',
+    'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80',
+    'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=150&q=80',
+    'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=150&q=80',
+    'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=150&q=80',
+  ];
 
   final _menuItems = [
     {'icon': Icons.person_outline_rounded, 'label': 'Edit Profile'},
+    {'icon': Icons.lock_outline_rounded, 'label': 'Change Password'},
     {'icon': Icons.notifications_outlined, 'label': 'Notifications'},
     {'icon': Icons.language_rounded, 'label': 'Language'},
     {'icon': Icons.palette_outlined, 'label': 'Appearance'},
@@ -46,9 +44,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   // 1. Edit Profile Sheet
-  void _showEditProfileSheet(BuildContext context) {
-    final titleCtrl = TextEditingController(text: _displayName);
-    final emailCtrl = TextEditingController(text: _email);
+  void _showEditProfileSheet(BuildContext context, AuthProvider auth, UserProfile user) {
+    final nameCtrl = TextEditingController(text: user.displayName);
+    final usernameCtrl = TextEditingController(text: user.username);
+    final emailCtrl = TextEditingController(text: user.email);
+    final phoneCtrl = TextEditingController(text: user.phone);
+    final emergencyCtrl = TextEditingController(text: user.emergencyContact);
     final formKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
@@ -72,7 +73,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               key: formKey,
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -92,16 +93,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: AppConstants.spaceM),
+                  
+                  // Full Name
                   TextFormField(
-                    controller: titleCtrl,
+                    controller: nameCtrl,
                     decoration: InputDecoration(
                       labelText: 'Full Name',
                       prefixIcon: const Icon(Icons.person_rounded, color: AppTheme.primaryBlue),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val == null || val.trim().isEmpty ? 'Enter your name' : null,
+                    validator: (val) => val == null || val.trim().length < 2 
+                      ? 'Enter a valid name (min 2 characters)' 
+                      : null,
                   ),
                   const SizedBox(height: AppConstants.spaceM),
+                  
+                  // Username
+                  TextFormField(
+                    controller: usernameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Username',
+                      prefixIcon: const Icon(Icons.alternate_email_rounded, color: AppTheme.primaryBlue),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                    validator: (val) => val == null || val.trim().isEmpty 
+                      ? 'Username is required' 
+                      : null,
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  
+                  // Email
                   TextFormField(
                     controller: emailCtrl,
                     decoration: InputDecoration(
@@ -109,23 +130,66 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       prefixIcon: const Icon(Icons.email_rounded, color: AppTheme.primaryBlue),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val == null || !val.contains('@') ? 'Enter valid email' : null,
+                    validator: (val) => val == null || !val.contains('@') 
+                      ? 'Enter a valid email address' 
+                      : null,
+                  ),
+                  const SizedBox(height: 4),
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 4.0),
+                    child: Text(
+                      'Changing email requires re-authentication on next login.',
+                      style: TextStyle(fontSize: 10, color: Colors.orange, fontStyle: FontStyle.italic),
+                    ),
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  
+                  // Phone Number (Optional)
+                  TextFormField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: InputDecoration(
+                      labelText: 'Phone Number (Optional)',
+                      hintText: '+639171234567',
+                      prefixIcon: const Icon(Icons.phone_rounded, color: AppTheme.primaryBlue),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  
+                  // Emergency Contact (Optional)
+                  TextFormField(
+                    controller: emergencyCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Emergency Contact Name & Number (Optional)',
+                      hintText: 'Name • Number',
+                      prefixIcon: const Icon(Icons.contact_phone_rounded, color: AppTheme.primaryBlue),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                   const SizedBox(height: AppConstants.spaceXL),
+                  
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
                       onPressed: () {
                         if (!formKey.currentState!.validate()) return;
-                        setState(() {
-                          _displayName = titleCtrl.text.trim();
-                          _email = emailCtrl.text.trim();
-                        });
+                        
+                        final updated = user.copyWith(
+                          displayName: nameCtrl.text.trim(),
+                          username: usernameCtrl.text.trim(),
+                          email: emailCtrl.text.trim(),
+                          phone: phoneCtrl.text.trim(),
+                          emergencyContact: emergencyCtrl.text.trim(),
+                        );
+                        
+                        auth.updateUserProfile(updated);
                         Navigator.pop(sheetCtx);
+                        
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Profile details updated! ✨'),
+                            content: Text('Profile details updated successfully! ✨'),
                             backgroundColor: AppTheme.secondaryGreen,
                           ),
                         );
@@ -142,6 +206,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ],
               ),
             ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Curated avatar selection picker
+  void _showAvatarPickerSheet(BuildContext context, AuthProvider auth, UserProfile user) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return Container(
+          padding: const EdgeInsets.all(AppConstants.spaceL),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 50, height: 5,
+                  decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Choose Traveler Avatar',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryBlue),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                height: 100,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _avatars.length,
+                  itemBuilder: (_, i) {
+                    final img = _avatars[i];
+                    final isSelected = user.avatarUrl == img;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: AppConstants.spaceM),
+                      child: GestureDetector(
+                        onTap: () {
+                          final updated = user.copyWith(avatarUrl: img);
+                          auth.updateUserProfile(updated);
+                          Navigator.pop(sheetCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Avatar updated successfully! 🎭'), backgroundColor: AppTheme.secondaryGreen),
+                          );
+                        },
+                        child: AnimatedContainer(
+                          duration: AppConstants.animDurationFast,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: isSelected ? AppTheme.secondaryGreen : Colors.transparent,
+                              width: 3,
+                            ),
+                          ),
+                          child: CircleAvatar(
+                            radius: 40,
+                            backgroundImage: NetworkImage(img),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
           ),
         );
       },
@@ -182,7 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: const Text('Push Notifications', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: const Text('Alerts about active trips and schedules', style: TextStyle(fontSize: 12)),
                     value: _pushNotifications,
-                    activeColor: AppTheme.primaryBlue,
+                    activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
                       setLocalState(() => _pushNotifications = val);
                       setState(() => _pushNotifications = val);
@@ -193,7 +332,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: const Text('Email Marketing Alerts', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: const Text('Deals, promos, and destination recommendations', style: TextStyle(fontSize: 12)),
                     value: _emailUpdates,
-                    activeColor: AppTheme.primaryBlue,
+                    activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
                       setLocalState(() => _emailUpdates = val);
                       setState(() => _emailUpdates = val);
@@ -204,7 +343,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     title: const Text('Weekly Digest', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     subtitle: const Text('Weekly summaries of shared trip memories', style: TextStyle(fontSize: 12)),
                     value: _weeklyDigest,
-                    activeColor: AppTheme.primaryBlue,
+                    activeThumbColor: AppTheme.primaryBlue,
                     onChanged: (val) {
                       setLocalState(() => _weeklyDigest = val);
                       setState(() => _weeklyDigest = val);
@@ -406,7 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ...faqs.map((faq) => Card(
                         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
                         elevation: 0,
-                        color: AppTheme.primaryBlue.withOpacity(0.04),
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.04),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ExpansionTile(
                           title: Text(faq['q']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue)),
@@ -417,7 +556,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                         ),
-                      )).toList(),
+                      )),
                       const SizedBox(height: AppConstants.spaceL),
                       const Divider(),
                       const SizedBox(height: AppConstants.spaceL),
@@ -520,7 +659,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.flight_takeoff_rounded, color: AppTheme.primaryBlue, size: 40),
@@ -557,8 +696,200 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  // Secure Password Change Sheet
+  void _showChangePasswordSheet(BuildContext context) {
+    final currentPasswordCtrl = TextEditingController();
+    final newPasswordCtrl = TextEditingController();
+    final confirmPasswordCtrl = TextEditingController();
+    
+    bool showCurrent = false;
+    bool showNew = false;
+    bool showConfirm = false;
+    
+    final formKey = GlobalKey<FormState>();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              padding: EdgeInsets.only(
+                left: AppConstants.spaceL,
+                right: AppConstants.spaceL,
+                top: AppConstants.spaceL,
+                bottom: AppConstants.spaceL + MediaQuery.of(sheetCtx).viewInsets.bottom,
+              ),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: SingleChildScrollView(
+                child: Form(
+                  key: formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Change Password',
+                            style: GoogleFonts.outfit(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, color: Colors.grey),
+                            onPressed: () => Navigator.pop(sheetCtx),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      
+                      // Current Password
+                      TextFormField(
+                        controller: currentPasswordCtrl,
+                        obscureText: !showCurrent,
+                        decoration: InputDecoration(
+                          labelText: 'Current Password',
+                          prefixIcon: const Icon(Icons.lock_outline_rounded, color: AppTheme.primaryBlue),
+                          suffixIcon: IconButton(
+                            icon: Icon(showCurrent ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.grey),
+                            onPressed: () => setSheetState(() => showCurrent = !showCurrent),
+                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        validator: (val) => val == null || val.isEmpty ? 'Current password is required' : null,
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      
+                      // New Password
+                      TextFormField(
+                        controller: newPasswordCtrl,
+                        obscureText: !showNew,
+                        decoration: InputDecoration(
+                          labelText: 'New Password',
+                          prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.primaryBlue),
+                          suffixIcon: IconButton(
+                            icon: Icon(showNew ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.grey),
+                            onPressed: () => setSheetState(() => showNew = !showNew),
+                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        validator: (val) {
+                          if (val == null || val.length < 8) {
+                            return 'Password must be at least 8 characters';
+                          }
+                          if (!val.contains(RegExp(r'[A-Z]'))) {
+                            return 'Password must contain at least 1 uppercase letter';
+                          }
+                          if (!val.contains(RegExp(r'[0-9]'))) {
+                            return 'Password must contain at least 1 number';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      
+                      // Confirm Password
+                      TextFormField(
+                        controller: confirmPasswordCtrl,
+                        obscureText: !showConfirm,
+                        decoration: InputDecoration(
+                          labelText: 'Confirm New Password',
+                          prefixIcon: const Icon(Icons.lock_rounded, color: AppTheme.primaryBlue),
+                          suffixIcon: IconButton(
+                            icon: Icon(showConfirm ? Icons.visibility_off_rounded : Icons.visibility_rounded, color: Colors.grey),
+                            onPressed: () => setSheetState(() => showConfirm = !showConfirm),
+                          ),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        validator: (val) => val != newPasswordCtrl.text 
+                          ? 'Passwords do not match exactly' 
+                          : null,
+                      ),
+                      const SizedBox(height: AppConstants.spaceXL),
+                      
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            if (!formKey.currentState!.validate()) return;
+                            
+                            Navigator.pop(sheetCtx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Password changed successfully! 🔐✨'),
+                                backgroundColor: AppTheme.secondaryGreen,
+                              ),
+                            );
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryBlue,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Change Password', style: TextStyle(fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Logout confirmation dialog
+  void _confirmSignOut(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        title: Text('Sign Out?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.red)),
+        content: const Text('Are you sure you want to sign out of your Lakbay+ session? Your trip summaries and maps are securely saved offline.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              context.read<AuthProvider>().logout();
+              Navigator.pushReplacementNamed(context, AppRoutes.login);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Successfully signed out.'), backgroundColor: AppTheme.secondaryGreen),
+              );
+            },
+            child: const Text('Sign Out', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.userProfile ?? UserProfile.defaultProfile;
+
+    // Dynamic stats calculations
+    final tripProvider = Provider.of<TripProvider>(context);
+    final savedTripsCount = tripProvider.userTrips.length;
+    final memoriesCount = tripProvider.userTrips.fold<int>(0, (sum, t) => sum + t.memories.length);
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -585,11 +916,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     children: [
                       Text('Profile', style: GoogleFonts.outfit(
                         fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-                      const Spacer(),
-                      IconButton(
-                        icon: const Icon(Icons.settings_outlined, color: Colors.white70),
-                        onPressed: () => _showEditProfileSheet(context),
-                      ),
                     ],
                   ),
                   const SizedBox(height: AppConstants.spaceXL),
@@ -605,9 +931,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           boxShadow: AppConstants.premiumShadow,
                         ),
                         child: ClipOval(
-                          child: Image.network(user.avatarUrl, fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              color: AppTheme.secondaryGreen.withOpacity(0.2),
+                          child: Image.network(
+                            user.avatarUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, _, _) => Container(
+                              color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
                               child: const Icon(Icons.person, size: 48, color: Colors.white),
                             )),
                         ),
@@ -616,14 +944,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         bottom: 0,
                         right: 0,
                         child: GestureDetector(
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Camera roll connection is simulated! 📷'),
-                                backgroundColor: AppTheme.secondaryGreen,
-                              ),
-                            );
-                          },
+                          onTap: () => _showAvatarPickerSheet(context, authProvider, user),
                           child: Container(
                             width: 26,
                             height: 26,
@@ -632,32 +953,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               shape: BoxShape.circle,
                               border: Border.all(color: Colors.white, width: 2),
                             ),
-                            child: const Icon(Icons.edit_rounded, size: 12, color: Colors.white),
+                            child: const Icon(Icons.photo_camera_rounded, size: 12, color: Colors.white),
                           ),
                         ),
                       ),
                     ],
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  Text(_displayName, style: GoogleFonts.outfit(
+                  Text(user.displayName, style: GoogleFonts.outfit(
                     fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
-                  Text(_email, style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                  Text('@${user.username} • ${user.email}', style: const TextStyle(color: Colors.white60, fontSize: 13)),
                   const SizedBox(height: AppConstants.spaceL),
-                  const SizedBox(height: AppConstants.spaceM),
-                  // Premium stats box
+                  
+                  // Premium stats box (Dynamically calculated counts)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceM, horizontal: AppConstants.spaceS),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.08),
+                      color: Colors.white.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                      border: Border.all(color: Colors.white.withOpacity(0.12)),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _buildStatItem('${user.completedTripsCount}', 'Trips', Icons.flight_takeoff_rounded),
+                        _buildStatItem('$savedTripsCount', 'Saved Trips', Icons.flight_takeoff_rounded),
                         _divider(),
-                        _buildStatItem('${user.visitedDestinationsCount}', 'Destinations', Icons.place_rounded),
+                        _buildStatItem('$memoriesCount', 'Memories', Icons.photo_library_rounded),
                         _divider(),
                         _buildStatItem('${user.visitedProvincesCount}', 'Provinces', Icons.map_rounded),
                       ],
@@ -668,27 +989,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // Travel preferences
+          // Settings Section Title
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppConstants.spaceL),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Travel Preferences', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                  const SizedBox(height: AppConstants.spaceM),
-                  PreferenceSelector(
-                    options: ['Nature', 'Beach', 'Mountain', 'Food & Culture', 'Adventure', 'Luxury'],
-                    selected: _selectedPrefs,
-                    onToggle: (p) => setState(() =>
-                      _selectedPrefs.contains(p) ? _selectedPrefs.remove(p) : _selectedPrefs.add(p)),
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
-                  Text('Settings', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                  const SizedBox(height: AppConstants.spaceM),
-                ],
+              padding: const EdgeInsets.only(
+                left: AppConstants.spaceL,
+                right: AppConstants.spaceL,
+                top: AppConstants.spaceXL,
+                bottom: AppConstants.spaceM,
+              ),
+              child: Text(
+                'Settings & Security', 
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold, 
+                  color: AppTheme.primaryBlue
+                )
               ),
             ),
           ),
@@ -705,11 +1020,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withOpacity(0.07),
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.07),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Icon(item['icon'] as IconData, color: AppTheme.primaryBlue, size: 20),
                     clipBehavior: Clip.antiAlias,
+                    child: Icon(item['icon'] as IconData, color: AppTheme.primaryBlue, size: 20),
                   ),
                   title: Text(item['label'] as String, style: const TextStyle(
                     fontWeight: FontWeight.w500, fontSize: 15)),
@@ -717,7 +1032,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   onTap: () {
                     switch (item['label'] as String) {
                       case 'Edit Profile':
-                        _showEditProfileSheet(context);
+                        _showEditProfileSheet(context, authProvider, user);
+                        break;
+                      case 'Change Password':
+                        _showChangePasswordSheet(context);
                         break;
                       case 'Notifications':
                         _showNotificationsSheet(context);
@@ -745,13 +1063,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
-          // Logout
+          // Logout Sliver Button
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.all(AppConstants.spaceXL),
               child: CustomButton(
                 label: 'Sign Out',
-                onPressed: () => Navigator.pushReplacementNamed(context, AppRoutes.login),
+                onPressed: () => _confirmSignOut(context),
                 variant: ButtonVariant.outlined,
                 width: double.infinity,
                 leadingIcon: Icons.logout_rounded,

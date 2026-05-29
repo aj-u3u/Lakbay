@@ -5,11 +5,12 @@ import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/nav_provider.dart';
 import '../../models/trip.dart';
 import '../../widgets/loaders/loading_indicator.dart';
 
 class TripsScreen extends StatefulWidget {
-  const TripsScreen({Key? key}) : super(key: key);
+  const TripsScreen({super.key});
 
   @override
   State<TripsScreen> createState() => _TripsScreenState();
@@ -21,7 +22,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
   @override
   void initState() {
     super.initState();
-    _tabCtrl = TabController(length: 3, vsync: this);
+    _tabCtrl = TabController(length: 2, vsync: this);
   }
 
   @override
@@ -30,12 +31,214 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
     super.dispose();
   }
 
-  void _showCreateTripBottomSheet(BuildContext context) {
+  bool _isTripCompleted(Trip trip) {
+    if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
+      return false; // Drafts/flexible are upcoming
+    }
+    try {
+      final parts = trip.dateRange.split(RegExp(r'\s*[-–]\s*'));
+      final String endDateStr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+      
+      final months = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+      };
+      
+      final cleanStr = endDateStr.toLowerCase().replaceAll(',', '');
+      final strParts = cleanStr.split(RegExp(r'\s+'));
+      if (strParts.length >= 3) {
+        final month = months[strParts[0].substring(0, 3)] ?? 1;
+        final day = int.tryParse(strParts[1]) ?? 1;
+        final year = int.tryParse(strParts[2]) ?? DateTime.now().year;
+        final endDate = DateTime(year, month, day, 23, 59, 59);
+        return endDate.isBefore(DateTime.now());
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  void _showCreateTripOptions(BuildContext context) {
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => const _CreateTripBottomSheet(),
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        return Container(
+          padding: const EdgeInsets.all(AppConstants.spaceL),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppConstants.spaceL),
+              Text(
+                'Plan a New Adventure',
+                style: GoogleFonts.outfit(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+              
+              // Option 1: Manual Trip
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.edit_note_rounded, color: AppTheme.primaryBlue, size: 24),
+                ),
+                title: const Text(
+                  'Manual Trip',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                ),
+                subtitle: const Text('Create a customized trip manually with your own details', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (_) => const _CreateTripBottomSheet(),
+                  );
+                },
+              ),
+              const Divider(),
+              
+              // Option 2: AI Planner
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppTheme.secondaryGreen.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.psychology_rounded, color: AppTheme.secondaryGreen, size: 24),
+                ),
+                title: const Text(
+                  'AI Trip Planner',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                ),
+                subtitle: const Text('Let our intelligent chatbot map out a custom itinerary', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  context.read<NavProvider>().setIndex(1); // Swaps tab to Planner
+                },
+              ),
+              const Divider(),
+              
+              // Option 3: Join via Link
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withOpacity(0.1),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.link_rounded, color: Colors.amber, size: 24),
+                ),
+                title: const Text(
+                  'Join via Link',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.textPrimaryLight),
+                ),
+                subtitle: const Text('Paste a shared group link to join an existing group itinerary', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  _showJoinLinkDialog(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showJoinLinkDialog(BuildContext context) {
+    final TextEditingController linkController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Join Group Trip',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Paste the shared group invite link below to sync this trip to your dashboard.',
+                style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, height: 1.4),
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+              TextField(
+                controller: linkController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: 'Invite Link',
+                  hintText: 'e.g. lakbay://trip/join?code=123',
+                  labelStyle: const TextStyle(color: AppTheme.primaryBlue),
+                  enabledBorder: OutlineInputBorder(
+                    borderSide: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final link = linkController.text.trim();
+                if (link.isEmpty) return;
+
+                Navigator.pop(dialogContext);
+                
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Successfully joined the group trip! syncing... 👥'),
+                    backgroundColor: AppTheme.secondaryGreen,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.secondaryGreen,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Join'),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -49,7 +252,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
         actions: [
           IconButton(
             icon: const Icon(Icons.add_circle_rounded, color: AppTheme.secondaryGreen, size: 28),
-            onPressed: () => _showCreateTripBottomSheet(context),
+            onPressed: () => _showCreateTripOptions(context),
           ),
         ],
         bottom: TabBar(
@@ -60,23 +263,26 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: const [
             Tab(text: 'Upcoming'),
-            Tab(text: 'Active'),
             Tab(text: 'Completed'),
           ],
         ),
       ),
       body: Consumer<TripProvider>(
-        builder: (_, provider, __) {
+        builder: (_, provider, _) {
           if (provider.isLoading) return const LoadingIndicator(message: 'Loading your trips...');
           final trips = provider.userTrips;
+          final upcomingTrips = trips.where((t) => !_isTripCompleted(t)).toList();
+          final completedTrips = trips.where((t) => _isTripCompleted(t)).toList();
+
           return TabBarView(
             controller: _tabCtrl,
             children: [
-              trips.isEmpty
+              upcomingTrips.isEmpty
                   ? _buildEmptyState('No upcoming trips', Icons.flight_takeoff_rounded, 'Plan a new trip to get started!')
-                  : _buildTripList(trips),
-              _buildEmptyState('No active trips', Icons.map_outlined, 'Your current active trip will appear here.'),
-              _buildEmptyState('No completed trips yet', Icons.check_circle_outline, 'Complete a trip to see it here.'),
+                  : _buildTripList(upcomingTrips),
+              completedTrips.isEmpty
+                  ? _buildEmptyState('No completed trips yet', Icons.check_circle_outline, 'Complete a trip to see it here.')
+                  : _buildTripList(completedTrips),
             ],
           );
         },
@@ -139,7 +345,7 @@ class _TripCard extends StatelessWidget {
                 height: 140,
                 width: double.infinity,
                 child: Image.network(trip.imageUrl, fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(color: AppTheme.primaryBlue.withOpacity(0.15))),
+                  errorBuilder: (_, _, _) => Container(color: AppTheme.primaryBlue.withOpacity(0.15))),
               ),
             ),
             Padding(
@@ -147,8 +353,39 @@ class _TripCard extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(trip.title, style: const TextStyle(
-                    fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(trip.title, style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: trip.isGroup
+                              ? AppTheme.secondaryGreen.withOpacity(0.1)
+                              : AppTheme.primaryBlue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: trip.isGroup
+                                ? AppTheme.secondaryGreen.withOpacity(0.3)
+                                : AppTheme.primaryBlue.withOpacity(0.3),
+                          ),
+                        ),
+                        child: Text(
+                          trip.isGroup ? 'Group' : 'Solo',
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: trip.isGroup
+                                ? AppTheme.secondaryGreen
+                                : AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 4),
                   Row(children: [
                     const Icon(Icons.location_on_rounded, size: 13, color: AppTheme.textSecondaryLight),
@@ -185,7 +422,7 @@ class _TripCard extends StatelessWidget {
 }
 
 class _CreateTripBottomSheet extends StatefulWidget {
-  const _CreateTripBottomSheet({Key? key}) : super(key: key);
+  const _CreateTripBottomSheet();
 
   @override
   State<_CreateTripBottomSheet> createState() => _CreateTripBottomSheetState();
@@ -199,6 +436,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
 
   DateTimeRange? _selectedDateRange;
   int _selectedImageIndex = 0;
+  bool _isGroup = false;
 
   final List<Map<String, String>> _coverImages = [
     {
@@ -284,6 +522,8 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
       dateRange: _dateRangeText,
       budget: budgetVal,
       imageUrl: _coverImages[_selectedImageIndex]['url']!,
+      isGroup: _isGroup,
+      numTravelers: _isGroup ? 4 : 1,
       itinerary: {
         1: [
           TripActivity(
@@ -439,6 +679,53 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                         if (double.tryParse(val) == null) return 'Enter valid number';
                         return null;
                       },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceL),
+              Text(
+                'Travel Type',
+                style: GoogleFonts.outfit(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.textPrimaryLight,
+                ),
+              ),
+              const SizedBox(height: AppConstants.spaceS),
+              Row(
+                children: [
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Solo Travel')),
+                      selected: !_isGroup,
+                      onSelected: (val) {
+                        if (val) setState(() => _isGroup = false);
+                      },
+                      selectedColor: AppTheme.primaryBlue.withOpacity(0.12),
+                      checkmarkColor: AppTheme.primaryBlue,
+                      labelStyle: TextStyle(
+                        color: !_isGroup ? AppTheme.primaryBlue : AppTheme.textSecondaryLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: AppConstants.spaceM),
+                  Expanded(
+                    child: ChoiceChip(
+                      label: const Center(child: Text('Group Travel')),
+                      selected: _isGroup,
+                      onSelected: (val) {
+                        if (val) setState(() => _isGroup = true);
+                      },
+                      selectedColor: AppTheme.secondaryGreen.withOpacity(0.12),
+                      checkmarkColor: AppTheme.secondaryGreen,
+                      labelStyle: TextStyle(
+                        color: _isGroup ? AppTheme.secondaryGreen : AppTheme.textSecondaryLight,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 12,
+                      ),
                     ),
                   ),
                 ],

@@ -9,6 +9,9 @@ class UserProfile {
   final int visitedDestinationsCount;
   final int visitedProvincesCount;
   final List<String> travelPreferences;
+  final String username;
+  final String phone;
+  final String emergencyContact;
 
   UserProfile({
     required this.uid,
@@ -21,7 +24,42 @@ class UserProfile {
     required this.visitedDestinationsCount,
     required this.visitedProvincesCount,
     required this.travelPreferences,
+    this.username = 'arjanegarcia',
+    this.phone = '',
+    this.emergencyContact = '',
   });
+
+  UserProfile copyWith({
+    String? uid,
+    String? displayName,
+    String? email,
+    String? avatarUrl,
+    int? completedTripsCount,
+    int? sharedMemoriesCount,
+    int? travelerPoints,
+    int? visitedDestinationsCount,
+    int? visitedProvincesCount,
+    List<String>? travelPreferences,
+    String? username,
+    String? phone,
+    String? emergencyContact,
+  }) {
+    return UserProfile(
+      uid: uid ?? this.uid,
+      displayName: displayName ?? this.displayName,
+      email: email ?? this.email,
+      avatarUrl: avatarUrl ?? this.avatarUrl,
+      completedTripsCount: completedTripsCount ?? this.completedTripsCount,
+      sharedMemoriesCount: sharedMemoriesCount ?? this.sharedMemoriesCount,
+      travelerPoints: travelerPoints ?? this.travelerPoints,
+      visitedDestinationsCount: visitedDestinationsCount ?? this.visitedDestinationsCount,
+      visitedProvincesCount: visitedProvincesCount ?? this.visitedProvincesCount,
+      travelPreferences: travelPreferences ?? this.travelPreferences,
+      username: username ?? this.username,
+      phone: phone ?? this.phone,
+      emergencyContact: emergencyContact ?? this.emergencyContact,
+    );
+  }
 
   // Mock profile data
   static final UserProfile defaultProfile = UserProfile(
@@ -34,6 +72,9 @@ class UserProfile {
     travelerPoints: 2450,
     visitedDestinationsCount: 8,
     visitedProvincesCount: 3,
-    travelPreferences: ['Nature', 'Beach', 'Food', 'Culture'],
+    travelPreferences: const ['Nature', 'Beach', 'Food', 'Culture'],
+    username: 'arjanegarcia',
+    phone: '+639171234567',
+    emergencyContact: 'Garcia Emergency • +639177654321',
   );
 }

@@ -5,7 +5,7 @@ import '../../core/constants/app_constants.dart';
 import '../../widgets/shared/section_header.dart';
 
 class MemoriesScreen extends StatelessWidget {
-  const MemoriesScreen({Key? key}) : super(key: key);
+  const MemoriesScreen({super.key});
 
   static final List<Map<String, String>> _memories = [
     {
@@ -131,7 +131,7 @@ class _MemoryCard extends StatelessWidget {
               height: 180,
               width: double.infinity,
               child: Image.network(memory['image']!, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(color: AppTheme.primaryBlue.withOpacity(0.15))),
+                errorBuilder: (_, _, _) => Container(color: AppTheme.primaryBlue.withOpacity(0.15))),
             ),
           ),
           Padding(

@@ -32,13 +32,13 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       } else {
-        _errorMessage = 'Invalid email or password.';
+        _errorMessage = _apiService.lastError ?? 'Invalid email or password.';
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = 'An error occurred. Please try again.';
+      _errorMessage = 'Connection error: $e';
       _isLoading = false;
       notifyListeners();
       return false;
@@ -51,27 +51,32 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final user = await _apiService.registerUser(name, email, password);
-      if (user != null) {
-        _userProfile = user;
+      final success = await _apiService.registerUser(name, email, password);
+      if (success) {
         _isLoading = false;
         notifyListeners();
         return true;
       } else {
-        _errorMessage = 'Registration failed.';
+        _errorMessage = _apiService.lastError ?? 'Registration failed. Please try again.';
         _isLoading = false;
         notifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = 'An error occurred during sign up.';
+      _errorMessage = 'Connection error: $e';
       _isLoading = false;
       notifyListeners();
       return false;
     }
   }
 
+  void updateUserProfile(UserProfile updatedProfile) {
+    _userProfile = updatedProfile;
+    notifyListeners();
+  }
+
   void logout() {
+    _apiService.setToken(null);
     _userProfile = null;
     notifyListeners();
   }

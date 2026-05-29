@@ -9,7 +9,7 @@ import '../memories/memories_screen.dart';
 import '../profile/profile_screen.dart';
 
 class MainNavigation extends StatelessWidget {
-  const MainNavigation({Key? key}) : super(key: key);
+  const MainNavigation({super.key});
 
   static const List<Widget> _screens = [
     HomeScreen(),

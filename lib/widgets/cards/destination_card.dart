@@ -10,12 +10,12 @@ class DestinationCard extends StatelessWidget {
   final double height;
 
   const DestinationCard({
-    Key? key,
+    super.key,
     required this.destination,
     this.onTap,
     this.width = 220,
     this.height = 280,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,7 @@ class DestinationCard extends StatelessWidget {
                 child: Image.network(
                   destination.imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
+                  errorBuilder: (_, _, _) => Container(
                     color: AppTheme.primaryBlue.withOpacity(0.15),
                     child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
                   ),

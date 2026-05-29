@@ -14,7 +14,7 @@ import '../../widgets/buttons/custom_button.dart';
 
 class DestinationDetailsScreen extends StatefulWidget {
   final Destination destination;
-  const DestinationDetailsScreen({Key? key, required this.destination}) : super(key: key);
+  const DestinationDetailsScreen({super.key, required this.destination});
 
   @override
   State<DestinationDetailsScreen> createState() => _DestinationDetailsScreenState();
@@ -27,6 +27,37 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   String? _locationError;
   final MapController _mapController = MapController();
   double? _distanceToDestination;
+
+  String? _getActivityPrice(String activityName, Destination dest) {
+    final prices = dest.extra.activityPrices;
+    
+    // Try exact match first
+    if (prices.containsKey(activityName)) {
+      return prices[activityName];
+    }
+    
+    // Try case-insensitive substring match
+    final lowerName = activityName.toLowerCase();
+    for (final entry in prices.entries) {
+      final key = entry.key.toLowerCase();
+      if (key.contains(lowerName) || lowerName.contains(key)) {
+        return entry.value;
+      }
+    }
+    
+    // Fallback mappings for robust presentation:
+    if (lowerName.contains('hiking') || lowerName.contains('trekking') || lowerName.contains('walking') || lowerName.contains('climbing')) {
+      if (prices.containsKey('General Guide')) return prices['General Guide'];
+    }
+    if (lowerName.contains('diving') && prices.containsKey('Scuba Diving')) return prices['Scuba Diving'];
+    if (lowerName.contains('spa') && prices.containsKey('Mandaya Spa')) return prices['Mandaya Spa'];
+    if (lowerName.contains('snorkeling') && prices.containsKey('Snorkeling Gear')) return prices['Snorkeling Gear'];
+    if (lowerName.contains('surfing') && prices.containsKey('Surfboard Rental')) return prices['Surfboard Rental'];
+    if (lowerName.contains('skimboarding') && prices.containsKey('Skimboard Rental')) return prices['Skimboard Rental'];
+    if (lowerName.contains('camping') && prices.containsKey('Tent Pitching')) return prices['Tent Pitching'];
+    
+    return 'Free';
+  }
 
   Future<void> _requestLocationAndRoute() async {
     setState(() {
@@ -135,7 +166,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                 fit: StackFit.expand,
                 children: [
                   Image.network(dest.imageUrl, fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+                    errorBuilder: (_, _, _) => Container(
                       decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           colors: [AppTheme.primaryBlue, AppTheme.secondaryGreen],
@@ -174,7 +205,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         Row(children: [
                           const Icon(Icons.location_on_rounded, color: AppTheme.secondaryGreen, size: 14),
                           const SizedBox(width: 4),
-                          Text(dest.location, style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                          Expanded(
+                            child: Text(
+                              dest.location,
+                              style: const TextStyle(color: Colors.white70, fontSize: 13),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
                         ]),
                       ],
                     ),
@@ -221,22 +259,44 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   Wrap(
                     spacing: AppConstants.spaceS,
                     runSpacing: AppConstants.spaceS,
-                    children: dest.activities.map((a) => Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
-                        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.2)),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(Icons.check_circle_outline_rounded, size: 13, color: AppTheme.secondaryGreen),
-                          const SizedBox(width: 5),
-                          Text(a, style: const TextStyle(fontSize: 12, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    )).toList(),
+                    children: dest.activities.map((a) {
+                      final price = _getActivityPrice(a, dest);
+                      final isFree = price == null || price.toLowerCase().contains('free');
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                          border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.2)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded, size: 13, color: AppTheme.secondaryGreen),
+                            const SizedBox(width: 5),
+                            Text(a, style: const TextStyle(fontSize: 12, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
+                            const SizedBox(width: 6),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: isFree
+                                    ? AppTheme.secondaryGreen.withValues(alpha: 0.15)
+                                    : AppTheme.primaryBlue.withValues(alpha: 0.15),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                isFree ? 'Free' : price,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                  color: isFree ? AppTheme.secondaryGreen : AppTheme.primaryBlue,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
                   ),
                   const SizedBox(height: AppConstants.spaceXL),
 
@@ -288,7 +348,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: dest.extra.activityPrices.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppConstants.spaceS),
+                      separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
                       itemBuilder: (context, index) {
                         final key = dest.extra.activityPrices.keys.elementAt(index);
                         final price = dest.extra.activityPrices[key]!;
@@ -310,8 +370,15 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             children: [
                               const Icon(Icons.local_activity_rounded, color: AppTheme.accentTeal, size: 18),
                               const SizedBox(width: AppConstants.spaceM),
-                              Text(key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                              const Spacer(),
+                              Expanded(
+                                child: Text(
+                                  key,
+                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: AppConstants.spaceM),
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: BoxDecoration(
@@ -337,7 +404,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: dest.extra.accommodationTypes.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppConstants.spaceS),
+                      separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
                       itemBuilder: (context, index) {
                         final acc = dest.extra.accommodationTypes[index];
                         final type = acc['type'] ?? 'Standard Room';
@@ -627,7 +694,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
                       itemCount: dest.extra.transportOptions.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: AppConstants.spaceS),
+                      separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
                       itemBuilder: (context, index) {
                         final option = dest.extra.transportOptions[index];
                         final vehicle = option['vehicle'] ?? 'Standard Transit';
@@ -699,9 +766,13 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                         children: [
                                           const Icon(Icons.timer_outlined, size: 10, color: AppTheme.accentTeal),
                                           const SizedBox(width: 4),
-                                          Text(
-                                            'Duration: $duration',
-                                            style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                                          Expanded(
+                                            child: Text(
+                                              'Duration: $duration',
+                                              style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
                                           ),
                                         ],
                                       ),
@@ -843,7 +914,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       child: ListView.separated(
                         shrinkWrap: true,
                         itemCount: trips.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: AppConstants.spaceS),
+                        separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
                         itemBuilder: (context, index) {
                           final trip = trips[index];
                           return ListTile(
@@ -856,7 +927,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                 child: Image.network(
                                   trip.imageUrl,
                                   fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
+                                  errorBuilder: (_, _, _) => Container(
                                     decoration: const BoxDecoration(
                                       gradient: LinearGradient(
                                         colors: [AppTheme.primaryBlue, AppTheme.secondaryGreen],
@@ -1019,8 +1090,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         ),
         const SizedBox(width: AppConstants.spaceM),
         Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppTheme.textPrimaryLight)),
-        const Spacer(),
-        Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.secondaryGreen)),
+        const SizedBox(width: AppConstants.spaceM),
+        Expanded(
+          child: Text(
+            value,
+            textAlign: TextAlign.end,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.secondaryGreen),
+          ),
+        ),
       ],
     );
   }

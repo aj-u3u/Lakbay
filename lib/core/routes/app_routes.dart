@@ -14,6 +14,7 @@ import '../../screens/planner/planner_results_screen.dart';
 import '../../screens/collaboration/group_dashboard_screen.dart';
 import '../../screens/collaboration/tasks_screen.dart';
 import '../../screens/collaboration/shared_memories_screen.dart';
+import '../../screens/notifications/notifications_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -29,6 +30,7 @@ class AppRoutes {
   static const String groupDashboard = '/group-dashboard';
   static const String groupTasks = '/group-tasks';
   static const String groupMemories = '/group-memories';
+  static const String notifications = '/notifications';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -47,7 +49,10 @@ class AppRoutes {
       case navShell:
         return MaterialPageRoute(builder: (_) => const MainNavigation());
       case destinationList:
-        return MaterialPageRoute(builder: (_) => const DestinationListScreen());
+        final filter = settings.arguments as String?;
+        return MaterialPageRoute(
+          builder: (_) => DestinationListScreen(initialFilter: filter),
+        );
       case destinationDetail:
         final destination = settings.arguments as Destination;
         return MaterialPageRoute(
@@ -62,9 +67,13 @@ class AppRoutes {
         final trip = settings.arguments as Trip?;
         return MaterialPageRoute(builder: (_) => GroupDashboardScreen(trip: trip));
       case groupTasks:
-        return MaterialPageRoute(builder: (_) => const GroupTasksScreen());
+        final trip = settings.arguments as Trip?;
+        return MaterialPageRoute(builder: (_) => GroupTasksScreen(trip: trip));
       case groupMemories:
-        return MaterialPageRoute(builder: (_) => const SharedMemoriesScreen());
+        final trip = settings.arguments as Trip?;
+        return MaterialPageRoute(builder: (_) => SharedMemoriesScreen(trip: trip));
+      case notifications:
+        return MaterialPageRoute(builder: (_) => const NotificationsScreen());
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

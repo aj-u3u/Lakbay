@@ -8,11 +8,11 @@ class PreferenceSelector extends StatelessWidget {
   final ValueChanged<String> onToggle;
 
   const PreferenceSelector({
-    Key? key,
+    super.key,
     required this.options,
     required this.selected,
     required this.onToggle,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -7,13 +7,15 @@ import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/destination.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/auth_provider.dart';
+import '../../providers/nav_provider.dart';
 import '../../widgets/shared/section_header.dart';
 import '../../widgets/cards/destination_card.dart';
 import '../../widgets/cards/promo_card.dart';
-import '../../widgets/inputs/custom_input_field.dart';
+import '../../models/planner_draft.dart';
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({Key? key}) : super(key: key);
+  const HomeScreen({super.key});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -33,11 +35,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Suggestions states
   final _searchFocusNode = FocusNode();
-  bool _showSuggestions = false;
   OverlayEntry? _suggestionsOverlayEntry;
   final LayerLink _layerLink = LayerLink();
 
-  List<Map<String, String>> get _suggestions {
+  List<Map<String, String>> _getSuggestions(List<Destination> allDests) {
     final query = _searchQuery.trim().toLowerCase();
     if (query.isEmpty) return [];
 
@@ -62,7 +63,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     // 2. Match destinations
-    for (final dest in Destination.davaoDestinations) {
+    for (final dest in allDests) {
       if (dest.name.toLowerCase().contains(query)) {
         matches.add({
           'name': dest.name,
@@ -168,8 +169,8 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  List<Destination> get _filteredDestinations {
-    var list = Destination.davaoDestinations;
+  List<Destination> _filteredDestinations(List<Destination> allDests) {
+    var list = allDests;
 
     // Filter by search query
     if (_searchQuery.isNotEmpty) {
@@ -206,8 +207,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<TripProvider>();
+    final allDests = provider.destinations.isNotEmpty ? provider.destinations : Destination.davaoDestinations;
+    final filtered = _filteredDestinations(allDests);
+
     return Scaffold(
-      backgroundColor: Theme.of(context).colorScheme.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: CustomScrollView(
         slivers: [
           // Gradient header
@@ -243,7 +248,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 borderRadius: BorderRadius.circular(12),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
+                                    color: Colors.black.withValues(alpha: 0.08),
                                     blurRadius: 8,
                                     offset: const Offset(0, 3),
                                   ),
@@ -256,11 +261,21 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                             const SizedBox(width: AppConstants.spaceM),
-                            Column(
+                              Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Good Morning 👋', style: GoogleFonts.outfit(
-                                  fontSize: 13, color: Colors.white60)),
+                                Builder(builder: (context) {
+                                  final firstName = context
+                                      .watch<AuthProvider>()
+                                      .userProfile
+                                      ?.displayName
+                                      .split(' ')
+                                      .first ?? 'Traveler';
+                                  return Text(
+                                    'Good Morning, $firstName 👋',
+                                    style: GoogleFonts.outfit(
+                                        fontSize: 13, color: Colors.white60));
+                                }),
                                 Text('Discover Davao', style: GoogleFonts.outfit(
                                   fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
                               ],
@@ -269,16 +284,49 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       GestureDetector(
-                        onTap: _showNotificationsBottomSheet,
-                        child: Container(
-                          width: 46,
-                          height: 46,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.white24),
-                          ),
-                          child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                        onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: Colors.white.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Colors.white24),
+                              ),
+                              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                            ),
+                            if (provider.unreadNotificationCount > 0)
+                              Positioned(
+                                right: -4,
+                                top: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  decoration: const BoxDecoration(
+                                    color: Colors.red,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 18,
+                                    minHeight: 18,
+                                  ),
+                                  child: Center(
+                                    child: Text(
+                                      provider.unreadNotificationCount > 9
+                                          ? '9+'
+                                          : provider.unreadNotificationCount.toString(),
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     ],
@@ -304,7 +352,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Search destinations in Davao...',
-                          hintStyle: TextStyle(color: AppTheme.textSecondaryLight.withOpacity(0.6), fontSize: 14),
+                          hintStyle: TextStyle(color: AppTheme.textSecondaryLight.withValues(alpha: 0.6), fontSize: 14),
                           prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primaryBlue),
                           suffixIcon: GestureDetector(
                             onTap: _showFilterBottomSheet,
@@ -327,6 +375,10 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           ),
+
+          // Continue Planning Widget (only displayed if incomplete draft trip exists)
+          if (provider.activeDraft != null)
+            _buildContinuePlanningSliver(context, provider.activeDraft!),
 
           // Categories
           SliverToBoxAdapter(
@@ -355,7 +407,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
                           borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withOpacity(0.3),
+                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withValues(alpha: 0.3),
                           ),
                         ),
                         child: Text(cat, style: TextStyle(
@@ -409,7 +461,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       decoration: BoxDecoration(
                         color: isActive
                             ? AppTheme.primaryBlue
-                            : AppTheme.primaryBlue.withOpacity(0.25),
+                            : AppTheme.primaryBlue.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
                       ),
                     );
@@ -431,7 +483,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: AppConstants.spaceS),
                  SizedBox(
                   height: 290,
-                  child: _filteredDestinations.isEmpty
+                  child: filtered.isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -439,7 +491,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               Container(
                                 padding: const EdgeInsets.all(16),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withOpacity(0.05),
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.05),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.search_off_rounded, size: 40, color: AppTheme.primaryBlue),
@@ -460,13 +512,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       : ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                          itemCount: _filteredDestinations.length,
+                          itemCount: filtered.length,
                           itemBuilder: (_, i) => DestinationCard(
-                            destination: _filteredDestinations[i],
+                            destination: filtered[i],
                             onTap: () => Navigator.pushNamed(
                               context,
                               AppRoutes.destinationDetail,
-                              arguments: _filteredDestinations[i],
+                              arguments: filtered[i],
                             ),
                           ),
                         ),
@@ -475,8 +527,298 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+          // District Bento Explorer
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: AppConstants.spaceXL),
+                  SectionHeader(
+                    title: 'Explore Districts',
+                    onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                  ),
+                  const SizedBox(height: AppConstants.spaceS),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4.0),
+                    child: Text(
+                      'Encourage exploration of all 6 districts within the Davao Region',
+                      style: GoogleFonts.outfit(
+                        color: AppTheme.textSecondaryLight.withValues(alpha: 0.8),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
+                  _buildDistrictBentoGrid(context, allDests),
+                ],
+              ),
+            ),
+          ),
+
+          // AI Mood Suggestions
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: AppConstants.spaceXL),
+                SectionHeader(
+                  title: 'AI Mood Suggestions 🤖',
+                  onActionPressed: () {
+                    context.read<NavProvider>().setIndex(1);
+                  },
+                ),
+                const SizedBox(height: AppConstants.spaceS),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                  child: Text(
+                    'Select a mood to start planning your perfect Davao adventure instantly',
+                    style: GoogleFonts.outfit(
+                      color: AppTheme.textSecondaryLight.withValues(alpha: 0.8),
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                SizedBox(
+                  height: 48,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                    children: [
+                      _buildMoodTile(context, '🏔️ Adventure', const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
+                      _buildMoodTile(context, '🌿 Relaxation', const Color(0xFFE0F2F1), const Color(0xFF00796B)),
+                      _buildMoodTile(context, '👨‍👩‍👧 Family', const Color(0xFFF3E5F5), const Color(0xFF6A1B9A)),
+                      _buildMoodTile(context, '🌊 Beach', const Color(0xFFE1F5FE), const Color(0xFF0288D1)),
+                      _buildMoodTile(context, '🌲 Nature', const Color(0xFFF1F8E9), const Color(0xFF558B2F)),
+                      _buildMoodTile(context, '🏙️ Culture', const Color(0xFFFFF3E0), const Color(0xFFE65100)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           const SliverToBoxAdapter(child: SizedBox(height: AppConstants.spaceXL)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMoodTile(BuildContext context, String mood, Color bgColor, Color textColor) {
+    return GestureDetector(
+      onTap: () {
+        final pureMood = mood.substring(3).trim(); // Remove emoji
+        final tripProv = context.read<TripProvider>();
+        final navProv = context.read<NavProvider>();
+        
+        tripProv.setActivePlanningMoodPrompt("Suggest a $pureMood trip in Davao Region.");
+        navProv.setIndex(1); // Navigate to Planner Page (Index 1)
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        decoration: BoxDecoration(
+          color: bgColor,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: textColor.withValues(alpha: 0.15),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: textColor.withValues(alpha: 0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Center(
+          child: Text(
+            mood,
+            style: GoogleFonts.outfit(
+              color: textColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDistrictBentoGrid(BuildContext context, List<Destination> allDests) {
+    final districts = [
+      {
+        'name': 'Davao City',
+        'mood': 'Urban Culture & Heritage',
+        'image': 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
+        'height': 160.0,
+      },
+      {
+        'name': 'Davao del Norte',
+        'mood': 'Adventure Gateways',
+        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+        'height': 140.0,
+      },
+      {
+        'name': 'Davao Oriental',
+        'mood': 'Coastal Escapes',
+        'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
+        'height': 140.0,
+      },
+      {
+        'name': 'Davao del Sur',
+        'mood': 'Mountain Retreats',
+        'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
+        'height': 140.0,
+      },
+      {
+        'name': 'Davao de Oro',
+        'mood': 'Wilderness & Rivers',
+        'image': 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80',
+        'height': 140.0,
+      },
+      {
+        'name': 'Davao Occidental',
+        'mood': 'Hidden Coastal Gems',
+        'image': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
+        'height': 120.0,
+      },
+    ];
+
+    return Column(
+      children: [
+        _buildBentoCard(context, districts[0], allDests),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildBentoCard(context, districts[1], allDests)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildBentoCard(context, districts[2], allDests)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(child: _buildBentoCard(context, districts[3], allDests)),
+            const SizedBox(width: 12),
+            Expanded(child: _buildBentoCard(context, districts[4], allDests)),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildBentoCard(context, districts[5], allDests),
+      ],
+    );
+  }
+
+  Widget _buildBentoCard(BuildContext context, Map<String, dynamic> district, List<Destination> allDests) {
+    final name = district['name'] as String;
+    final mood = district['mood'] as String;
+    final image = district['image'] as String;
+    final height = district['height'] as double;
+
+    final int count = allDests.where((d) => d.district == name).length;
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.destinationList,
+          arguments: name,
+        );
+      },
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.network(
+                  image,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, err, stackTrace) {
+                    return Container(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+                      child: const Icon(Icons.image_not_supported_rounded, color: AppTheme.primaryBlue),
+                    );
+                  },
+                ),
+              ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.35),
+                        Colors.black.withValues(alpha: 0.75),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 12,
+                left: 14,
+                right: 14,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      name,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      mood,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondaryGreen.withValues(alpha: 0.95),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        '$count ${count == 1 ? "destination" : "destinations"}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -507,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withOpacity(0.2),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             )
@@ -523,19 +865,6 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-              );
-            }
-
-            Widget buildFilterSwitch(String title, bool val, ValueChanged<bool> onChanged) {
-              return SwitchListTile.adaptive(
-                title: Text(
-                  title,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textPrimaryLight),
-                ),
-                value: val,
-                activeColor: AppTheme.secondaryGreen,
-                contentPadding: EdgeInsets.zero,
-                onChanged: onChanged,
               );
             }
 
@@ -712,155 +1041,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showNotificationsBottomSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
-      ),
-      builder: (context) {
-        final List<Map<String, String>> notifications = [
-          {
-            'title': 'Gemini AI Planner Ready',
-            'body': 'Draft itinerary for Samal Island is ready for review.',
-            'time': '10 mins ago',
-            'icon': '⚡',
-            'isNew': 'true',
-          },
-          {
-            'title': 'New Group Invitation',
-            'body': 'Carlo invited you to join "Mount Apo Expedition ⛰️"',
-            'time': '2 hours ago',
-            'icon': '👥',
-            'isNew': 'true',
-          },
-          {
-            'title': 'Weather Alert',
-            'body': 'Sunny conditions expected today in Pearl Farm Beach Resort.',
-            'time': '5 hours ago',
-            'icon': '☀️',
-            'isNew': 'false',
-          },
-        ];
 
-        return Container(
-          padding: const EdgeInsets.all(AppConstants.spaceL),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 5,
-                  decoration: BoxDecoration(
-                    color: Colors.black12,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Notifications',
-                    style: GoogleFonts.outfit(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Notifications marked as read'),
-                          behavior: SnackBarBehavior.floating,
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Mark all as read',
-                      style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              const Divider(),
-              const SizedBox(height: 10),
-              Flexible(
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: notifications.length,
-                  itemBuilder: (context, index) {
-                    final item = notifications[index];
-                    final isNew = item['isNew'] == 'true';
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
-                      padding: const EdgeInsets.all(AppConstants.spaceM),
-                      decoration: BoxDecoration(
-                        color: isNew ? AppTheme.primaryBlue.withOpacity(0.04) : Colors.transparent,
-                        borderRadius: BorderRadius.circular(AppConstants.radiusM),
-                        border: Border.all(
-                          color: isNew ? AppTheme.primaryBlue.withOpacity(0.12) : Colors.black12,
-                        ),
-                      ),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                              color: isNew ? AppTheme.primaryBlue.withOpacity(0.1) : Colors.black.withOpacity(0.05),
-                              shape: BoxShape.circle,
-                            ),
-                            child: Text(item['icon']!, style: const TextStyle(fontSize: 18)),
-                          ),
-                          const SizedBox(width: AppConstants.spaceM),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      item['title']!,
-                                      style: GoogleFonts.outfit(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: AppTheme.textPrimaryLight,
-                                      ),
-                                    ),
-                                    Text(
-                                      item['time']!,
-                                      style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  item['body']!,
-                                  style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight, height: 1.4),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 
   void _showOverlay() {
     if (_suggestionsOverlayEntry != null) {
@@ -883,7 +1064,10 @@ class _HomeScreenState extends State<HomeScreen> {
   OverlayEntry _createSuggestionsOverlay() {
     return OverlayEntry(
       builder: (context) {
-        final list = _suggestions;
+        final allDests = context.read<TripProvider>().destinations.isNotEmpty
+            ? context.read<TripProvider>().destinations
+            : Destination.davaoDestinations;
+        final list = _getSuggestions(allDests);
         if (list.isEmpty) return const SizedBox.shrink();
 
         return CompositedTransformFollower(
@@ -905,7 +1089,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     border: Border.all(color: Colors.black12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -924,8 +1108,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: isDistrict
-                                ? AppTheme.primaryBlue.withOpacity(0.08)
-                                : AppTheme.secondaryGreen.withOpacity(0.08),
+                                ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+                                : AppTheme.secondaryGreen.withValues(alpha: 0.08),
                             child: Icon(
                               isDistrict ? Icons.location_on_rounded : Icons.place_rounded,
                               color: isDistrict ? AppTheme.primaryBlue : AppTheme.secondaryGreen,
@@ -977,6 +1161,101 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildContinuePlanningSliver(BuildContext context, PlannerDraft draft) {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(AppConstants.spaceM, AppConstants.spaceL, AppConstants.spaceM, 0),
+        child: Container(
+          padding: const EdgeInsets.all(AppConstants.spaceM),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: AppTheme.secondaryGreen.withValues(alpha: 0.15),
+              width: 1.5,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              // Destination Thumbnail
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: SizedBox(
+                  width: 56,
+                  height: 56,
+                  child: Image.network(
+                    draft.imageUrl,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Container(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                      child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppConstants.spaceM),
+              // Card Details
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Continue Planning: ${draft.destinationName} ✈️',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      draft.progressText,
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        color: AppTheme.textSecondaryLight,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppConstants.spaceM),
+              // "Continue" Button
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.secondaryGreen,
+                  foregroundColor: Colors.white,
+                  elevation: 0,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                ),
+                onPressed: () {
+                  context.read<NavProvider>().setIndex(1); // Navigates to Planner tab
+                },
+                child: Text(
+                  'Resume',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

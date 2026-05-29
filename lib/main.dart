@@ -12,7 +12,7 @@ void main() {
 }
 
 class LakbayPlusApp extends StatelessWidget {
-  const LakbayPlusApp({Key? key}) : super(key: key);
+  const LakbayPlusApp({super.key});
 
   @override
   Widget build(BuildContext context) {
