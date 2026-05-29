@@ -73,74 +73,35 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _initializeChat() {
     final provider = context.read<TripProvider>();
     final dest = provider.activePlanDestination;
-    final PlannerDraft? draft = provider.activeDraft;
+
+    _isDestinationMode = false;
+    _currentStep = 7; // Configure to fully free-form conversation!
 
     if (dest != null) {
       _activeDest = dest;
-      _isDestinationMode = true;
-      _currentStep = 10;
-
       setState(() {
         _messages.add(_ChatMessage(
           text:
               "Hello! 👋 I'm your Lakbay AI Travel Assistant.\n\n"
-              "I see you're interested in visiting **${dest.name}** in ${dest.location}! ✨\n\n"
-              "Let me help you plan the perfect trip there. First — when are you planning to go?",
+              "I see you want to plan a trip to **${dest.name}** in ${dest.location}! ✨\n\n"
+              "Tell me what you'd like to do, e.g.:\n"
+              "💬 *\"Plan a 3-day weekend group trip for 4 on a balanced budget\"*\n"
+              "💬 *\"What is a low-budget itinerary for a 2-day solo trip here?\"*\n\n"
+              "How would you like to plan your visit?",
           isUser: false,
           timestamp: DateTime.now(),
         ));
-      });
-    } else if (draft != null) {
-      _isDestinationMode = false;
-      _selectedDistrict = draft.destinationName;
-      _selectedDays = draft.days;
-      _selectedVibe = draft.vibe;
-      _selectedBudget = draft.budget;
-      _currentStep = draft.step;
-
-      setState(() {
-        _messages.add(_ChatMessage(
-          text:
-              "Hello! I am your Lakbay AI Travel Assistant 🤖.\n\n"
-              "Let's design your perfect itinerary in the Davao Region! Where would you like to travel?",
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
-
-        if (draft.step >= 1) {
-          _messages.add(_ChatMessage(text: draft.destinationName, isUser: true, timestamp: DateTime.now()));
-          _messages.add(_ChatMessage(
-            text: "Great choice! ${draft.destinationName} is beautiful. 🗺️\n\nHow many days are you planning to stay?",
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-        }
-        if (draft.step >= 2) {
-          _messages.add(_ChatMessage(text: "${draft.days} Days", isUser: true, timestamp: DateTime.now()));
-          _messages.add(_ChatMessage(
-            text: "Got it! A ${draft.days}-day trip to ${draft.destinationName}.🌟\n\nWhat kind of travel vibe or theme do you prefer?",
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-        }
-        if (draft.step >= 3) {
-          _messages.add(_ChatMessage(text: draft.vibe, isUser: true, timestamp: DateTime.now()));
-          _messages.add(_ChatMessage(
-            text: "Awesome! A ${draft.vibe} trip sounds perfect. 🎒\n\nFinally, what is your estimated budget for this adventure?",
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
-        }
       });
     } else {
-      _isDestinationMode = false;
-      _currentStep = 0;
-
       setState(() {
         _messages.add(_ChatMessage(
           text:
               "Hello! I am your Lakbay AI Travel Assistant 🤖.\n\n"
-              "Let's design your perfect itinerary in the Davao Region! Where would you like to travel?",
+              "I can help you design the perfect custom travel itinerary anywhere in the Davao Region!\n\n"
+              "Simply tell me what you want, e.g.:\n"
+              "💬 *\"Plan a 3-day beach trip to Mati with a 10k budget next month for 4 people\"*\n"
+              "💬 *\"Show me low-budget family adventures in Toril, Davao City\"*\n\n"
+              "How can I help you explore today?",
           isUser: false,
           timestamp: DateTime.now(),
         ));
@@ -174,7 +135,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     tripProv.updateDraft(null); // Clear draft!
     setState(() {
       _messages.clear();
-      _currentStep = 0;
+      _currentStep = 7; // Configure to fully free-form conversation!
       _isDestinationMode = false;
       _selectedDistrict = '';
       _selectedDays = 3;
@@ -189,7 +150,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _messages.add(_ChatMessage(
         text:
             "Hello! I am your Lakbay AI Travel Assistant 🤖.\n\n"
-            "Let's design your perfect itinerary in the Davao Region! Where would you like to travel?",
+            "I can help you design the perfect custom travel itinerary anywhere in the Davao Region!\n\n"
+            "Simply tell me what you want, e.g.:\n"
+            "💬 *\"Plan a 3-day beach trip to Mati with a 10k budget next month for 4 people\"*\n"
+            "💬 *\"Show me low-budget family adventures in Toril, Davao City\"*\n\n"
+            "How can I help you explore today?",
         isUser: false,
         timestamp: DateTime.now(),
       ));
@@ -1461,113 +1426,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Widget _buildDot(int index) => _TypingDot(delayMs: index * 150);
 
   Widget _buildQuickReplies() {
-    List<String> options = [];
-
-    // Destination-specific flow
-    if (_isDestinationMode) {
-      if (_currentStep == 10) {
-        options = _dateOptions;
-      } else if (_currentStep == 11) {
-        options = _destDurations;
-      } else if (_currentStep == 12) {
-        options = _travelTypes;
-      } else if (_currentStep == 125) {
-        options = _travelerCounts;
-      } else if (_currentStep == 13) {
-        options = _budgetCategories;
-      } else if (_currentStep == 15) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
-          child: Row(
-            children: [
-              ActionChip(
-                backgroundColor: AppTheme.secondaryGreen,
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
-                    const SizedBox(width: 6),
-                    Text('Plan Another Trip',
-                        style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-                  ],
-                ),
-                onPressed: _resetChat,
+    if (_messages.length > 1) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
+        child: Row(
+          children: [
+            ActionChip(
+              backgroundColor: AppTheme.secondaryGreen,
+              label: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
+                  const SizedBox(width: 6),
+                  Text('Plan Another Trip',
+                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
+                ],
               ),
-            ],
-          ),
-        );
-      }
-    } else {
-      // Standard flow
-      if (_currentStep == 0) {
-        options = _districts;
-      } else if (_currentStep == 1) {
-        options = _durations;
-      } else if (_currentStep == 2) {
-        options = _travelTypes;
-      } else if (_currentStep == 3) {
-        options = _travelerCounts;
-      } else if (_currentStep == 4) {
-        options = _vibes;
-      } else if (_currentStep == 5) {
-        options = _budgets;
-      } else if (_currentStep == 7) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
-          child: ActionChip(
-            backgroundColor: AppTheme.secondaryGreen,
-            label: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
-                const SizedBox(width: 6),
-                Text('Plan Another Trip',
-                    style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-              ],
+              onPressed: _resetChat,
             ),
-            onPressed: _resetChat,
-          ),
-        );
-      }
+          ],
+        ),
+      );
     }
-
-    if (options.isEmpty) return const SizedBox.shrink();
-
-    return Container(
-      height: 52,
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-        itemCount: options.length,
-        itemBuilder: (context, index) {
-          final opt = options[index];
-          // Budget category chips get colored
-          Color? chipColor;
-          if (_isDestinationMode && _currentStep == 13) {
-            chipColor = opt.contains('Low')
-                ? Colors.green[50]
-                : opt.contains('High')
-                    ? Colors.red[50]
-                    : Colors.amber[50];
-          }
-          return Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: ActionChip(
-              backgroundColor: chipColor ?? Colors.white,
-              elevation: 1,
-              shadowColor: Colors.black.withValues(alpha: 0.05),
-              side: BorderSide(color: AppTheme.primaryBlue.withValues(alpha: 0.2)),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
-              label: Text(opt,
-                  style: GoogleFonts.outfit(
-                      color: AppTheme.primaryBlue, fontSize: 13, fontWeight: FontWeight.w600)),
-              onPressed: () => _handleSendMessage(opt),
-            ),
-          );
-        },
-      ),
-    );
+    return const SizedBox.shrink();
   }
 
   Widget _buildInputBar() {

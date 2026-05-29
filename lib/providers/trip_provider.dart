@@ -138,40 +138,156 @@ class TripProvider extends ChangeNotifier {
         final targetDestName = _latestRecommendations.isNotEmpty ? _latestRecommendations.first.name : district;
         final targetImageUrl = _latestRecommendations.isNotEmpty ? _latestRecommendations.first.imageUrl : 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80';
         
-        // Build day-to-day agenda in Dart dynamically
+        // Build day-to-day agenda dynamically using actual database recommendations!
         final Map<int, List<TripActivity>> agenda = {};
-        for (int day = 1; day <= days; day++) {
-          agenda[day] = [
-            TripActivity(
-              time: '08:30 AM',
-              title: 'Explore $targetDestName',
-              description: 'Start with scenic morning trails and cultural guidance.',
-              cost: '₱150 - ₱300',
-              location: targetDestName,
-            ),
-            TripActivity(
-              time: '12:30 PM',
-              title: 'Local Lunch Feast',
-              description: 'Try the fresh seafood grills and fruit varieties.',
-              cost: '₱200 - ₱400',
-              location: 'Nearby Diner',
-            ),
-            TripActivity(
-              time: '03:00 PM',
-              title: 'Afternoon $vibe Spot',
-              description: 'Custom sightseeing matching your requested $vibe preference.',
-              cost: '₱250',
-              location: targetDestName,
-            ),
-            TripActivity(
-              time: '07:00 PM',
-              title: 'Dinner & Relaxation',
-              description: 'Relax and unwind at local food districts and night spots.',
-              cost: '₱400',
-              location: 'Food Street',
-            ),
-          ];
+        
+        double helperParsePrice(String text) {
+          final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
+          return double.tryParse(cleanText) ?? 0.0;
         }
+
+        String formatCost(String baseCost, {bool isPerPerson = true}) {
+          if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
+            return 'Free';
+          }
+          if (!isGroup) return baseCost;
+          
+          final val = helperParsePrice(baseCost);
+          if (val == 0.0) return baseCost;
+
+          if (isPerPerson) {
+            final total = val * numTravelers;
+            return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
+          } else {
+            // Collective cost (e.g. cottage, taxi, double room split)
+            final split = val / numTravelers;
+            return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
+          }
+        }
+
+        if (_latestRecommendations.isNotEmpty) {
+          for (int day = 1; day <= days; day++) {
+            // Spread the days across recommendations
+            final dest = _latestRecommendations[(day - 1) % _latestRecommendations.length];
+            final extra = dest.extra;
+            final String loc = dest.name;
+            final List<TripActivity> dayPlan = [];
+
+            // 1. Morning Transport (07:00 AM)
+            Map<String, String>? transportOpt;
+            if (extra.transportOptions.isNotEmpty) {
+              transportOpt = extra.transportOptions.first;
+            }
+            final transPrice = transportOpt != null ? transportOpt['price'] ?? '₱150' : '₱150';
+            dayPlan.add(TripActivity(
+              time: '07:00 AM',
+              title: day == 1 ? 'Departure to ${dest.name}' : 'Morning Transit',
+              description: transportOpt != null
+                  ? 'Board ${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}. Est. Duration: ${transportOpt['duration'] ?? '1 hour'}.'
+                  : 'Travel to $loc via local transport.',
+              cost: formatCost(transPrice, isPerPerson: false), // transport price is collective or split
+              location: 'En Route',
+            ));
+
+            // 2. Arrival & Registration (09:00 AM)
+            final envFeeStr = extra.environmentalFee.isNotEmpty ? extra.environmentalFee : '₱30';
+            dayPlan.add(TripActivity(
+              time: '09:00 AM',
+              title: 'Arrival & Registration at $loc',
+              description: '${dest.description} Environmental Fee: $envFeeStr.',
+              cost: formatCost(dest.entranceFee, isPerPerson: true),
+              location: loc,
+            ));
+
+            // 3. Lunch Break (12:30 PM)
+            final mealNotes = extra.mealInclusions.isNotEmpty 
+                ? extra.mealInclusions.first 
+                : 'Local food stalls and restaurants available.';
+            dayPlan.add(TripActivity(
+              time: '12:30 PM',
+              title: 'Lunch Break',
+              description: mealNotes,
+              cost: formatCost('₱250', isPerPerson: true),
+              location: loc,
+            ));
+
+            // 4. Afternoon Activity (02:30 PM)
+            final actName = dest.activities.isNotEmpty 
+                ? dest.activities[(day - 1) % dest.activities.length] 
+                : 'Sightseeing';
+            final actPrice = extra.activityPrices[actName] ?? 'Free';
+            final noteStr = extra.travelNotes.isNotEmpty 
+                ? extra.travelNotes.first 
+                : 'Enjoy the majestic sights and take photos.';
+            dayPlan.add(TripActivity(
+              time: '02:30 PM',
+              title: actName,
+              description: 'Vibe: $vibe. $noteStr',
+              cost: formatCost(actPrice, isPerPerson: true),
+              location: loc,
+            ));
+
+            // 5. Evening dinner / stay (06:00 PM)
+            if (days > 1 && day < days) {
+              final accomm = extra.accommodationTypes.isNotEmpty 
+                  ? extra.accommodationTypes.first 
+                  : {'type': 'Standard Room', 'price': '₱1200'};
+              final accommPrice = accomm['price'] ?? '₱1200';
+              dayPlan.add(TripActivity(
+                time: '06:00 PM',
+                title: 'Check-in at ${accomm['type']}',
+                description: 'Stay overnight near $loc. Get dinner and relax.',
+                cost: formatCost(accommPrice, isPerPerson: false), // accommodation split among travelers
+                location: loc,
+              ));
+            } else {
+              dayPlan.add(TripActivity(
+                time: '06:00 PM',
+                title: 'Evening Return',
+                description: 'Wrap up the journey. Travel back to city center.',
+                cost: 'Free',
+                location: 'Davao City',
+              ));
+            }
+
+            agenda[day] = dayPlan;
+          }
+        } else {
+          // Fallback if no database matches (e.g. for general areas)
+          for (int day = 1; day <= days; day++) {
+            agenda[day] = [
+              TripActivity(
+                time: '08:30 AM',
+                title: 'Explore $targetDestName',
+                description: 'Start with scenic morning trails and cultural guidance.',
+                cost: formatCost('₱150', isPerPerson: true),
+                location: targetDestName,
+              ),
+              TripActivity(
+                time: '12:30 PM',
+                title: 'Local Lunch Feast',
+                description: 'Try the fresh seafood grills and fruit varieties.',
+                cost: formatCost('₱250', isPerPerson: true),
+                location: 'Nearby Diner',
+              ),
+              TripActivity(
+                time: '03:00 PM',
+                title: 'Afternoon $vibe Spot',
+                description: 'Custom sightseeing matching your requested $vibe preference.',
+                cost: formatCost('₱150', isPerPerson: true),
+                location: targetDestName,
+              ),
+              TripActivity(
+                time: '07:00 PM',
+                title: 'Dinner & Relaxation',
+                description: 'Relax and unwind at local food districts and night spots.',
+                cost: formatCost('₱350', isPerPerson: true),
+                location: 'Food Street',
+              ),
+            ];
+          }
+        }
+
 
         _latestGeneratedTrip = Trip(
           id: 'ai-trip-${DateTime.now().millisecondsSinceEpoch}',
@@ -206,11 +322,171 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final responseMap = await _apiService.chatWithAI(text);
+      String enrichedPrompt = text;
+      if (_latestGeneratedTrip != null) {
+        final trip = _latestGeneratedTrip!;
+        final itinerarySummary = StringBuffer();
+        trip.itinerary.forEach((day, activities) {
+          itinerarySummary.write('\nDay $day:');
+          for (var act in activities) {
+            itinerarySummary.write('\n - ${act.time}: ${act.title} at ${act.location} (${act.cost}) - ${act.description}');
+          }
+        });
+
+        enrichedPrompt = '[Current Active Trip Context:\n'
+            'Destination: ${trip.destinationName}\n'
+            'Budget: ₱${trip.budget.toStringAsFixed(0)}\n'
+            'Days: ${trip.itinerary.length}\n'
+            'Group Trip: ${trip.isGroup} (Travelers: ${trip.numTravelers})\n'
+            'Itinerary:$itinerarySummary]\n\n'
+            'User follow-up message / request: $text';
+      }
+
+      final responseMap = await _apiService.chatWithAI(enrichedPrompt);
       if (responseMap != null) {
         _latestChatResponse = responseMap['chat_response'];
         final List<dynamic> results = responseMap['results'] ?? [];
         _latestRecommendations = results.map((r) => Destination.fromJson(r)).toList();
+
+        final mode = responseMap['mode'] as String?;
+        if (mode == 'travel' && _latestRecommendations.isNotEmpty) {
+          final prefs = responseMap['parsed_preferences'] ?? {};
+          final int days = prefs['duration_days'] ?? 3;
+          final double budget = (prefs['total_budget'] as num?)?.toDouble() ?? (prefs['budget'] as num?)?.toDouble() ?? 5000.0;
+          final String district = prefs['location'] ?? _latestRecommendations.first.district;
+          final String vibe = prefs['vibe'] ?? 'Nature';
+          final bool isGroup = prefs['group_size'] != null && (prefs['group_size'] as num) > 1;
+          final int numTravelers = (prefs['group_size'] as num?)?.toInt() ?? 1;
+
+          final targetDestName = _latestRecommendations.first.name;
+          final targetImageUrl = _latestRecommendations.first.imageUrl;
+          
+          final Map<int, List<TripActivity>> agenda = {};
+          
+          double helperParsePrice(String text) {
+            final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
+            return double.tryParse(cleanText) ?? 0.0;
+          }
+
+          String formatCost(String baseCost, {bool isPerPerson = true}) {
+            if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
+              return 'Free';
+            }
+            if (!isGroup) return baseCost;
+            
+            final val = helperParsePrice(baseCost);
+            if (val == 0.0) return baseCost;
+
+            if (isPerPerson) {
+              final total = val * numTravelers;
+              return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
+            } else {
+              final split = val / numTravelers;
+              return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
+            }
+          }
+
+          for (int day = 1; day <= days; day++) {
+            final dest = _latestRecommendations[(day - 1) % _latestRecommendations.length];
+            final extra = dest.extra;
+            final String loc = dest.name;
+            final List<TripActivity> dayPlan = [];
+
+            // 1. Morning Transport
+            Map<String, String>? transportOpt;
+            if (extra.transportOptions.isNotEmpty) {
+              transportOpt = extra.transportOptions.first;
+            }
+            final transPrice = transportOpt != null ? transportOpt['price'] ?? '₱150' : '₱150';
+            dayPlan.add(TripActivity(
+              time: '07:00 AM',
+              title: day == 1 ? 'Departure to ${dest.name}' : 'Morning Transit',
+              description: transportOpt != null
+                  ? 'Board ${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}. Est. Duration: ${transportOpt['duration'] ?? '1 hour'}.'
+                  : 'Travel to $loc via local transport.',
+              cost: formatCost(transPrice, isPerPerson: false),
+              location: 'En Route',
+            ));
+
+            // 2. Arrival & Registration
+            final envFeeStr = extra.environmentalFee.isNotEmpty ? extra.environmentalFee : '₱30';
+            dayPlan.add(TripActivity(
+              time: '09:00 AM',
+              title: 'Arrival & Registration at $loc',
+              description: '${dest.description} Environmental Fee: $envFeeStr.',
+              cost: formatCost(dest.entranceFee, isPerPerson: true),
+              location: loc,
+            ));
+
+            // 3. Lunch Break
+            final mealNotes = extra.mealInclusions.isNotEmpty 
+                ? extra.mealInclusions.first 
+                : 'Local food stalls and restaurants available.';
+            dayPlan.add(TripActivity(
+              time: '12:30 PM',
+              title: 'Lunch Break',
+              description: mealNotes,
+              cost: formatCost('₱250', isPerPerson: true),
+              location: loc,
+            ));
+
+            // 4. Afternoon Activity
+            final actName = dest.activities.isNotEmpty 
+                ? dest.activities[(day - 1) % dest.activities.length] 
+                : 'Sightseeing';
+            final actPrice = extra.activityPrices[actName] ?? 'Free';
+            final noteStr = extra.travelNotes.isNotEmpty 
+                ? extra.travelNotes.first 
+                : 'Enjoy the majestic sights and take photos.';
+            dayPlan.add(TripActivity(
+              time: '02:30 PM',
+              title: actName,
+              description: 'Vibe: $vibe. $noteStr',
+              cost: formatCost(actPrice, isPerPerson: true),
+              location: loc,
+            ));
+
+            // 5. Evening stay
+            if (days > 1 && day < days) {
+              final accomm = extra.accommodationTypes.isNotEmpty 
+                  ? extra.accommodationTypes.first 
+                  : {'type': 'Standard Room', 'price': '₱1200'};
+              final accommPrice = accomm['price'] ?? '₱1200';
+              dayPlan.add(TripActivity(
+                time: '06:00 PM',
+                title: 'Check-in at ${accomm['type']}',
+                description: 'Stay overnight near $loc. Get dinner and relax.',
+                cost: formatCost(accommPrice, isPerPerson: false),
+                location: loc,
+              ));
+            } else {
+              dayPlan.add(TripActivity(
+                time: '06:00 PM',
+                title: 'Evening Return',
+                description: 'Wrap up the journey. Travel back.',
+                cost: 'Free',
+                location: 'Davao Region',
+              ));
+            }
+
+            agenda[day] = dayPlan;
+          }
+
+          _latestGeneratedTrip = Trip(
+            id: 'ai-trip-${DateTime.now().millisecondsSinceEpoch}',
+            title: 'Custom $vibe Adventure in $district',
+            destinationName: '$district, Davao Region',
+            dateRange: 'Flexible Dates (AI Generated)',
+            budget: budget,
+            imageUrl: targetImageUrl,
+            itinerary: agenda,
+            isGroup: isGroup,
+            numTravelers: numTravelers,
+          );
+        } else {
+          _latestGeneratedTrip = null;
+        }
+
         notifyListeners();
         return true;
       }
@@ -276,5 +552,12 @@ class TripProvider extends ChangeNotifier {
       _userTrips[tripIndex] = trip.copyWith(itinerary: currentItinerary);
       notifyListeners();
     }
+  }
+
+  // Load any saved trip into active context to continue chatting with the AI Assistant
+  void discussTripWithAI(Trip trip) {
+    _latestGeneratedTrip = trip;
+    _latestChatResponse = "Loaded '${trip.title}'! 🏝️\n\nHow can I help you modify this itinerary, plan budget changes, or suggest new activities?";
+    notifyListeners();
   }
 }

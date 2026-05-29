@@ -401,6 +401,46 @@ class _TripCard extends StatelessWidget {
                       _chip(Icons.payments_rounded, '₱${trip.budget.toStringAsFixed(0)}'),
                     ],
                   ),
+                  const Divider(height: AppConstants.spaceL),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.psychology_rounded, size: 16, color: AppTheme.secondaryGreen),
+                          label: const Text('Consult AI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen)),
+                          onPressed: () {
+                            context.read<TripProvider>().discussTripWithAI(trip);
+                            context.read<NavProvider>().setIndex(1); // switch tab to AI Planner
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            backgroundColor: AppTheme.secondaryGreen.withOpacity(0.08),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: AppConstants.spaceS),
+                      Expanded(
+                        child: TextButton.icon(
+                          icon: const Icon(Icons.dashboard_customize_rounded, size: 16, color: AppTheme.primaryBlue),
+                          label: const Text('Manage', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                          onPressed: () {
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.groupDashboard,
+                              arguments: trip,
+                            );
+                          },
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            backgroundColor: AppTheme.primaryBlue.withOpacity(0.08),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
