@@ -48,8 +48,8 @@ class MainNavigation extends StatelessWidget {
                   label: 'Home',
                 ),
                 BottomNavigationBarItem(
-                  icon: Icon(Icons.psychology_outlined),
-                  activeIcon: Icon(Icons.psychology_rounded),
+                  icon: ImageIcon(AssetImage('assets/icons/ai_planner.png')),
+                  activeIcon: ImageIcon(AssetImage('assets/icons/ai_planner.png')),
                   label: 'Planner',
                 ),
                 BottomNavigationBarItem(

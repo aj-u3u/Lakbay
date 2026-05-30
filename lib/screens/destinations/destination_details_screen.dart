@@ -12,6 +12,8 @@ import '../../providers/trip_provider.dart';
 import '../../providers/nav_provider.dart';
 import '../../widgets/buttons/custom_button.dart';
 
+import '../../services/api_service.dart';
+
 class DestinationDetailsScreen extends StatefulWidget {
   final Destination destination;
   final bool isFromRecommendation;
@@ -32,6 +34,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   String? _locationError;
   final MapController _mapController = MapController();
   double? _distanceToDestination;
+
+  @override
+  void initState() {
+    super.initState();
+    // Record lightweight view interaction immediately to update popularity metrics
+    ApiService().recordInteraction(widget.destination.id, 'view');
+  }
+
 
   String? _getActivityPrice(String activityName, Destination dest) {
     final prices = dest.extra.activityPrices;
@@ -194,7 +204,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     color: Colors.white,
                   ),
                 ),
-                onPressed: () => setState(() => _isSaved = !_isSaved),
+                onPressed: () {
+                  final newSavedState = !_isSaved;
+                  setState(() => _isSaved = newSavedState);
+                  if (newSavedState) {
+                    // Record save interaction in Postgres event log to boost popularity score
+                    ApiService().recordInteraction(widget.destination.id, 'save');
+                  }
+                },
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(
@@ -904,7 +921,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       },
                       variant: ButtonVariant.ghost,
                       width: double.infinity,
-                      leadingIcon: Icons.psychology_rounded,
+                      leadingWidget: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), size: 18),
                     ),
                     const SizedBox(height: AppConstants.spaceXL),
                   ],
@@ -1047,6 +1064,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               );
                               
                               provider.addActivityToTrip(trip.id, newActivity);
+                              ApiService().recordInteraction(dest.id, 'itinerary_add');
                               Navigator.pop(sheetContext);
                               
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -1149,6 +1167,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   if (mounted) {
                     Navigator.pop(dialogContext);
                     if (success) {
+                      ApiService().recordInteraction(dest.id, 'itinerary_add');
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text('New Trip "$title" created and ${dest.name} added!'),

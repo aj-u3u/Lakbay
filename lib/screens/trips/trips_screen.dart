@@ -138,7 +138,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                     color: AppTheme.secondaryGreen.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.psychology_rounded, color: AppTheme.secondaryGreen, size: 24),
+                  child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.secondaryGreen, size: 24),
                 ),
                 title: Text(
                   'AI Trip Planner',
@@ -443,7 +443,7 @@ class _TripCard extends StatelessWidget {
                     children: [
                       Expanded(
                         child: TextButton.icon(
-                          icon: const Icon(Icons.psychology_rounded, size: 16, color: AppTheme.secondaryGreen),
+                          icon: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), size: 16, color: AppTheme.secondaryGreen),
                           label: const Text('Consult AI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen)),
                           onPressed: () {
                             context.read<TripProvider>().discussTripWithAI(trip);

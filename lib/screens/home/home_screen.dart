@@ -13,6 +13,7 @@ import '../../widgets/shared/section_header.dart';
 import '../../widgets/cards/destination_card.dart';
 import '../../widgets/cards/promo_card.dart';
 import '../../models/planner_draft.dart';
+import '../../services/api_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +38,12 @@ class _HomeScreenState extends State<HomeScreen> {
   final _searchFocusNode = FocusNode();
   OverlayEntry? _suggestionsOverlayEntry;
   final LayerLink _layerLink = LayerLink();
+
+  // Dual-Engine backend popularity & recommendation states
+  List<Destination> _popularDestinations = [];
+  List<Destination> _recommendedDestinations = [];
+  bool _loadingPopular = false;
+  bool _loadingRecommended = false;
 
   List<Map<String, String>> _getSuggestions(List<Destination> allDests) {
     final query = _searchQuery.trim().toLowerCase();
@@ -89,18 +96,21 @@ class _HomeScreenState extends State<HomeScreen> {
     'Relaxation'
   ];
 
-  final List<Map<String, String>> _promoSlides = [
+  final List<Map<String, dynamic>> _promoSlides = [
     {
+      'id': 8,
       'title': 'Pearl Farm\nBeach Resort',
       'subtitle': 'Samal Island, Davao del Norte',
       'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
     },
     {
+      'id': 15,
       'title': 'Dahican Beach\nSurf Paradise',
       'subtitle': 'Mati City, Davao Oriental',
       'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=900&q=80',
     },
     {
+      'id': 12,
       'title': 'Mount Apo\nNational Park',
       'subtitle': 'Digos City, Davao del Sur',
       'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
@@ -114,8 +124,41 @@ class _HomeScreenState extends State<HomeScreen> {
     _searchFocusNode.addListener(_onSearchFocusChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<TripProvider>().loadInitialData();
+      _fetchRealDestinations();
     });
     _startPromoTimer();
+  }
+
+  void _fetchRealDestinations() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingPopular = true;
+      _loadingRecommended = true;
+    });
+
+    try {
+      final popular = await ApiService().fetchPopularDestinations(limit: 10);
+      if (mounted) {
+        setState(() {
+          _popularDestinations = popular;
+          _loadingPopular = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingPopular = false);
+    }
+
+    try {
+      final recommended = await ApiService().fetchRecommendedDestinations(limit: 6);
+      if (mounted) {
+        setState(() {
+          _recommendedDestinations = recommended;
+          _loadingRecommended = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) setState(() => _loadingRecommended = false);
+    }
   }
 
   void _onSearchFocusChanged() {
@@ -428,7 +471,10 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               children: [
                 const SizedBox(height: AppConstants.spaceL),
-                SectionHeader(title: 'Featured', onActionPressed: () {}),
+                SectionHeader(
+                  title: 'Featured',
+                  onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                ),
                 const SizedBox(height: AppConstants.spaceS),
                 SizedBox(
                   height: 196,
@@ -439,10 +485,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (_, i) {
                       final s = _promoSlides[i];
                       return PromoCard(
-                        title: s['title']!,
-                        subtitle: s['subtitle']!,
-                        imageUrl: s['image']!,
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                        title: s['title'] as String,
+                        subtitle: s['subtitle'] as String,
+                        imageUrl: s['image'] as String,
+                        onTap: () {
+                          final destId = s['id'] as int;
+                          final dest = allDests.firstWhere(
+                            (d) => d.id == destId,
+                            orElse: () => allDests.firstWhere((d) => d.id == 8),
+                          );
+                          Navigator.pushNamed(
+                            context,
+                            AppRoutes.destinationDetail,
+                            arguments: dest,
+                          );
+                        },
                       );
                     },
                   ),
@@ -471,60 +528,68 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // Popular destinations
+          // Dual-Engine Recommendations and Global Popular Leaderboard or Search Results
           SliverToBoxAdapter(
-            child: Column(
-              children: [
-                const SizedBox(height: AppConstants.spaceL),
-                SectionHeader(
-                  title: 'Popular Destinations',
-                  onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
-                ),
-                const SizedBox(height: AppConstants.spaceS),
-                 SizedBox(
-                  height: 290,
-                  child: filtered.isEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.05),
-                                  shape: BoxShape.circle,
+            child: _searchQuery.isEmpty && _selectedCategory == 'All' && _selectedDistrict == 'All'
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildRecommendedSection(context),
+                      _buildPopularLeaderboardSection(context),
+                    ],
+                  )
+                : Column(
+                    children: [
+                      const SizedBox(height: AppConstants.spaceL),
+                      SectionHeader(
+                        title: 'Search Results',
+                        onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                      ),
+                      const SizedBox(height: AppConstants.spaceS),
+                      SizedBox(
+                        height: 290,
+                        child: filtered.isEmpty
+                            ? Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(16),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.search_off_rounded, size: 40, color: AppTheme.primaryBlue),
+                                    ),
+                                    const SizedBox(height: 12),
+                                    Text(
+                                      'No destinations found',
+                                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    const Text(
+                                      'Try adjusting your search or filters',
+                                      style: TextStyle(color: AppTheme.textSecondaryLight, fontSize: 12),
+                                    ),
+                                  ],
                                 ),
-                                child: const Icon(Icons.search_off_rounded, size: 40, color: AppTheme.primaryBlue),
+                              )
+                            : ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                                itemCount: filtered.length,
+                                itemBuilder: (_, i) => DestinationCard(
+                                  destination: filtered[i],
+                                  onTap: () => Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.destinationDetail,
+                                    arguments: filtered[i],
+                                  ),
+                                ),
                               ),
-                              const SizedBox(height: 12),
-                              Text(
-                                'No destinations found',
-                                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue),
-                              ),
-                              const SizedBox(height: 4),
-                              const Text(
-                                'Try adjusting your search or filters',
-                                style: TextStyle(color: AppTheme.textSecondaryLight, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        )
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                          itemCount: filtered.length,
-                          itemBuilder: (_, i) => DestinationCard(
-                            destination: filtered[i],
-                            onTap: () => Navigator.pushNamed(
-                              context,
-                              AppRoutes.destinationDetail,
-                              arguments: filtered[i],
-                            ),
-                          ),
-                        ),
-                ),
-              ],
-            ),
+                      ),
+                    ],
+                  ),
           ),
 
           // District Bento Explorer
@@ -642,6 +707,642 @@ class _HomeScreenState extends State<HomeScreen> {
               fontWeight: FontWeight.bold,
               fontSize: 13,
             ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendedSection(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (_loadingRecommended) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppConstants.spaceL),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            child: SectionHeader(title: 'Recommended For You ✨', onActionPressed: () {}),
+          ),
+          const SizedBox(height: AppConstants.spaceS),
+          SizedBox(
+            height: 290,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              itemCount: 3,
+              itemBuilder: (_, _) => _buildShimmerCard(context),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_recommendedDestinations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppConstants.spaceL),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Recommended For You ✨',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                  Text(
+                    'AI-curated travel experiences tailored for you',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                child: const Text('View All', style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppConstants.spaceS),
+        SizedBox(
+          height: 310,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            itemCount: _recommendedDestinations.length,
+            itemBuilder: (context, index) {
+              final dest = _recommendedDestinations[index];
+              return _buildRecommendedCard(context, dest);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecommendedCard(BuildContext context, Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Extract a nice personalized tag from matchReasons
+    String matchTag = "AI Pick";
+    if (dest.matchReasons.isNotEmpty) {
+      matchTag = dest.matchReasons.values.first;
+    } else {
+      matchTag = "Matches Profile";
+    }
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.destinationDetail,
+          arguments: dest,
+        );
+      },
+      child: Container(
+        width: 230,
+        margin: const EdgeInsets.only(right: AppConstants.spaceM),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          boxShadow: AppConstants.premiumShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          child: Stack(
+            children: [
+              // Hero Image
+              Positioned.fill(
+                child: Image.network(
+                  dest.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppTheme.primaryBlue.withOpacity(0.15),
+                    child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
+                  ),
+                ),
+              ),
+              // Gradient Overlay
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.85),
+                      ],
+                      stops: const [0.2, 0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              // For You Badge
+              if (matchTag != "Matches Profile")
+                Positioned(
+                  top: AppConstants.spaceM,
+                  left: AppConstants.spaceM,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [AppTheme.secondaryGreen, AppTheme.accentTeal],
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppTheme.secondaryGreen.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome, color: Colors.white, size: 10),
+                        const SizedBox(width: 4),
+                        Text(
+                          matchTag,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // Rating Badge
+              Positioned(
+                top: AppConstants.spaceM,
+                right: AppConstants.spaceM,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.star_rounded, color: Color(0xFFFBBC04), size: 12),
+                      const SizedBox(width: 2),
+                      Text(
+                        dest.rating.toStringAsFixed(1),
+                        style: const TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Content details
+              Positioned(
+                bottom: AppConstants.spaceM,
+                left: AppConstants.spaceM,
+                right: AppConstants.spaceM,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dest.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          const Shadow(color: Colors.black45, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, color: AppTheme.secondaryGreen, size: 12),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            dest.district,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondaryGreen.withOpacity(0.9),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            'From ${dest.entranceFee}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                        // Micro tag for matching category
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.white10,
+                            borderRadius: BorderRadius.circular(4),
+                            border: Border.all(color: Colors.white24, width: 0.5),
+                          ),
+                          child: Text(
+                            dest.category,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 8,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPopularLeaderboardSection(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (_loadingPopular) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppConstants.spaceL),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            child: SectionHeader(title: 'Popular Destinations 🔥', onActionPressed: () {}),
+          ),
+          const SizedBox(height: AppConstants.spaceS),
+          SizedBox(
+            height: 290,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              itemCount: 3,
+              itemBuilder: (_, _) => _buildShimmerCard(context),
+            ),
+          ),
+        ],
+      );
+    }
+
+    if (_popularDestinations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppConstants.spaceL),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Popular Destinations 🔥',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                  Text(
+                    'Davao Region\'s highest rated and trending places',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton(
+                onPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                child: const Text('View All', style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AppConstants.spaceS),
+        SizedBox(
+          height: 300,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            itemCount: _popularDestinations.length,
+            itemBuilder: (context, index) {
+              final dest = _popularDestinations[index];
+              return _buildPopularLeaderboardCard(context, dest, index);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPopularLeaderboardCard(BuildContext context, Destination dest, int index) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Choose rank background gradient and border color
+    List<Color> rankColors = [AppTheme.primaryBlue, AppTheme.accentTeal];
+    if (index == 0) {
+      rankColors = [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Gold
+    } else if (index == 1) {
+      rankColors = [const Color(0xFFC0C0C0), const Color(0xFF808080)]; // Silver
+    } else if (index == 2) {
+      rankColors = [const Color(0xFFCD7F32), const Color(0xFF8B4513)]; // Bronze
+    }
+
+    final isTrending = dest.trendingStatus == 'high' || dest.trendingStatus == 'rising';
+
+    return GestureDetector(
+      onTap: () {
+        Navigator.pushNamed(
+          context,
+          AppRoutes.destinationDetail,
+          arguments: dest,
+        );
+      },
+      child: Container(
+        width: 220,
+        margin: const EdgeInsets.only(right: AppConstants.spaceM),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          boxShadow: AppConstants.premiumShadow,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          child: Stack(
+            children: [
+              // Hero Image
+              Positioned.fill(
+                child: Image.network(
+                  dest.imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => Container(
+                    color: AppTheme.primaryBlue.withOpacity(0.15),
+                    child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
+                  ),
+                ),
+              ),
+              // Gradient Overlay
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.black.withOpacity(0.1),
+                        Colors.black.withOpacity(0.3),
+                        Colors.black.withOpacity(0.85),
+                      ],
+                      stops: const [0.2, 0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+              // Leaderboard Rank Badge (Hidden from UI as requested)
+              // Positioned(
+              //   top: AppConstants.spaceM,
+              //   left: AppConstants.spaceM,
+              //   child: Container(
+              //     width: 32,
+              //     height: 32,
+              //     decoration: BoxDecoration(
+              //       gradient: LinearGradient(colors: rankColors),
+              //       shape: BoxShape.circle,
+              //       boxShadow: [
+              //         BoxShadow(
+              //           color: rankColors.first.withOpacity(0.4),
+              //           blurRadius: 6,
+              //           offset: const Offset(0, 3),
+              //         ),
+              //       ],
+              //       border: Border.all(color: Colors.white, width: 1.5),
+              //     ),
+              //     child: Center(
+              //       child: Text(
+              //         '#${index + 1}',
+              //         style: const TextStyle(
+              //           color: Colors.white,
+              //           fontSize: 12,
+              //           fontWeight: FontWeight.bold,
+              //         ),
+              //       ),
+              //     ),
+              //   ),
+              // ),
+              // Trending Hot Badge
+              if (isTrending)
+                Positioned(
+                  top: AppConstants.spaceM,
+                  right: AppConstants.spaceM,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.redAccent.withOpacity(0.3),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 10),
+                        SizedBox(width: 2),
+                        Text(
+                          'HOT',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                // Simple Rating Badge
+                Positioned(
+                  top: AppConstants.spaceM,
+                  right: AppConstants.spaceM,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.9),
+                      borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.star_rounded, color: Color(0xFFFBBC04), size: 12),
+                        const SizedBox(width: 2),
+                        Text(
+                          dest.rating.toStringAsFixed(1),
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // Bottom Details
+              Positioned(
+                bottom: AppConstants.spaceM,
+                left: AppConstants.spaceM,
+                right: AppConstants.spaceM,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      dest.name,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        shadows: [
+                          const Shadow(color: Colors.black45, blurRadius: 4),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        const Icon(Icons.location_on_rounded, color: AppTheme.secondaryGreen, size: 11),
+                        const SizedBox(width: 3),
+                        Expanded(
+                          child: Text(
+                            dest.district,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        if ((dest.popularityScore * 100).round() > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            decoration: BoxDecoration(
+                              color: AppTheme.primaryBlue.withOpacity(0.85),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(color: Colors.white30, width: 0.5),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.trending_up_rounded, color: Colors.white, size: 10),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${(dest.popularityScore * 100).toStringAsFixed(0)} pts',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        // Mini fee badge
+                        Text(
+                          dest.entranceFee.toLowerCase().contains('free') ? 'Free Entry' : dest.entranceFee.split(' ').first,
+                          style: const TextStyle(
+                            color: AppTheme.secondaryGreen,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildShimmerCard(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: 220,
+      margin: const EdgeInsets.only(right: AppConstants.spaceM),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04),
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: 24,
+          height: 24,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.5,
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue.withOpacity(0.4)),
           ),
         ),
       ),

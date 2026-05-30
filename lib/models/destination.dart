@@ -17,6 +17,9 @@ class Destination {
   final bool isElderlyFriendly;
   final double latitude;
   final double longitude;
+  final double popularityScore;
+  final String trendingStatus;
+  final Map<String, String> matchReasons;
 
   Destination({
     required this.id,
@@ -37,7 +40,11 @@ class Destination {
     this.isElderlyFriendly = true,
     required this.latitude,
     required this.longitude,
+    this.popularityScore = 0.0,
+    this.trendingStatus = 'stable',
+    this.matchReasons = const {},
   });
+
 
   // Mock Database of geographically accurate destinations in Davao Region
   static final List<Destination> davaoDestinations = [
@@ -333,6 +340,14 @@ class Destination {
 
     final accessibility = json['accessibility'] as Map<String, dynamic>? ?? {};
 
+    // Safely parse match reasons
+    final Map<String, String> matchReasonsMap = {};
+    if (json['match_reasons'] is Map) {
+      (json['match_reasons'] as Map).forEach((key, val) {
+        matchReasonsMap[key.toString()] = val.toString();
+      });
+    }
+
     return Destination(
       id: json['id'] ?? json['destination_id'] ?? 0,
       name: json['name'] ?? '',
@@ -352,6 +367,9 @@ class Destination {
       isElderlyFriendly: accessibility['isElderlyFriendly'] ?? json['is_elderly_friendly'] ?? true,
       latitude: (json['latitude'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble() ?? 0.0,
       longitude: (json['longitude'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? 0.0,
+      popularityScore: (json['popularity_score'] as num?)?.toDouble() ?? 0.0,
+      trendingStatus: json['trending_status'] ?? 'stable',
+      matchReasons: matchReasonsMap,
     );
   }
 

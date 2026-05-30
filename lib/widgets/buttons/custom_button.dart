@@ -11,6 +11,7 @@ class CustomButton extends StatelessWidget {
   final ButtonVariant variant;
   final bool isLoading;
   final IconData? leadingIcon;
+  final Widget? leadingWidget;
   final IconData? trailingIcon;
   final double? width;
 
@@ -21,6 +22,7 @@ class CustomButton extends StatelessWidget {
     this.variant = ButtonVariant.primary,
     this.isLoading = false,
     this.leadingIcon,
+    this.leadingWidget,
     this.trailingIcon,
     this.width,
   });
@@ -90,7 +92,10 @@ class CustomButton extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  if (leadingIcon != null) ...[
+                  if (leadingWidget != null) ...[
+                    leadingWidget!,
+                    const SizedBox(width: 8),
+                  ] else if (leadingIcon != null) ...[
                     Icon(leadingIcon, size: 18),
                     const SizedBox(width: 8),
                   ],

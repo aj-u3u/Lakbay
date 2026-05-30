@@ -1246,7 +1246,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(Icons.psychology_rounded, color: Colors.white, size: 20),
+              child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             Column(
@@ -1399,7 +1399,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             backgroundColor: isDark
                 ? AppTheme.secondaryGreen.withValues(alpha: 0.2)
                 : AppTheme.secondaryGreen.withValues(alpha: 0.12),
-            child: const Icon(Icons.psychology_rounded, color: AppTheme.primaryBlue, size: 20),
+            child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.primaryBlue, size: 20),
           ),
           const SizedBox(width: AppConstants.spaceM),
           Expanded(
@@ -1807,7 +1807,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         children: [
           CircleAvatar(
             backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
-            child: const Icon(Icons.psychology_rounded, color: AppTheme.primaryBlue, size: 20),
+            child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.primaryBlue, size: 20),
           ),
           const SizedBox(width: AppConstants.spaceM),
           Container(

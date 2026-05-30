@@ -172,6 +172,96 @@ class ApiService {
     return Destination.davaoDestinations;
   }
 
+  // Retrieve Popular Destinations (System 1)
+  Future<List<Destination>> fetchPopularDestinations({int limit = 10}) async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/destinations/popular?limit=$limit'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Destination.fromJson(json)).toList();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching popular destinations: $e');
+      }
+    }
+    // Fallback to local davaoDestinations sorted arbitrarily
+    return Destination.davaoDestinations.take(limit).toList();
+  }
+
+  // Retrieve Recommended Destinations (System 2)
+  Future<List<Destination>> fetchRecommendedDestinations({
+    String? category,
+    String? vibe,
+    double? budget,
+    String? duration,
+    String? location,
+    List<String>? activities,
+    int limit = 5,
+  }) async {
+    try {
+      final Map<String, String> queryParams = {
+        'limit': limit.toString(),
+      };
+      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      if (vibe != null && vibe.isNotEmpty) queryParams['vibe'] = vibe;
+      if (budget != null) queryParams['budget'] = budget.toString();
+      if (duration != null && duration.isNotEmpty) queryParams['duration'] = duration;
+      if (location != null && location.isNotEmpty) queryParams['location'] = location;
+      if (activities != null && activities.isNotEmpty) queryParams['activities'] = activities.join(',');
+
+      final uri = Uri.parse('$baseUrl/destinations/recommended').replace(queryParameters: queryParams);
+      
+      final headers = <String, String>{};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.get(uri, headers: headers);
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Destination.fromJson(json)).toList();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching recommended destinations: $e');
+      }
+    }
+    // Fallback to local davaoDestinations
+    return Destination.davaoDestinations.take(limit).toList();
+  }
+
+  // Record Destination Interaction (System 1 Write Path)
+  Future<bool> recordInteraction(int destinationId, String eventType, {double? rating}) async {
+    try {
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = {
+        'event_type': eventType,
+        'rating': ?rating,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/destinations/$destinationId/interactions'),
+        headers: headers,
+        body: json.encode(body),
+      );
+
+      return response.statusCode == 200;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error recording interaction: $e');
+      }
+      return false;
+    }
+  }
+
+
   // AI Chat
   Future<Map<String, dynamic>?> chatWithAI(String prompt) async {
     try {
