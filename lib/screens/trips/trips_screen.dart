@@ -18,6 +18,7 @@ class TripsScreen extends StatefulWidget {
 
 class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
+  String _selectedFilter = 'All'; // 'All', 'Solo', 'Group'
 
   @override
   void initState() {
@@ -278,6 +279,90 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
     );
   }
 
+  Widget _buildFilterChipsSection() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final filters = [
+      {'label': 'All', 'icon': Icons.space_dashboard_rounded},
+      {'label': 'Solo', 'icon': Icons.backpack_rounded},
+      {'label': 'Group', 'icon': Icons.people_alt_rounded},
+    ];
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceS, horizontal: AppConstants.spaceM),
+      color: Theme.of(context).colorScheme.surface,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: filters.map((f) {
+            final label = f['label'] as String;
+            final icon = f['icon'] as IconData;
+            final isSelected = _selectedFilter == label;
+
+            return Padding(
+              padding: const EdgeInsets.only(right: AppConstants.spaceS),
+              child: GestureDetector(
+                onTap: () {
+                  setState(() {
+                    _selectedFilter = label;
+                  });
+                },
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeInOut,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? AppTheme.primaryBlue
+                        : (isDark ? Colors.grey.withOpacity(0.1) : Colors.grey.withOpacity(0.06)),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: isSelected
+                          ? AppTheme.primaryBlue
+                          : (isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.withOpacity(0.15)),
+                      width: 1,
+                    ),
+                    boxShadow: isSelected
+                        ? [
+                            BoxShadow(
+                              color: AppTheme.primaryBlue.withOpacity(0.3),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            )
+                          ]
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        icon,
+                        size: 14,
+                        color: isSelected
+                            ? Colors.white
+                            : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        label == 'All' ? 'All Trips' : (label == 'Solo' ? 'Solo Trips' : 'Group Trips'),
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          color: isSelected
+                              ? Colors.white
+                              : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          }).toList(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -303,25 +388,49 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           ],
         ),
       ),
-      body: Consumer<TripProvider>(
-        builder: (_, provider, _) {
-          if (provider.isLoading) return const LoadingIndicator(message: 'Loading your trips...');
-          final trips = provider.userTrips;
-          final upcomingTrips = trips.where((t) => !_isTripCompleted(t)).toList();
-          final completedTrips = trips.where((t) => _isTripCompleted(t)).toList();
+      body: Column(
+        children: [
+          _buildFilterChipsSection(),
+          Expanded(
+            child: Consumer<TripProvider>(
+              builder: (_, provider, _) {
+                if (provider.isLoading) return const LoadingIndicator(message: 'Loading your trips...');
+                
+                final trips = provider.userTrips;
+                
+                List<Trip> filterByStyle(List<Trip> list) {
+                  if (_selectedFilter == 'Solo') {
+                    return list.where((t) => !t.isGroup).toList();
+                  } else if (_selectedFilter == 'Group') {
+                    return list.where((t) => t.isGroup).toList();
+                  }
+                  return list;
+                }
 
-          return TabBarView(
-            controller: _tabCtrl,
-            children: [
-              upcomingTrips.isEmpty
-                  ? _buildEmptyState('No upcoming trips', Icons.flight_takeoff_rounded, 'Plan a new trip to get started!')
-                  : _buildTripList(upcomingTrips),
-              completedTrips.isEmpty
-                  ? _buildEmptyState('No completed trips yet', Icons.check_circle_outline, 'Complete a trip to see it here.')
-                  : _buildTripList(completedTrips),
-            ],
-          );
-        },
+                final upcomingTrips = filterByStyle(trips.where((t) => !_isTripCompleted(t)).toList());
+                final completedTrips = filterByStyle(trips.where((t) => _isTripCompleted(t)).toList());
+
+                return TabBarView(
+                  controller: _tabCtrl,
+                  children: [
+                    upcomingTrips.isEmpty
+                        ? _buildEmptyState(
+                            _selectedFilter == 'All' ? 'No upcoming trips' : 'No upcoming $_selectedFilter trips',
+                            Icons.flight_takeoff_rounded,
+                            'Plan a new trip to get started!')
+                        : _buildTripList(upcomingTrips),
+                    completedTrips.isEmpty
+                        ? _buildEmptyState(
+                            _selectedFilter == 'All' ? 'No completed trips yet' : 'No completed $_selectedFilter trips yet',
+                            Icons.check_circle_outline,
+                            'Complete a trip to see it here.')
+                        : _buildTripList(completedTrips),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }

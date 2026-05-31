@@ -16,6 +16,9 @@ class PreferenceSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
+
     return Wrap(
       spacing: AppConstants.spaceS,
       runSpacing: AppConstants.spaceS,
@@ -33,7 +36,7 @@ class PreferenceSelector extends StatelessWidget {
               color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
               borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
               border: Border.all(
-                color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withOpacity(0.4),
+                color: isSelected ? AppTheme.primaryBlue : secondaryTextColor.withOpacity(0.4),
                 width: 1.5,
               ),
             ),
@@ -42,7 +45,7 @@ class PreferenceSelector extends StatelessWidget {
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                color: isSelected ? Colors.white : AppTheme.textSecondaryLight,
+                color: isSelected ? Colors.white : secondaryTextColor,
               ),
             ),
           ),

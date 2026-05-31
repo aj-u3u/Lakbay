@@ -346,6 +346,16 @@ class Destination {
       (json['match_reasons'] as Map).forEach((key, val) {
         matchReasonsMap[key.toString()] = val.toString();
       });
+    } else if (json['matched_reasons'] is List) {
+      final List list = json['matched_reasons'] as List;
+      for (int i = 0; i < list.length; i++) {
+        matchReasonsMap['reason_$i'] = list[i].toString();
+      }
+    } else if (json['match_reasons'] is List) {
+      final List list = json['match_reasons'] as List;
+      for (int i = 0; i < list.length; i++) {
+        matchReasonsMap['reason_$i'] = list[i].toString();
+      }
     }
 
     return Destination(

@@ -38,13 +38,16 @@ class _CustomInputFieldState extends State<CustomInputField> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           widget.label,
           style: theme.textTheme.labelLarge?.copyWith(
-            color: _isFocused ? AppTheme.primaryBlue : AppTheme.textSecondaryLight,
+            color: _isFocused ? AppTheme.primaryBlue : secondaryTextColor,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -66,7 +69,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
               prefixIcon: widget.prefixIcon != null
                   ? Icon(
                       widget.prefixIcon,
-                      color: _isFocused ? AppTheme.primaryBlue : AppTheme.textSecondaryLight,
+                      color: _isFocused ? AppTheme.primaryBlue : secondaryTextColor,
                       size: 20,
                     )
                   : null,
@@ -75,7 +78,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
                       onTap: widget.onSuffixTap,
                       child: Icon(
                         widget.suffixIcon,
-                        color: _isFocused ? AppTheme.primaryBlue : AppTheme.textSecondaryLight,
+                        color: _isFocused ? AppTheme.primaryBlue : secondaryTextColor,
                         size: 20,
                       ),
                     )

@@ -35,7 +35,7 @@ class SectionHeader extends StatelessWidget {
             GestureDetector(
               onTap: onActionPressed,
               child: Text(
-                actionText!,
+                actionText ?? 'View All',
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: theme.colorScheme.secondary,
                   fontWeight: FontWeight.bold,

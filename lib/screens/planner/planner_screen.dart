@@ -78,25 +78,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final provider = context.read<TripProvider>();
     final dest = provider.activePlanDestination;
 
-    _isDestinationMode = false;
-    _currentStep = 7; // Configure to fully free-form conversation!
-
     if (dest != null) {
       _activeDest = dest;
+      _isDestinationMode = true;
+      _currentStep = 10;
       setState(() {
+        _messages.clear();
         _messages.add(_ChatMessage(
-          text:
-              "Hello! 👋 I'm your Lakbay AI Travel Assistant.\n\n"
-              "I see you want to plan a trip to **${dest.name}** in ${dest.location}! ✨\n\n"
-              "Tell me what you'd like to do, e.g.:\n"
-              "💬 *\"Plan a 3-day weekend group trip for 4 on a balanced budget\"*\n"
-              "💬 *\"What is a low-budget itinerary for a 2-day solo trip here?\"*\n\n"
-              "How would you like to plan your visit?",
+          text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
           isUser: false,
           timestamp: DateTime.now(),
         ));
       });
     } else {
+      _isDestinationMode = false;
+      _currentStep = 7; // Configure to fully free-form conversation!
       setState(() {
         _messages.add(_ChatMessage(
           text:
@@ -184,6 +180,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       // ── DESTINATION MODE FLOW ──────────────────────────────────────────
       if (_isDestinationMode) {
+        // Intercept correction attempts during active planning steps
+        const correctableSteps = [10, 11, 12, 115, 116, 125, 128, 13];
+        if (correctableSteps.contains(_currentStep) && _detectCorrectionIntent(text)) {
+          await _handleCorrectionIntent(text);
+          return;
+        }
         await _handleDestinationFlowStep(text);
         return;
       }
@@ -207,6 +209,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
       }
 
       if (isFreeForm) {
+        _extractPrefsFromPrompt(text);
         final provider = context.read<TripProvider>();
         final success = await provider.sendFreeFormChat(text);
 
@@ -514,6 +517,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           val *= 1000;
         }
         if (val > 0) {
+          _selectedBudget = val;
           if (val <= 3000) {
             _selectedBudgetCategory = 'Low Budget';
           } else if (val <= 10000) {
@@ -572,8 +576,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _scrollToBottom();
 
     await Future.delayed(const Duration(milliseconds: 600));
-    if (!mounted) return;
-
     setState(() {
       _messages.add(_ChatMessage(
         text:
@@ -587,8 +589,95 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _scrollToBottom();
   }
 
+  // =========================================================================
+  //  SMART CORRECTION HELPERS
+  // =========================================================================
+
+  /// Returns true if the user message contains intent to correct a previous input.
+  bool _detectCorrectionIntent(String text) {
+    final lower = text.toLowerCase().trim();
+    const triggers = [
+      'no,', 'nope', 'wait,', 'wait ',
+      'actually', 'i meant', 'i mean',
+      'not right', 'wrong', 'incorrect',
+      'change it', 'fix it', 'change the', 'fix the',
+      'correction', 're-do', 'redo',
+      "that's not", "that is not",
+      'should be', 'supposed to be',
+      'not june', 'not may', 'not 1', 'not 2', 'not 3',
+    ];
+    return triggers.any((t) => lower.contains(t));
+  }
+
+  /// Re-parses a correction message and updates only the fields that were found.
+  void _parseCorrection(String correctionText) {
+    final lower = correctionText.toLowerCase();
+
+    // Re-extract duration — "X day(s)" pattern
+    final daysMatch = RegExp(r'\b(\d+)\s*(?:day|days)\b').firstMatch(lower);
+    if (daysMatch != null) {
+      final d = int.tryParse(daysMatch.group(1) ?? '');
+      if (d != null && d > 0 && d <= 30) {
+        _selectedDays = d;
+        _extractedDays = true;
+      }
+    }
+
+    // Re-extract date via the existing smart parser
+    // Only update the date if the correction text contains explicit date language
+    final hasDateHint = RegExp(
+      r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|'
+      r'monday|tuesday|wednesday|thursday|friday|saturday|sunday|'
+      r'today|tomorrow|next|this weekend|next weekend|next month|'
+      r'\d+\s*days?\s*from|june|july|august|january|february|march|april)',
+      caseSensitive: false,
+    ).hasMatch(correctionText);
+
+    if (hasDateHint) {
+      final newDate = _parseSmartDate(correctionText);
+      final today = DateTime.now();
+      final todayMidnight = DateTime(today.year, today.month, today.day);
+      if (!newDate.isBefore(todayMidnight)) {
+        _selectedDate = _formatDate(newDate);
+      }
+    }
+  }
+
+  /// Shows a confirmation card asking the user to verify their date + duration.
+  void _showPlanConfirmationCard(Destination dest) {
+    setState(() {
+      _isTyping = false;
+      _messages.add(_ChatMessage(
+        text: 'Here\'s what I understood from your input — please confirm before we continue:',
+        isUser: false,
+        timestamp: DateTime.now(),
+        isConfirmationPrompt: true,
+      ));
+    });
+    _scrollToBottom();
+  }
+
+  /// Intercepts a correction intent at any step in the destination flow.
+  Future<void> _handleCorrectionIntent(String text) async {
+    _parseCorrection(text);
+    final dest = _activeDest!;
+    setState(() { _isTyping = false; });
+    _showPlanConfirmationCard(dest);
+    _currentStep = 115;
+  }
+
+  // =========================================================================
+  //  DESTINATION-SPECIFIC FLOW
+  // =========================================================================
   Future<void> _handleDestinationFlowStep(String text) async {
     String aiResponse = '';
+    if (_activeDest == null) {
+      setState(() {
+        _isDestinationMode = false;
+        _currentStep = 7;
+      });
+      return;
+    }
     final dest = _activeDest!;
 
     switch (_currentStep) {
@@ -617,18 +706,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
           aiResponse =
               "📅 Perfect! **$_selectedDate** it is.\n\n"
               "How many days would you like to spend at **${dest.name}**?";
-        } else if (!_extractedTravelType) {
-          _currentStep = 12;
-          aiResponse =
-              "📅 Perfect! **$_selectedDate** for **$_selectedDays day${_selectedDays > 1 ? 's' : ''}** it is. 🌿\n\n"
-              "Who will you be traveling with? Solo or with a Group?";
-        } else if (!_extractedBudget) {
-          _currentStep = 128;
-          aiResponse =
-              "📅 Perfect! **$_selectedDate** for **$_selectedDays day${_selectedDays > 1 ? 's' : ''}** it is. 🎒\n\n"
-              "What is your estimated budget for this trip?";
         } else {
-          await _generateAndShowDestinationPlan(dest);
+          // Both date and duration are known — show confirmation card
+          _currentStep = 115;
+          setState(() { _isTyping = false; });
+          _showPlanConfirmationCard(dest);
           return;
         }
         break;
@@ -640,21 +722,51 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _extractedDays = true;
         _extractPrefsFromPrompt(text);
 
-        if (!_extractedTravelType) {
-          _currentStep = 12;
-          aiResponse =
-              "Great — a **$_selectedDays-day** adventure at ${dest.name}! 🌿\n\n"
-              "Who will you be traveling with? Solo or with a Group?";
-        } else if (!_extractedBudget) {
-          _currentStep = 128;
-          aiResponse =
-              "Great — a **$_selectedDays-day** adventure at ${dest.name}! 🎒\n\n"
-              "What is your estimated budget for this trip?";
+        // Both date and duration are now known — always confirm before advancing
+        _currentStep = 115;
+        setState(() { _isTyping = false; });
+        _showPlanConfirmationCard(dest);
+        return;
+
+      // Step 115 — waiting for user to confirm date + duration
+      case 115:
+        final lower = text.toLowerCase();
+        if (lower.contains('confirm') || lower.contains('correct') ||
+            lower.contains('yes') || lower.contains('right') ||
+            lower.contains('looks good') || lower.contains('ok') ||
+            lower.contains('sure') || lower.contains('proceed') ||
+            lower.contains('continue') || lower == '✅') {
+          // User confirmed — advance to travel type
+          if (!_extractedTravelType) {
+            _currentStep = 12;
+            aiResponse =
+                "Great! $_selectedDate for $_selectedDays day${_selectedDays > 1 ? 's' : ''} at ${dest.name}. 🌿\n\n"
+                "Who will you be traveling with? Solo or with a Group?";
+          } else if (!_extractedBudget) {
+            _currentStep = 128;
+            aiResponse =
+                "Confirmed! $_selectedDate for $_selectedDays day${_selectedDays > 1 ? 's' : ''} at ${dest.name}. 🎒\n\n"
+                "What is your estimated budget for this trip?";
+          } else {
+            await _generateAndShowDestinationPlan(dest);
+            return;
+          }
         } else {
-          await _generateAndShowDestinationPlan(dest);
+          // User typed something else — treat as an inline correction
+          _parseCorrection(text);
+          setState(() { _isTyping = false; });
+          _showPlanConfirmationCard(dest);
           return;
         }
         break;
+
+      // Step 116 — user clicked "Let me fix this" and typed a correction
+      case 116:
+        _parseCorrection(text);
+        _currentStep = 115;
+        setState(() { _isTyping = false; });
+        _showPlanConfirmationCard(dest);
+        return;
 
       // Step 12 — user picks travel type
       case 12:
@@ -689,8 +801,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
         final clean = double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
         _selectedBudget = clean;
         _currentStep = 13;
-        aiResponse = _buildSuggestedBudgetPrompt(dest);
-        break;
+        final prompt = _buildSuggestedBudgetPrompt(dest);
+        setState(() {
+          _isTyping = false;
+          _messages.add(_ChatMessage(
+            text: prompt,
+            isUser: false,
+            timestamp: DateTime.now(),
+            isBudgetPrompt: true,
+          ));
+        });
+        _scrollToBottom();
+        return;
 
       // Step 13 — user picks budget category
       case 13:
@@ -1068,6 +1190,31 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final extra = dest.extra;
 
     final transportOpt = _getTransportOption(dest, transportCategory);
+    final bool isGroupTrip = _selectedTravelType.toLowerCase().contains('group');
+
+    double helperParsePrice(String text) {
+      final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
+      return double.tryParse(cleanText) ?? 0.0;
+    }
+
+    String formatCost(String baseCost, {bool isPerPerson = true}) {
+      if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
+        return 'Free';
+      }
+      if (!isGroupTrip) return baseCost;
+      
+      final val = helperParsePrice(baseCost);
+      if (val == 0.0) return baseCost;
+
+      if (isPerPerson) {
+        final total = val * _numTravelers;
+        return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
+      } else {
+        // Collective cost (e.g. cottage, taxi, double room split)
+        final split = val / (_numTravelers > 0 ? _numTravelers : 1);
+        return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
+      }
+    }
 
     for (int day = 1; day <= _selectedDays; day++) {
       final List<TripActivity> dayPlan = [];
@@ -1083,7 +1230,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 : 'Head to ${dest.location} via your preferred transport.')
             : 'Start the day with breakfast and light exploration around the area.',
         cost: day == 1
-            ? (transportOpt != null ? transportOpt['price']! : 'Free')
+            ? (transportOpt != null ? formatCost(transportOpt['price']!, isPerPerson: false) : 'Free')
             : 'Free',
         location: day == 1 ? 'En Route' : loc,
       ));
@@ -1095,7 +1242,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         description: day == 1
             ? 'Pay entrance fee (${dest.entranceFee}) and environmental fee (${extra.environmentalFee}). Collect maps and orient with the surroundings.'
             : 'Enjoy a beautiful morning exploring the core sights of the destination.',
-        cost: day == 1 ? dest.entranceFee : 'Free',
+        cost: day == 1 ? formatCost(dest.entranceFee, isPerPerson: true) : 'Free',
         location: loc,
       ));
 
@@ -1127,7 +1274,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               : isHighAct
                   ? 'Premium private guided $actName with top-tier equipment and priority access.'
                   : 'Standard experience of $actName with standard equipment.',
-          cost: actPrice,
+          cost: formatCost(actPrice, isPerPerson: true),
           location: loc,
         ));
       }
@@ -1141,7 +1288,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             : isHighMeal
                 ? 'Premium in-resort dining or top-rated restaurant nearby.'
                 : 'Mid-range restaurant or in-resort café.',
-        cost: isLowMeal ? '₱150' : isHighMeal ? '₱600' : '₱300',
+        cost: formatCost(isLowMeal ? '₱150' : isHighMeal ? '₱600' : '₱300', isPerPerson: true),
         location: loc,
       ));
 
@@ -1151,7 +1298,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         title: 'Afternoon ${dest.category} Experience',
         description: 'Explore more of ${dest.name}. '
             '${extra.travelNotes.isNotEmpty ? extra.travelNotes.first : 'Enjoy the scenery and take photos.'}',
-        cost: isLowAct ? '₱100' : isHighAct ? '₱500' : '₱250',
+        cost: formatCost(isLowAct ? '₱100' : isHighAct ? '₱500' : '₱250', isPerPerson: true),
         location: loc,
       ));
 
@@ -1170,7 +1317,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           time: '06:00 PM',
           title: 'Dinner & Check-In: $accommName',
           description: '${extra.mealInclusions.isNotEmpty ? extra.mealInclusions.first : 'Dinner at nearby grill houses.'} Overnight at $accommName.',
-          cost: accommPrice,
+          cost: formatCost(accommPrice, isPerPerson: false),
           location: loc,
         ));
       } else {
@@ -1178,7 +1325,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           time: '05:00 PM',
           title: 'Wrap Up & Return Trip',
           description: 'Pack up and head back via ${transportOpt != null ? transportOpt['vehicle'] ?? 'transport' : 'transport'}.',
-          cost: transportOpt != null ? transportOpt['price']! : 'Free',
+          cost: transportOpt != null ? formatCost(transportOpt['price']!, isPerPerson: false) : 'Free',
           location: 'En Route Home',
         ));
       }
@@ -1196,8 +1343,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
       budget: budgetEst,
       imageUrl: dest.imageUrl,
       itinerary: agenda,
-      isGroup: _selectedTravelType.toLowerCase().contains('group'),
+      isGroup: isGroupTrip,
       numTravelers: _numTravelers,
+      members: isGroupTrip ? Trip.seedMembers(_numTravelers) : const [],
     );
   }
 
@@ -1220,6 +1368,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         provider.setActivePlanningMoodPrompt(null);
         _handleSendMessage(prompt);
+      });
+    }
+
+    // Check for prefilled destination deep-link from home screen
+    if (provider.activePlanDestination != null) {
+      final dest = provider.activePlanDestination!;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        provider.setActivePlanDestination(null);
+        setState(() {
+          _activeDest = dest;
+          _isDestinationMode = true;
+          _currentStep = 10;
+          _messages.clear();
+          _messages.add(_ChatMessage(
+            text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ));
+        });
+        _scrollToBottom();
       });
     }
 
@@ -1249,31 +1417,39 @@ class _PlannerScreenState extends State<PlannerScreen> {
               child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _isDestinationMode && _activeDest != null
-                      ? 'Planning: ${_activeDest!.name}'
-                      : 'Lakbay AI Assistant',
-                  style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Row(
-                  children: [
-                    Container(
-                      width: 6, height: 6,
-                      decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      _isDestinationMode ? 'Destination Mode' : 'Online',
-                      style: GoogleFonts.outfit(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w500),
-                    ),
-                  ],
-                ),
-              ],
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    _isDestinationMode && _activeDest != null
+                        ? 'Planning: ${_activeDest!.name}'
+                        : 'Lakbay AI Assistant',
+                    style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                  Row(
+                    children: [
+                      Container(
+                        width: 6, height: 6,
+                        decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          _isDestinationMode ? 'Destination Mode' : 'Online',
+                          style: GoogleFonts.outfit(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                          maxLines: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ],
         ),
@@ -1433,6 +1609,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 if (message.generatedTrip != null) ...[
                   const SizedBox(height: AppConstants.spaceM),
                   _buildTripCard(message.generatedTrip!),
+                ],
+                if (message.isBudgetPrompt && _activeDest != null) ...[
+                  const SizedBox(height: AppConstants.spaceM),
+                  _buildBudgetSelectorWidget(_activeDest!),
+                ],
+                if (message.isConfirmationPrompt && _activeDest != null) ...[
+                  const SizedBox(height: AppConstants.spaceM),
+                  _buildConfirmationCard(_activeDest!),
                 ],
                 if (message.recommendations != null && message.recommendations!.isNotEmpty) ...[
                   _buildRecommendations(message.recommendations!),
@@ -1597,9 +1781,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                       _activeDest = dest;
                                       _isDestinationMode = true;
                                       _currentStep = 10;
-                                      _extractedDays = false;
-                                      _extractedTravelType = false;
-                                      _extractedBudget = false;
+                                      
                                       
                                       _messages.add(_ChatMessage(
                                         text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
@@ -1612,7 +1794,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                   child: Text(
                                     'Plan Trip',
                                     style: GoogleFonts.outfit(
-                                      fontSize: 9,
+                                      fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -1635,6 +1817,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   Widget _buildTripCard(Trip trip) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final provider = context.watch<TripProvider>();
+    final bool isTripSaved = provider.userTrips.any((t) => t.id == trip.id);
+
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
@@ -1676,7 +1861,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       children: [
                         Row(
                           children: [
-                            _chip('${trip.itinerary.length} Day${trip.itinerary.length > 1 ? 's' : ''}',
+                            _chip('${trip.itinerary.length} Day${trip.itinerary.length > 1 ? "s" : ""}',
                                 AppTheme.secondaryGreen),
                             const SizedBox(width: 6),
                             if (_selectedBudgetCategory.isNotEmpty)
@@ -1716,50 +1901,105 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primaryBlue,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(vertical: 10),
-                            shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10)),
-                          ),
-                          icon: const Icon(Icons.map_rounded, size: 16),
-                          label: Text('View Details',
-                              style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.plannerResults,
-                              arguments: trip,
-                            );
-                          },
-                        ),
+                        child: isTripSaved
+                            ? ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.secondaryGreen,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.dashboard_customize_rounded, size: 16),
+                                label: Text('Manage Trip',
+                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.groupDashboard,
+                                    arguments: trip,
+                                  );
+                                },
+                              )
+                            : ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryBlue,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
+                                ),
+                                icon: const Icon(Icons.visibility_rounded, size: 16),
+                                label: Text('View Details',
+                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                                onPressed: () {
+                                  Navigator.pushNamed(
+                                    context,
+                                    AppRoutes.plannerResults,
+                                    arguments: trip,
+                                  );
+                                },
+                              ),
                       ),
                       const SizedBox(width: 8),
-                      IconButton(
-                        style: IconButton.styleFrom(
-                          backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
-                          foregroundColor: AppTheme.secondaryGreen,
-                          padding: const EdgeInsets.all(10),
-                          shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                        ),
-                        icon: const Icon(Icons.bookmark_add_rounded, size: 20),
-                        tooltip: 'Save to My Trips',
-                        onPressed: () async {
-                          final provider = context.read<TripProvider>();
-                          provider.addNewTrip(trip);
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Itinerary saved to My Trips! 🎉'),
-                                backgroundColor: AppTheme.secondaryGreen,
+                      isTripSaved
+                          ? Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                                borderRadius: BorderRadius.circular(10),
                               ),
-                            );
-                          }
-                        },
-                      ),
+                              child: const Icon(
+                                Icons.bookmark_added_rounded,
+                                color: AppTheme.secondaryGreen,
+                                size: 20,
+                              ),
+                            )
+                          : IconButton(
+                              style: IconButton.styleFrom(
+                                backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                                foregroundColor: AppTheme.secondaryGreen,
+                                padding: const EdgeInsets.all(10),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(10)),
+                              ),
+                              icon: const Icon(Icons.bookmark_add_rounded, size: 20),
+                              tooltip: 'Save to My Trips',
+                              onPressed: () async {
+                                final provider = context.read<TripProvider>();
+                                
+                                // Show a persistent loading indicator dialog
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (_) => const Center(
+                                    child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+                                  ),
+                                );
+
+                                final success = await provider.addNewTrip(trip);
+                                
+                                if (context.mounted) {
+                                  Navigator.pop(context); // Dismiss loading dialog
+                                  
+                                  if (success) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('Trip saved successfully! 🎉'),
+                                        backgroundColor: AppTheme.secondaryGreen,
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(provider.errorMessage ?? 'Failed to save itinerary. Please try again.'),
+                                        backgroundColor: Colors.redAccent,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
                     ],
                   ),
                 ],
@@ -1917,6 +2157,546 @@ class _PlannerScreenState extends State<PlannerScreen> {
       ),
     );
   }
+
+  List<String> _getIncludedActivitiesForCategory(Destination dest, String category) {
+    final prices = dest.extra.activityPrices;
+    if (prices.isEmpty) return ['Self-guided sightseeing'];
+    
+    final sortedKeys = prices.keys.toList()
+      ..sort((a, b) => _parsePrice(prices[a]!).compareTo(_parsePrice(prices[b]!)));
+      
+    if (category == 'Low Budget') {
+      return [sortedKeys.first];
+    } else if (category == 'High Budget') {
+      return prices.keys.toList();
+    } else {
+      final count = sortedKeys.length > 2 ? 2 : sortedKeys.length;
+      return sortedKeys.sublist(0, count);
+    }
+  }
+
+  String _getAccommodationDetails(Destination dest, String category) {
+    final types = dest.extra.accommodationTypes;
+    if (types.isEmpty) {
+      final overnight = dest.extra.overnightFee;
+      return overnight.toLowerCase().contains('not applicable') ? 'No overnight stay planned' : 'Standard Lodging ($overnight)';
+    }
+    if (category == 'Low Budget') {
+      final first = types.first;
+      return "${first['type'] ?? 'Standard Room'} (${first['price'] ?? 'Free'})";
+    } else if (category == 'High Budget') {
+      final last = types.last;
+      return "${last['type'] ?? 'Deluxe Resort/Villa'} (${last['price'] ?? 'Premium Price'})";
+    } else {
+      final mid = types.length ~/ 2;
+      final middle = types[mid];
+      return "${middle['type'] ?? 'Comfortable Inn/Hotel'} (${middle['price'] ?? 'Standard Price'})";
+    }
+  }
+
+  String _getTransportDetails(Destination dest, String category) {
+    final opt = _getTransportOption(dest, category);
+    if (opt == null) return 'Local commuting';
+    final vehicle = opt['vehicle'] ?? 'Public Transit';
+    final price = opt['price'] ?? 'Free';
+    final route = (opt['from'] != null && opt['to'] != null) ? "${opt['from']} ➔ ${opt['to']}" : "";
+    return "$vehicle${route.isNotEmpty ? ' ($route)' : ''} — $price";
+  }
+
+  String _getMealDetails(Destination dest, String category) {
+    if (category == 'Low Budget') {
+      return "Local street food & budget eateries (₱150/meal)";
+    } else if (category == 'High Budget') {
+      return "Fine dining & premium resort restaurants (₱600/meal)";
+    } else {
+      return "Mid-range casual dining & tourist cafes (₱300/meal)";
+    }
+  }
+
+  Widget _buildConfirmationCard(Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final cardBg = Theme.of(context).cardColor;
+    final borderColor = isDark
+        ? AppTheme.primaryBlue.withValues(alpha: 0.35)
+        : AppTheme.primaryBlue.withValues(alpha: 0.25);
+
+    Widget summaryRow(IconData icon, String label, String value, Color iconColor) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: iconColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, size: 16, color: iconColor),
+            ),
+            const SizedBox(width: 10),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label,
+                    style: GoogleFonts.outfit(
+                      fontSize: 10,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    )),
+                Text(value,
+                    style: GoogleFonts.outfit(
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppTheme.primaryBlue,
+                    )),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    final durationLabel = _selectedDays == 1
+        ? '1 Day (Day trip)'
+        : '$_selectedDays Days';
+
+    return Container(
+      margin: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: borderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.checklist_rounded, size: 16, color: AppTheme.primaryBlue),
+              const SizedBox(width: 6),
+              Text(
+                'Confirm your plan details',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Divider(color: borderColor, height: 1),
+          const SizedBox(height: 10),
+          summaryRow(Icons.calendar_today_rounded, 'Travel Date', _selectedDate.isNotEmpty ? _selectedDate : 'Not set', Colors.blue),
+          summaryRow(Icons.schedule_rounded, 'Duration', durationLabel, Colors.teal),
+          summaryRow(Icons.place_rounded, 'Destination', dest.name, AppTheme.secondaryGreen),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.secondaryGreen,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    elevation: 0,
+                  ),
+                  icon: const Icon(Icons.check_circle_rounded, size: 16),
+                  label: Text('Looks right!',
+                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () => _handleSendMessage('confirm'),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white : AppTheme.primaryBlue,
+                    side: BorderSide(color: borderColor, width: 1.5),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: const Icon(Icons.edit_rounded, size: 16),
+                  label: Text('Fix this',
+                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                  onPressed: () {
+                    setState(() { _currentStep = 116; });
+                    // Prompt user to type correction
+                    setState(() {
+                      _isTyping = false;
+                      _messages.add(_ChatMessage(
+                        text: "Sure! What would you like to change — the travel date, the duration, or both? Just type your correction. 📝",
+                        isUser: false,
+                        timestamp: DateTime.now(),
+                      ));
+                    });
+                    _scrollToBottom();
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBudgetSelectorWidget(Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    final categories = ['Low Budget', 'Balanced Budget', 'High Budget'];
+    
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      child: Column(
+        children: categories.map((cat) {
+          final lowCost = _calculateOptionCost(dest, cat);
+          final isGroup = _selectedTravelType.toLowerCase().contains('group');
+          final numTravelers = isGroup ? _numTravelers : 1;
+          final totalCost = lowCost * numTravelers;
+          
+          Color badgeColor = Colors.green[700]!;
+          if (cat == 'Balanced Budget') badgeColor = Colors.amber[700]!;
+          if (cat == 'High Budget') badgeColor = Colors.red[700]!;
+          
+          return Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 6,
+                  offset: const Offset(0, 3),
+                )
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: badgeColor.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+                        ),
+                        child: Text(
+                          cat,
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            color: badgeColor,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            '₱${_formatCurrency(lowCost)} / pax',
+                            style: GoogleFonts.outfit(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                            ),
+                          ),
+                          if (isGroup)
+                            Text(
+                              'Total: ₱${_formatCurrency(totalCost)}',
+                              style: GoogleFonts.outfit(
+                                fontSize: 10,
+                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.15), height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextButton.icon(
+                          icon: Icon(Icons.info_outline_rounded, size: 14, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                          label: Text(
+                            'View Details',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                            ),
+                          ),
+                          onPressed: () => _showBudgetDetailsSheet(dest, cat),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: badgeColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            elevation: 0,
+                          ),
+                          onPressed: () {
+                            _handleSendMessage(cat);
+                          },
+                          child: Text(
+                            'Select Style',
+                            style: GoogleFonts.outfit(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  void _showBudgetDetailsSheet(Destination dest, String category) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final double accommCost = _getAccommodationCost(dest, category);
+    final String accommDetail = _getAccommodationDetails(dest, category);
+    
+    final double transCost = _getTransportCost(dest, category);
+    final String transDetail = _getTransportDetails(dest, category);
+    
+    final double mealsCost = (category == 'Low Budget' ? 150.0 : category == 'High Budget' ? 600.0 : 300.0) * 3 * _selectedDays;
+    final String mealsDetail = _getMealDetails(dest, category);
+    
+    final double actCost = _getActivitiesCost(dest, category);
+    final List<String> actDetails = _getIncludedActivitiesForCategory(dest, category);
+    
+    final double envFee = _parsePrice(dest.extra.environmentalFee);
+    final double entFee = _parsePrice(dest.entranceFee);
+    
+    Color themeColor = Colors.green[700]!;
+    if (category == 'Balanced Budget') themeColor = Colors.amber[700]!;
+    if (category == 'High Budget') themeColor = Colors.red[700]!;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetCtx) {
+        return StatefulBuilder(
+          builder: (context, setLocalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.8,
+              padding: const EdgeInsets.all(AppConstants.spaceL),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 5,
+                      margin: const EdgeInsets.only(bottom: 16),
+                      decoration: BoxDecoration(
+                        color: isDark ? Colors.grey[800] : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              category,
+                              style: GoogleFonts.outfit(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: themeColor,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Complete breakdown of budget & inclusions',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close_rounded),
+                        onPressed: () => Navigator.pop(sheetCtx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _buildDetailRow(
+                            Icons.hotel_rounded,
+                            '🏨 Accommodation Inclusions',
+                            accommDetail,
+                            'Est. Cost: ₱${_formatCurrency(accommCost * (_selectedDays > 1 ? _selectedDays - 1 : 1))} total',
+                            themeColor,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDetailRow(
+                            Icons.directions_bus_rounded,
+                            '🚌 Transportation Inclusions',
+                            transDetail,
+                            'Est. Cost: ₱${_formatCurrency(transCost)} / person',
+                            themeColor,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDetailRow(
+                            Icons.restaurant_rounded,
+                            '🍽️ Food & Meals Plan',
+                            mealsDetail,
+                            'Est. Cost: ₱${_formatCurrency(mealsCost)} for $_selectedDays Days',
+                            themeColor,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildDetailRow(
+                            Icons.explore_rounded,
+                            '🎯 Covered Activities & Entry',
+                            actDetails.map((act) => '• $act').join('\n'),
+                            'Est. Cost: ₱${_formatCurrency(actCost)} / person',
+                            themeColor,
+                          ),
+                          if (envFee > 0 || entFee > 0) ...[
+                            const SizedBox(height: 16),
+                            _buildDetailRow(
+                              Icons.payments_rounded,
+                              '💵 Mandated Local Fees',
+                              "Environmental Fee: ₱${_formatCurrency(envFee)}\nEntrance Fee: ₱${_formatCurrency(entFee)}",
+                              'Local Government requirements',
+                              themeColor,
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: themeColor,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        elevation: 0,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(sheetCtx);
+                        _handleSendMessage(category);
+                      },
+                      child: Text(
+                        'Select $category',
+                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String title, String details, String costText, Color color) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.02) : color.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: isDark ? Colors.white12 : color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 22),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.primaryBlue,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  details,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  costText,
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // =============================================================================
@@ -1928,6 +2708,8 @@ class _ChatMessage {
   final DateTime timestamp;
   final Trip? generatedTrip;
   final List<Destination>? recommendations;
+  final bool isBudgetPrompt;
+  final bool isConfirmationPrompt;
 
   _ChatMessage({
     required String text,
@@ -1935,7 +2717,10 @@ class _ChatMessage {
     required this.timestamp,
     this.generatedTrip,
     this.recommendations,
+    this.isBudgetPrompt = false,
+    this.isConfirmationPrompt = false,
   }) : text = isUser ? text : _cleanMarkdown(text);
+
 
   static String _cleanMarkdown(String rawText) {
     String cleaned = rawText;

@@ -6,11 +6,43 @@ import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme/app_theme.dart';
+import '../../core/routes/app_routes.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/trip_provider.dart';
 import '../../widgets/buttons/custom_button.dart';
 import '../../models/trip.dart';
 import '../../models/destination.dart';
+
+class TransitHub {
+  final String name;
+  final LatLng coordinates;
+  final String city;
+
+  TransitHub({required this.name, required this.coordinates, required this.city});
+}
+
+final List<TransitHub> majorTransitHubs = [
+  TransitHub(
+    name: 'Davao Overland Transport Terminal (Ecoland)',
+    coordinates: const LatLng(7.0528, 125.5962),
+    city: 'Davao City',
+  ),
+  TransitHub(
+    name: 'Panabo Public Terminal',
+    coordinates: const LatLng(7.3079, 125.6811),
+    city: 'Panabo',
+  ),
+  TransitHub(
+    name: 'Tagum City Integrated Terminal',
+    coordinates: const LatLng(7.4475, 125.8016),
+    city: 'Tagum',
+  ),
+  TransitHub(
+    name: 'Digos Overland Transport Terminal',
+    coordinates: const LatLng(6.7554, 125.3524),
+    city: 'Digos',
+  ),
+];
 
 class PlannerResultsScreen extends StatefulWidget {
   final int durationDays;
@@ -24,7 +56,7 @@ class PlannerResultsScreen extends StatefulWidget {
 class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   Position? _userPosition;
   final MapController _mapController = MapController();
-  String _commuterStartPoint = 'Panabo';
+  String _commuterStartPoint = 'Current Location';
 
   @override
   void initState() {
@@ -73,6 +105,8 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     final titleLower = trip.title.toLowerCase();
     if (titleLower.contains('low budget') || titleLower.contains('low-budget') || titleLower.contains('cheap')) {
       return 'Low Budget';
+    } else if (titleLower.contains('balanced budget') || titleLower.contains('balanced-budget') || titleLower.contains('balanced')) {
+      return 'Balanced Budget';
     } else if (titleLower.contains('high budget') || titleLower.contains('high-budget') || titleLower.contains('premium') || titleLower.contains('luxury')) {
       return 'High Budget';
     } else {
@@ -182,7 +216,86 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     }
   }
 
-  List<Map<String, String>> _getCommuterSteps(Destination dest, String startPoint, String budgetStyle) {
+  Map<String, dynamic> _calculateFirstMile(Position userPos) {
+    TransitHub? nearestHub;
+    double minDistanceInMeters = double.infinity;
+
+    for (final hub in majorTransitHubs) {
+      final double dist = Geolocator.distanceBetween(
+        userPos.latitude,
+        userPos.longitude,
+        hub.coordinates.latitude,
+        hub.coordinates.longitude,
+      );
+      if (dist < minDistanceInMeters) {
+        minDistanceInMeters = dist;
+        nearestHub = hub;
+      }
+    }
+
+    final double distanceInKm = minDistanceInMeters / 1000.0;
+    String vehicle = 'Jeepney';
+    double estimatedCost = 15.0;
+    String duration = '5 mins';
+
+    if (distanceInKm < 1.0) {
+      vehicle = 'Walking';
+      estimatedCost = 0.0;
+      duration = '${(distanceInKm * 12).toStringAsFixed(0)} mins';
+    } else if (distanceInKm >= 1.0 && distanceInKm <= 4.0) {
+      vehicle = 'Local Tricycle / Pedicab';
+      estimatedCost = 25.0;
+      duration = '8 - 10 mins';
+    } else if (distanceInKm > 4.0 && distanceInKm <= 12.0) {
+      vehicle = 'Jeepney / Commuter Multicab';
+      estimatedCost = 45.0;
+      duration = '15 - 25 mins';
+    } else {
+      vehicle = 'Local Taxi / Grab Car';
+      estimatedCost = 150.0 + (distanceInKm * 15.0);
+      duration = '${(distanceInKm * 2.2).toStringAsFixed(0)} mins';
+    }
+
+    return {
+      'nearestHub': nearestHub ?? majorTransitHubs.first,
+      'distance': distanceInKm,
+      'vehicle': vehicle,
+      'cost': estimatedCost,
+      'duration': duration,
+    };
+  }
+
+  List<Map<String, String>> _getCommuterSteps(Destination dest, String startPoint, String budgetStyle, Position? userPos) {
+    if (startPoint == 'Current Location') {
+      if (userPos == null) {
+        return _getCommuterSteps(dest, 'Davao City', budgetStyle, null);
+      }
+      final firstMile = _calculateFirstMile(userPos);
+      final hub = firstMile['nearestHub'] as TransitHub;
+      final baseSteps = _getCommuterSteps(dest, hub.city, budgetStyle, null);
+      
+      final List<Map<String, String>> customSteps = [
+        {
+          'step': '1. Your Location to ${hub.name}',
+          'type': '${firstMile['vehicle']} (${firstMile['distance'].toStringAsFixed(1)} km)',
+          'cost': '₱${firstMile['cost'].toStringAsFixed(0)}',
+          'duration': firstMile['duration'],
+        }
+      ];
+
+      for (int i = 0; i < baseSteps.length; i++) {
+        final originalStep = baseSteps[i];
+        final cleanStepName = originalStep['step']!.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+        customSteps.add({
+          'step': '${i + 2}. $cleanStepName',
+          'type': originalStep['type'] ?? '',
+          'cost': originalStep['cost'] ?? '',
+          'duration': originalStep['duration'] ?? '',
+        });
+      }
+      return customSteps;
+    }
+
     final lowerName = dest.name.toLowerCase();
     final lowerLoc = dest.location.toLowerCase();
     final isSamal = lowerName.contains('samal') || lowerLoc.contains('samal') || lowerName.contains('pearl farm') || lowerName.contains('hagimit');
@@ -433,7 +546,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
 
   Widget _buildCommuterRouteCard(Destination dest, String budgetStyle) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final steps = _getCommuterSteps(dest, _commuterStartPoint, budgetStyle);
+    final steps = _getCommuterSteps(dest, _commuterStartPoint, budgetStyle, _userPosition);
     double totalCost = 0.0;
     for (final step in steps) {
       final priceText = step['cost'] ?? '0';
@@ -449,58 +562,80 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
         boxShadow: AppConstants.premiumShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.commute_rounded, color: AppTheme.primaryBlue, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Commuter Route Guide',
-                style: GoogleFonts.outfit(
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryBlue,
-                ),
-              ),
-              const Spacer(),
-              // Commuter Start Point Dropdown selection
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                decoration: BoxDecoration(
-                  color: AppTheme.primaryBlue.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    value: _commuterStartPoint,
-                    icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: AppTheme.primaryBlue),
-                    style: GoogleFonts.outfit(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.commute_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Commuter Route Guide',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      ),
                     ),
-                    items: ['Panabo', 'Davao City'].map((String val) {
-                      return DropdownMenuItem<String>(
-                        value: val,
-                        child: Text(val),
-                      );
-                    }).toList(),
-                    onChanged: (newVal) {
-                      if (newVal != null) {
-                        setState(() {
-                          _commuterStartPoint = newVal;
-                        });
-                      }
-                    },
+                  ],
+                ),
+                // Commuter Start Point Dropdown selection
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : AppTheme.primaryBlue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _commuterStartPoint,
+                      dropdownColor: Theme.of(context).cardColor,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      ),
+                      items: ['Current Location', 'Panabo', 'Davao City'].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(
+                            val == 'Current Location' ? '📍 Current Location' : val,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.primaryBlue,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (newVal) {
+                        if (newVal != null) {
+                          setState(() {
+                            _commuterStartPoint = newVal;
+                          });
+                          if (newVal == 'Current Location' && _userPosition == null) {
+                            _requestLocation();
+                          }
+                        }
+                      },
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: AppConstants.spaceM),
           Text(
@@ -557,20 +692,24 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                           style: GoogleFonts.outfit(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: AppTheme.primaryBlue,
+                            color: isDark ? Colors.white : AppTheme.primaryBlue,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Row(
                           children: [
-                            Text(
-                              '${step['type']} • ${step['duration']}',
-                              style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                            Expanded(
+                              child: Text(
+                                '${step['type']} • ${step['duration']}',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                ),
                               ),
                             ),
-                            const Spacer(),
+                            const SizedBox(width: 8),
                             Text(
                               step['cost'] ?? '',
                               style: GoogleFonts.outfit(
@@ -592,20 +731,25 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: AppTheme.secondaryGreen.withValues(alpha: 0.06),
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : AppTheme.secondaryGreen.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Estimated Commuter Cost:',
-                  style: GoogleFonts.outfit(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.primaryBlue,
+                Expanded(
+                  child: Text(
+                    'Estimated Commuter Cost:',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppTheme.primaryBlue,
+                    ),
                   ),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '₱${totalCost.toStringAsFixed(0)} / pax',
                   style: GoogleFonts.outfit(
@@ -628,6 +772,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
       builder: (context, provider, child) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
         final trip = widget.trip ?? provider.latestGeneratedTrip ?? Trip.mockTrips.first;
+        final bool isTripSaved = provider.userTrips.any((t) => t.id == trip.id);
 
         // Resolve matching Destination model
         final lowerSearch = trip.destinationName.toLowerCase();
@@ -652,11 +797,12 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
         if (_commuterStartPoint == 'Panabo') {
           startLocation = const LatLng(7.3079, 125.6811); // Panabo Terminal
           startName = 'Panabo Terminal';
+        } else if (_commuterStartPoint == 'Current Location' && _userPosition != null) {
+          startLocation = LatLng(_userPosition!.latitude, _userPosition!.longitude);
+          startName = 'Your Location';
         } else {
-          startLocation = _userPosition != null
-              ? LatLng(_userPosition!.latitude, _userPosition!.longitude)
-              : const LatLng(7.0706, 125.6092); // Davao City Center
-          startName = _userPosition != null ? 'Your Current Location' : 'Davao City Center';
+          startLocation = const LatLng(7.0706, 125.6092); // Davao City Center
+          startName = _commuterStartPoint == 'Current Location' ? 'Davao City Center (GPS Loading...)' : 'Davao City Center';
         }
 
         // Generate optimized route coordinates with barge crossing if destination is in Samal Island
@@ -670,8 +816,11 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
         }
         routePoints.add(LatLng(dest.latitude, dest.longitude));
 
-        final double minLowCost = _calculateOptionCost(dest, 'Low Budget') * (trip.isGroup ? trip.numTravelers : 1);
-        final bool isBudgetTooLow = trip.budget < minLowCost;
+        final double minLowCostPerPerson = _calculateOptionCost(dest, 'Low Budget');
+        final double minLowCost = trip.isGroup ? minLowCostPerPerson * trip.numTravelers * 0.8 : minLowCostPerPerson;
+        final double perPersonBudget = trip.budget / (trip.numTravelers > 0 ? trip.numTravelers : 1);
+        final double requiredMinCostPerPerson = trip.isGroup ? minLowCostPerPerson * 0.8 : minLowCostPerPerson;
+        final bool isBudgetTooLow = perPersonBudget < requiredMinCostPerPerson;
 
         final Color budgetBadgeColor = budgetStyle == 'Low Budget'
             ? Colors.green[700]!
@@ -762,7 +911,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                       'Your set budget of ₱${_formatCurrency(trip.budget)} is lower than the minimum estimated expense of ₱${_formatCurrency(minLowCost)} for this trip. We highly recommend saving more money before traveling, to ensure a safe, comfortable, and stress-free journey!',
                                       style: GoogleFonts.outfit(
                                         fontSize: 11,
-                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.red[100]! : Colors.red[850]!,
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.red[100]! : Colors.red[800]!,
                                         height: 1.4,
                                       ),
                                     ),
@@ -821,7 +970,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                             Text(
                               trip.title,
                               style: GoogleFonts.outfit(
-                                  fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                                  fontSize: 22, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                             ),
                             const SizedBox(height: 8),
                             _infoFactRow(Icons.place_rounded, dest.name, isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
@@ -875,7 +1024,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                       Text(
                         'Route Optimization',
                         style: GoogleFonts.outfit(
-                            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -990,7 +1139,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.navigation_rounded, color: AppTheme.primaryBlue, size: 16),
+                                    Icon(Icons.navigation_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 16),
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
@@ -1000,7 +1149,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                         style: GoogleFonts.outfit(
                                           fontSize: 10,
                                           fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryBlue,
+                                          color: isDark ? Colors.white : AppTheme.primaryBlue,
                                         ),
                                       ),
                                     ),
@@ -1032,7 +1181,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                       Text(
                         'Budget-Matched Bookings',
                         style: GoogleFonts.outfit(
-                            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                       ),
                       const SizedBox(height: AppConstants.spaceM),
                       Row(
@@ -1058,7 +1207,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                       Text(
                                         'Lodging',
                                         style: GoogleFonts.outfit(
-                                            fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                                            fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                                       ),
                                     ],
                                   ),
@@ -1102,7 +1251,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                       Text(
                                         'Transport',
                                         style: GoogleFonts.outfit(
-                                            fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                                            fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                                       ),
                                     ],
                                   ),
@@ -1124,20 +1273,46 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                     style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                                   ),
                                   const Spacer(),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text(
-                                        transOpt != null ? transOpt['price'] ?? 'Free' : 'Free',
+                                  if (trip.isGroup && trip.numTravelers > 1) ...[
+                                    // Group: show per pax + total
+                                    Text(
+                                      transOpt != null ? '${transOpt['price'] ?? 'Free'}/pax' : 'Free/pax',
+                                      style: GoogleFonts.outfit(
+                                          fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                                    ),
+                                    Builder(builder: (ctx) {
+                                      final perPax = _parsePrice(transOpt?['price'] ?? '0');
+                                      final total = perPax * trip.numTravelers;
+                                      return Text(
+                                        'Total: ₱${total.toStringAsFixed(0)} for ${trip.numTravelers} pax',
                                         style: GoogleFonts.outfit(
-                                            fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
-                                      ),
-                                      Text(
-                                        transOpt != null ? transOpt['duration'] ?? '1 hr' : '1 hr',
-                                        style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                                      ),
-                                    ],
-                                  ),
+                                            fontSize: 9, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                      );
+                                    }),
+                                  ] else
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            transOpt != null ? transOpt['price'] ?? 'Free' : 'Free',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                            style: GoogleFonts.outfit(
+                                                fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Text(
+                                            transOpt != null ? transOpt['duration'] ?? '1 hr' : '1 hr',
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 1,
+                                            style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                 ],
                               ),
                             ),
@@ -1152,7 +1327,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                       Text(
                         'Day-by-Day Itinerary',
                         style: GoogleFonts.outfit(
-                            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                            fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
                       ),
                       const SizedBox(height: AppConstants.spaceM),
                     ],
@@ -1216,23 +1391,23 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                     child: Container(
                       padding: const EdgeInsets.all(AppConstants.spaceL),
                       decoration: BoxDecoration(
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+                        color: isDark ? Colors.white.withValues(alpha: 0.03) : AppTheme.primaryBlue.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                        border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+                        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Row(
                             children: [
-                              const Icon(Icons.info_rounded, color: AppTheme.primaryBlue, size: 20),
+                              Icon(Icons.info_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 20),
                               const SizedBox(width: 8),
                               Text(
                                 'Important Travel Tips & Notes',
                                 style: GoogleFonts.outfit(
                                   fontSize: 14,
                                   fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryBlue,
+                                  color: isDark ? Colors.white : AppTheme.primaryBlue,
                                 ),
                               ),
                             ],
@@ -1271,22 +1446,99 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                   padding: const EdgeInsets.all(AppConstants.spaceXL),
                   child: Column(
                     children: [
-                      CustomButton(
-                        label: 'Save Itinerary to My Trips',
-                        onPressed: () {
-                          context.read<TripProvider>().saveGeneratedTrip();
-                          Navigator.pop(context);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Itinerary saved to your trips! 🎉'),
-                              backgroundColor: AppTheme.secondaryGreen,
-                            ),
-                          );
-                        },
-                        variant: ButtonVariant.primary,
-                        width: double.infinity,
-                        leadingIcon: Icons.bookmark_add_rounded,
-                      ),
+                      if (isTripSaved) ...[
+                        // Itinerary Saved ✓ Banner
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondaryGreen.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.3)),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.check_circle_rounded, color: AppTheme.secondaryGreen, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Itinerary Saved ✓',
+                                style: GoogleFonts.outfit(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.secondaryGreen,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        // Manage Trip button
+                        CustomButton(
+                          label: 'Manage Trip',
+                          onPressed: () {
+                            Navigator.pushReplacementNamed(
+                              context,
+                              AppRoutes.groupDashboard,
+                              arguments: trip,
+                            );
+                          },
+                          variant: ButtonVariant.primary,
+                          width: double.infinity,
+                          leadingIcon: Icons.dashboard_customize_rounded,
+                        ),
+                      ] else ...[
+                        // Save Itinerary to My Trips button
+                        CustomButton(
+                          label: 'Save Itinerary to My Trips',
+                          onPressed: () async {
+                            final provider = context.read<TripProvider>();
+                            
+                            // Show a persistent loading indicator dialog
+                            showDialog(
+                              context: context,
+                              barrierDismissible: false,
+                              builder: (_) => const Center(
+                                child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+                              ),
+                            );
+
+                            final success = await provider.addNewTrip(trip);
+                            
+                            if (context.mounted) {
+                              Navigator.pop(context); // Dismiss loading dialog
+                              
+                              if (success) {
+                                Navigator.pop(context); // Close results screen
+                                
+                                // Auto-route to GroupDashboardScreen
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.groupDashboard,
+                                  arguments: trip,
+                                );
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Trip saved successfully! 🎉'),
+                                    backgroundColor: AppTheme.secondaryGreen,
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(provider.errorMessage ?? 'Failed to save itinerary. Please try again.'),
+                                    backgroundColor: Colors.redAccent,
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                          variant: ButtonVariant.primary,
+                          width: double.infinity,
+                          leadingIcon: Icons.bookmark_add_rounded,
+                        ),
+                      ],
                       const SizedBox(height: AppConstants.spaceM),
                       CustomButton(
                         label: 'Go Back & Regenerate',
@@ -1397,7 +1649,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                           style: GoogleFonts.outfit(
                             fontWeight: FontWeight.bold,
                             fontSize: 14,
-                            color: AppTheme.primaryBlue,
+                            color: isDark ? Colors.white : AppTheme.primaryBlue,
                           ),
                         ),
                       ),
@@ -1468,20 +1720,21 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   }
 
   Widget _infoDetailChip(IconData icon, String label) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+        color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: AppTheme.primaryBlue),
+          Icon(icon, size: 13, color: isDark ? Colors.white : AppTheme.primaryBlue),
           const SizedBox(width: 5),
           Text(
             label,
-            style: GoogleFonts.outfit(fontSize: 11, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600),
+            style: GoogleFonts.outfit(fontSize: 11, color: isDark ? Colors.white : AppTheme.primaryBlue, fontWeight: FontWeight.w600),
           ),
         ],
       ),

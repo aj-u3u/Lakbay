@@ -20,13 +20,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   // Members List State
   late List<Map<String, String>> _members;
 
-  // Contributions Tracker State
-  final List<Map<String, dynamic>> _contributions = [
-    {'name': 'Arjane', 'amount': 5000.0, 'status': 'Paid'},
-    {'name': 'Bea', 'amount': 4000.0, 'status': 'Paid'},
-    {'name': 'Carlo', 'amount': 3000.0, 'status': 'Paid'},
-    {'name': 'Dana', 'amount': 3000.0, 'status': 'Paid'},
-  ];
+  // Contributions Tracker State — seeded from members in initState
+  late List<Map<String, dynamic>> _contributions;
 
   // Notes Editing State
   bool _isEditingNotes = false;
@@ -35,13 +30,30 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // Default group members
-    _members = [
-      {'name': 'Arjane', 'role': 'Organizer', 'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80'},
-      {'name': 'Bea', 'role': 'Member', 'avatar': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80'},
-      {'name': 'Carlo', 'role': 'Member', 'avatar': 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?w=100&q=80'},
-      {'name': 'Dana', 'role': 'Member', 'avatar': 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=100&q=80'},
-    ];
+    final trip = widget.trip;
+    if (trip != null && trip.members.isNotEmpty) {
+      // Real members from saved trip data
+      _members = List<Map<String, String>>.from(
+        trip.members.map((m) => Map<String, String>.from(m)),
+      );
+    } else if (trip != null && trip.isGroup) {
+      // Seed placeholder slots from numTravelers
+      _members = List.generate(trip.numTravelers, (i) => {
+        'name': i == 0 ? 'You (Organizer)' : 'Traveler ${i + 1}',
+        'role': i == 0 ? 'Organizer' : 'Member',
+        'avatar': '',
+      });
+    } else {
+      _members = [];
+    }
+
+    // Seed contributions from member list (all start at 0/Unpaid)
+    _contributions = _members.map<Map<String, dynamic>>((m) => {
+      'name': m['name']!,
+      'amount': 0.0,
+      'status': 'Unpaid',
+    }).toList();
+
     _notesController = TextEditingController();
   }
 
@@ -67,6 +79,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     final activeTrip = _getTrip(context);
     final totalStops = activeTrip.itinerary.values.fold<int>(0, (sum, list) => sum + list.length);
     final isGroup = activeTrip.isGroup;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
 
     // Load active notes
     if (!_isEditingNotes && _notesController.text != activeTrip.notes) {
@@ -129,6 +143,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               margin: const EdgeInsets.all(AppConstants.spaceM),
               padding: const EdgeInsets.all(AppConstants.spaceL),
               decoration: BoxDecoration(
+                color: AppTheme.primaryBlue,
                 image: DecorationImage(
                   image: NetworkImage(activeTrip.imageUrl),
                   fit: BoxFit.cover,
@@ -200,8 +215,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     Text('Members', style: Theme.of(context).textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
                     Text(
-                      'Tap to remove',
-                      style: GoogleFonts.outfit(fontSize: 12, color: AppTheme.textSecondaryLight, fontStyle: FontStyle.italic),
+                      _members.any((m) => m['avatar']!.isEmpty)
+                          ? 'Tap a slot to name them ✏️'
+                          : 'Tap to remove',
+                      style: GoogleFonts.outfit(fontSize: 12, color: secondaryTextColor, fontStyle: FontStyle.italic),
                     ),
                   ],
                 ),
@@ -246,28 +263,67 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                               ),
                             ),
                             const SizedBox(height: 6),
-                            const Text('Invite', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                            Text('Invite', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
                           ],
                         ),
                       );
                     }
                     final m = _members[i];
+                    final isPlaceholder = m['avatar']!.isEmpty;
+                    final initials = (m['name'] ?? '?').trim().isNotEmpty
+                        ? (m['name']!.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join()).toUpperCase()
+                        : '?';
+                    final avatarColors = [
+                      AppTheme.primaryBlue, AppTheme.secondaryGreen, AppTheme.accentTeal,
+                      Colors.orange, Colors.purple, Colors.redAccent,
+                    ];
+                    final memberColor = avatarColors[i % avatarColors.length];
                     return Padding(
                       padding: const EdgeInsets.only(right: AppConstants.spaceM),
                       child: GestureDetector(
-                        onTap: () => _confirmRemoveMember(i),
+                        onTap: () => isPlaceholder
+                            ? _renameMember(i)
+                            : _confirmRemoveMember(i),
                         child: Column(
                           children: [
                             Stack(
                               children: [
-                                ClipOval(
-                                  child: Image.network(m['avatar']!, width: 56, height: 56, fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      width: 56, height: 56,
-                                      color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
-                                      child: const Icon(Icons.person, color: AppTheme.primaryBlue),
-                                    )),
-                                ),
+                                isPlaceholder
+                                    ? Container(
+                                        width: 56, height: 56,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          color: memberColor.withValues(alpha: 0.15),
+                                          border: Border.all(color: memberColor.withValues(alpha: 0.4), width: 2),
+                                        ),
+                                        child: Center(
+                                          child: Text(
+                                            initials,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: memberColor,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : ClipOval(
+                                        child: Image.network(m['avatar']!, width: 56, height: 56, fit: BoxFit.cover,
+                                          errorBuilder: (context, error, stackTrace) => Container(
+                                            width: 56, height: 56,
+                                            color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
+                                            child: Center(
+                                              child: Text(
+                                                initials,
+                                                style: const TextStyle(
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppTheme.primaryBlue,
+                                                ),
+                                              ),
+                                            ),
+                                          )),
+                                      ),
                                 if (m['role'] == 'Organizer')
                                   Positioned(
                                     bottom: 0, right: 0,
@@ -280,10 +336,35 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                       child: const Icon(Icons.star_rounded, size: 11, color: Colors.white),
                                     ),
                                   ),
+                                if (isPlaceholder)
+                                  Positioned(
+                                    bottom: 0, right: 0,
+                                    child: Container(
+                                      width: 18, height: 18,
+                                      decoration: BoxDecoration(
+                                        color: memberColor,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.edit_rounded, size: 10, color: Colors.white),
+                                    ),
+                                  ),
                               ],
                             ),
                             const SizedBox(height: 6),
-                            Text(m['name']!, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600)),
+                            SizedBox(
+                              width: 60,
+                              child: Text(
+                                m['name']!,
+                                textAlign: TextAlign.center,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w600,
+                                  color: isPlaceholder ? memberColor : null,
+                                ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -370,17 +451,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     final diff = c['amount'] - personalTargetShare;
                     final isSettled = diff >= 0;
 
+                    final warningColor = isDark ? Colors.orange[300]! : Colors.orange[800]!;
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: isSettled ? AppTheme.secondaryGreen.withValues(alpha: 0.1) : Colors.orange.withValues(alpha: 0.1),
-                        child: Text(c['name']![0], style: TextStyle(color: isSettled ? AppTheme.secondaryGreen : Colors.orange, fontWeight: FontWeight.bold)),
+                        backgroundColor: isSettled ? AppTheme.secondaryGreen.withValues(alpha: 0.1) : warningColor.withValues(alpha: 0.1),
+                        child: Text(c['name']![0], style: TextStyle(color: isSettled ? AppTheme.secondaryGreen : warningColor, fontWeight: FontWeight.bold)),
                       ),
                       title: Text(c['name']!, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14)),
                       subtitle: Text(
                         isSettled 
                           ? 'Fully Contributed (Excess: ₱${diff.toStringAsFixed(0)})' 
                           : 'Owes: ₱${(-diff).toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11, color: isSettled ? AppTheme.secondaryGreen : Colors.orange),
+                        style: TextStyle(fontSize: 11, color: isSettled ? AppTheme.secondaryGreen : warningColor),
                       ),
                       trailing: Text(
                         '₱${c['amount'].toStringAsFixed(0)}',
@@ -439,9 +521,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       children: [
                         const Icon(Icons.info_outline_rounded, color: AppTheme.primaryBlue, size: 20),
                         const SizedBox(width: 8),
-                        Text(
-                          'Accurate pricing from ${matchedDest.name}',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue),
+                        Expanded(
+                          child: Text(
+                            'Accurate pricing from ${matchedDest.name}',
+                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue),
+                          ),
                         ),
                       ],
                     ),
@@ -496,7 +580,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Total Budget', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                            Text('Total Budget', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
                             const SizedBox(height: 2),
                             Text('₱${activeTrip.budget.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
                           ],
@@ -504,7 +588,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Base Destination Est.', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                            Text('Base Destination Est.', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
                             const SizedBox(height: 2),
                             Text('₱${matchedDest.estimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
                           ],
@@ -512,7 +596,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Safe Margin', style: TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                            Text('Safe Margin', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
                             const SizedBox(height: 2),
                             Text('₱${(activeTrip.budget - matchedDest.estimatedCost).toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.secondaryGreen)),
                           ],
@@ -534,8 +618,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Base cost', style: TextStyle(fontSize: 10, color: AppTheme.textSecondaryLight)),
-                        Text('Uses ${(matchedDest.estimatedCost / activeTrip.budget * 100).toStringAsFixed(0)}% of budget', style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryLight)),
+                        Text('Base cost', style: TextStyle(fontSize: 10, color: secondaryTextColor)),
+                        Text('Uses ${(matchedDest.estimatedCost / activeTrip.budget * 100).toStringAsFixed(0)}% of budget', style: TextStyle(fontSize: 10, color: secondaryTextColor)),
                       ],
                     ),
                   ],
@@ -603,10 +687,12 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   Widget _splitMetric(String label, String value, {bool isPrimary = false}) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: AppTheme.textSecondaryLight)),
+        Text(label, style: TextStyle(fontSize: 10, color: secondaryTextColor)),
         const SizedBox(height: 2),
         Text(
           value,
@@ -621,6 +707,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   Widget _costBreakdownRow(String label, String value) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2.0),
       child: Row(
@@ -628,7 +716,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         children: [
           SizedBox(
             width: 120,
-            child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppTheme.textSecondaryLight)),
+            child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: secondaryTextColor)),
           ),
           Expanded(
             child: Text(value, style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue)),
@@ -661,24 +749,30 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   Widget _buildNotesWidget(Trip activeTrip) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final noteBgColor = (isDark ? Colors.amber[900]! : Colors.amber).withValues(alpha: isDark ? 0.12 : 0.06);
+    final noteBorderColor = (isDark ? Colors.amber[300]! : Colors.amber).withValues(alpha: 0.25);
+    final noteIconColor = isDark ? Colors.amber[300]! : Colors.amber;
+    final noteTextColor = isDark ? Colors.amber[300]! : Colors.amber[800]!;
+
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
       padding: const EdgeInsets.all(AppConstants.spaceL),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.06),
+        color: noteBgColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+        border: Border.all(color: noteBorderColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              const Icon(Icons.note_alt_rounded, color: Colors.amber, size: 20),
+              Icon(Icons.note_alt_rounded, color: noteIconColor, size: 20),
               const SizedBox(width: 8),
               Text(
                 'Trip Notes & Reminders',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.amber[800]),
+                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: noteTextColor),
               ),
               const Spacer(),
               IconButton(
@@ -719,7 +813,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   activeTrip.notes.isEmpty
                       ? 'Write down packaging lists, reservation details, and personal goals for this amazing adventure...'
                       : activeTrip.notes,
-                  style: const TextStyle(fontSize: 12, height: 1.4, color: AppTheme.textSecondaryLight),
+                  style: TextStyle(
+                    fontSize: 12, 
+                    height: 1.4, 
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight
+                  ),
                 ),
         ],
       ),
@@ -750,6 +848,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             onPressed: () {
               setState(() {
                 _members.removeAt(index);
+                if (index < _contributions.length) {
+                  _contributions.removeAt(index);
+                }
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
@@ -757,6 +858,65 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               );
             },
             child: const Text('Remove', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Dialog to name a placeholder traveler slot
+  void _renameMember(int index) {
+    final nameController = TextEditingController(
+      text: _members[index]['name'],
+    );
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Name this Traveler',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+        ),
+        content: TextField(
+          controller: nameController,
+          autofocus: true,
+          textCapitalization: TextCapitalization.words,
+          decoration: const InputDecoration(
+            labelText: 'Traveler Name',
+            border: OutlineInputBorder(),
+            hintText: 'Enter member\'s name',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            onPressed: () {
+              final name = nameController.text.trim();
+              if (name.isNotEmpty) {
+                setState(() {
+                  _members[index] = {
+                    ..._members[index],
+                    'name': name,
+                    // Keep avatar empty; use initials
+                  };
+                  // Keep contribution name in sync
+                  if (index < _contributions.length) {
+                    _contributions[index]['name'] = name;
+                  }
+                });
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Traveler named "$name" ✓'),
+                    backgroundColor: AppTheme.secondaryGreen,
+                  ),
+                );
+              }
+            },
+            child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -903,6 +1063,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 });
               }
 
+              if (!context.mounted) return;
               Navigator.pop(ctx); // Close receipt sheet
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
@@ -913,11 +1074,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               );
             }
 
+            final isDark = Theme.of(context).brightness == Brightness.dark;
+            final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
+            final sheetBgColor = Theme.of(context).colorScheme.surface;
+
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.only(
+              decoration: BoxDecoration(
+                color: sheetBgColor,
+                borderRadius: const BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -930,7 +1095,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   Center(
                     child: Container(
                       width: 50, height: 5,
-                      decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                      decoration: BoxDecoration(color: isDark ? Colors.grey[700] : Colors.grey[300], borderRadius: BorderRadius.circular(10)),
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -943,7 +1108,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   Text(
                     'Transaction ID: LKB-${activeTrip.id.toUpperCase()}',
                     textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight, fontStyle: FontStyle.italic),
+                    style: TextStyle(fontSize: 11, color: secondaryTextColor, fontStyle: FontStyle.italic),
                   ),
                   const SizedBox(height: 16),
                   

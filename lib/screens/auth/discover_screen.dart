@@ -211,7 +211,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                 child: Padding(
                   padding: const EdgeInsets.all(AppConstants.spaceM),
                   child: TextButton(
-                    onPressed: () => Navigator.pushReplacementNamed(
+                    onPressed: () => Navigator.pushNamed(
                         context, AppRoutes.login),
                     child: const Text(
                       'Log In',
@@ -285,7 +285,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                     // "Log In" → Login Page (outlined, white on dark bg)
                     _OutlinedWhiteButton(
                       label: 'Log In',
-                      onPressed: () => Navigator.pushReplacementNamed(
+                      onPressed: () => Navigator.pushNamed(
                           context, AppRoutes.login),
                     ),
                     const SizedBox(height: AppConstants.spaceXL),

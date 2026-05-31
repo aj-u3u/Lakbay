@@ -14,6 +14,37 @@ import '../../widgets/buttons/custom_button.dart';
 
 import '../../services/api_service.dart';
 
+class TransitHub {
+  final String name;
+  final LatLng coordinates;
+  final String city;
+
+  TransitHub({required this.name, required this.coordinates, required this.city});
+}
+
+final List<TransitHub> majorTransitHubs = [
+  TransitHub(
+    name: 'Davao Overland Transport Terminal (Ecoland)',
+    coordinates: const LatLng(7.0528, 125.5962),
+    city: 'Davao City',
+  ),
+  TransitHub(
+    name: 'Panabo Public Terminal',
+    coordinates: const LatLng(7.3079, 125.6811),
+    city: 'Panabo',
+  ),
+  TransitHub(
+    name: 'Tagum City Integrated Terminal',
+    coordinates: const LatLng(7.4475, 125.8016),
+    city: 'Tagum',
+  ),
+  TransitHub(
+    name: 'Digos Overland Transport Terminal',
+    coordinates: const LatLng(6.7554, 125.3524),
+    city: 'Digos',
+  ),
+];
+
 class DestinationDetailsScreen extends StatefulWidget {
   final Destination destination;
   final bool isFromRecommendation;
@@ -40,8 +71,81 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     super.initState();
     // Record lightweight view interaction immediately to update popularity metrics
     ApiService().recordInteraction(widget.destination.id, 'view');
+    _checkPermissionAndGetLocation();
   }
 
+  Future<void> _checkPermissionAndGetLocation() async {
+    try {
+      final permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+        _requestLocationAndRoute();
+      }
+    } catch (_) {}
+  }
+
+
+  double _getHubToDestCost(Destination dest, String city) {
+    final options = dest.extra.transportOptions;
+    if (options.isEmpty) return 0.0;
+    for (final opt in options) {
+      final from = (opt['from'] ?? '').toLowerCase();
+      if (from.contains(city.toLowerCase()) || city.toLowerCase().contains(from)) {
+        final cleanText = (opt['price'] ?? '0').replaceAll(RegExp(r'[^\d]'), '');
+        return double.tryParse(cleanText) ?? 0.0;
+      }
+    }
+    final cleanText = (options.first['price'] ?? '0').replaceAll(RegExp(r'[^\d]'), '');
+    return double.tryParse(cleanText) ?? 0.0;
+  }
+
+  Map<String, dynamic> _calculateFirstMile(Position userPos) {
+    TransitHub? nearestHub;
+    double minDistanceInMeters = double.infinity;
+
+    for (final hub in majorTransitHubs) {
+      final double dist = Geolocator.distanceBetween(
+        userPos.latitude,
+        userPos.longitude,
+        hub.coordinates.latitude,
+        hub.coordinates.longitude,
+      );
+      if (dist < minDistanceInMeters) {
+        minDistanceInMeters = dist;
+        nearestHub = hub;
+      }
+    }
+
+    final double distanceInKm = minDistanceInMeters / 1000.0;
+    String vehicle = 'Jeepney';
+    double estimatedCost = 15.0;
+    String duration = '5 mins';
+
+    if (distanceInKm < 1.0) {
+      vehicle = 'Walking';
+      estimatedCost = 0.0;
+      duration = '${(distanceInKm * 12).toStringAsFixed(0)} mins';
+    } else if (distanceInKm >= 1.0 && distanceInKm <= 4.0) {
+      vehicle = 'Local Tricycle / Pedicab';
+      estimatedCost = 25.0;
+      duration = '8 - 10 mins';
+    } else if (distanceInKm > 4.0 && distanceInKm <= 12.0) {
+      vehicle = 'Jeepney / Commuter Multicab';
+      estimatedCost = 45.0;
+      duration = '15 - 25 mins';
+    } else {
+      vehicle = 'Local Taxi / Grab Car';
+      estimatedCost = 150.0 + (distanceInKm * 15.0);
+      duration = '${(distanceInKm * 2.2).toStringAsFixed(0)} mins';
+    }
+
+    return {
+      'nearestHub': nearestHub ?? majorTransitHubs.first,
+      'distance': distanceInKm,
+      'vehicle': vehicle,
+      'cost': estimatedCost,
+      'duration': duration,
+    };
+  }
 
   String? _getActivityPrice(String activityName, Destination dest) {
     final prices = dest.extra.activityPrices;
@@ -176,6 +280,26 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   Widget build(BuildContext context) {
     final dest = widget.destination;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    double displayCost = dest.estimatedCost;
+    String labelText = 'Est. Cost';
+
+    if (_userPosition != null) {
+      final firstMile = _calculateFirstMile(_userPosition!);
+      final hub = firstMile['nearestHub'] as TransitHub;
+      final double firstCost = firstMile['cost'] as double;
+      final double hubToDestCost = _getHubToDestCost(dest, hub.city);
+
+      final cleanEntrance = dest.entranceFee.replaceAll(RegExp(r'[^\d]'), '');
+      final double entranceFee = double.tryParse(cleanEntrance) ?? 0.0;
+
+      final cleanEnv = dest.extra.environmentalFee.replaceAll(RegExp(r'[^\d]'), '');
+      final double environmentalFee = double.tryParse(cleanEnv) ?? 0.0;
+
+      displayCost = firstCost + hubToDestCost + entranceFee + environmentalFee;
+      labelText = 'Your Cost';
+    }
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -286,7 +410,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     children: [
                       _infoBox(Icons.star_rounded, '${dest.rating}', 'Rating', const Color(0xFFFBBC04)),
                       const SizedBox(width: AppConstants.spaceM),
-                      _infoBox(Icons.payments_outlined, '₱${dest.estimatedCost.toStringAsFixed(0)}', 'Est. Cost', AppTheme.secondaryGreen),
+                      _infoBox(Icons.payments_outlined, '₱${displayCost.toStringAsFixed(0)}', labelText, AppTheme.secondaryGreen),
                       const SizedBox(width: AppConstants.spaceM),
                       _infoBox(Icons.schedule_rounded, dest.entranceFee, 'Entrance', AppTheme.primaryBlue),
                     ],
@@ -787,10 +911,109 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: dest.extra.transportOptions.length,
+                      itemCount: dest.extra.transportOptions.length + (_userPosition != null ? 1 : 0),
                       separatorBuilder: (_, _) => const SizedBox(height: AppConstants.spaceS),
                       itemBuilder: (context, index) {
-                        final option = dest.extra.transportOptions[index];
+                        if (_userPosition != null && index == 0) {
+                          final firstMile = _calculateFirstMile(_userPosition!);
+                          final hub = firstMile['nearestHub'] as TransitHub;
+                          final costText = firstMile['cost'] == 0.0 ? 'Free' : '₱${firstMile['cost'].toStringAsFixed(0)}';
+                          final vehicle = firstMile['vehicle'] as String;
+                          final distance = firstMile['distance'] as double;
+                          final duration = firstMile['duration'] as String;
+
+                          return Container(
+                            padding: const EdgeInsets.all(AppConstants.spaceM),
+                            decoration: BoxDecoration(
+                              color: isDark ? Theme.of(context).cardColor : AppTheme.secondaryGreen.withValues(alpha: 0.06),
+                              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                              border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.3), width: 1.5),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.04),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.secondaryGreen.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(
+                                    vehicle.toLowerCase().contains('walking') 
+                                        ? Icons.directions_walk_rounded 
+                                        : vehicle.toLowerCase().contains('tricycle')
+                                            ? Icons.motorcycle_rounded
+                                            : Icons.directions_transit_rounded, 
+                                    color: AppTheme.secondaryGreen, 
+                                    size: 22
+                                  ),
+                                ),
+                                const SizedBox(width: AppConstants.spaceM),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              '📍 Doorstep to ${hub.city} Hub', 
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.bold, 
+                                                fontSize: 13, 
+                                                color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                              ),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.secondaryGreen,
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                            child: const Text('CUSTOM', style: TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold)),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        'Take $vehicle from your current location → ${hub.name} (${distance.toStringAsFixed(1)} km).',
+                                        style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: AppConstants.spaceM),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      costText, 
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen, fontSize: 14)
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      duration, 
+                                      style: TextStyle(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final actualIndex = _userPosition != null ? index - 1 : index;
+                        final option = dest.extra.transportOptions[actualIndex];
                         final vehicle = option['vehicle'] ?? 'Standard Transit';
                         final price = option['price'] ?? 'Varies';
                         final from = option['from'];
@@ -917,7 +1140,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         // Switch bottom nav to Planner tab (index 1)
                         context.read<NavProvider>().setIndex(1);
                         // Pop back to the navigation shell
-                        Navigator.of(context).popUntil((route) => route.isFirst);
+                        Navigator.of(context).pop();
                       },
                       variant: ButtonVariant.ghost,
                       width: double.infinity,
@@ -1235,22 +1458,33 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
 
   Widget _infoBox(IconData icon, String value, String label, Color color) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    Color displayColor = color;
+    if (color == const Color(0xFFFBBC04) || color == Colors.yellow || color == Colors.amber) {
+      displayColor = isDark ? const Color(0xFFFBBC04) : Colors.amber[800]!;
+    }
     return Expanded(
       child: Container(
         padding: const EdgeInsets.all(AppConstants.spaceM),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: displayColor.withOpacity(0.08),
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: displayColor.withOpacity(0.2)),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 22),
+            Icon(icon, color: displayColor, size: 22),
             const SizedBox(height: 5),
-            Text(value, textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: color)),
+            Text(
+              value, 
+              textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: displayColor),
+            ),
             Text(
               label, 
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
                 fontSize: 10, 
                 color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
@@ -1299,23 +1533,26 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   }
 
   Widget _badge(String label, IconData icon, bool isActive) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final inactiveColor = isDark ? Colors.grey[400]! : Colors.grey[700]!;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: isActive ? AppTheme.secondaryGreen.withValues(alpha: 0.08) : Colors.grey.withValues(alpha: 0.08),
+        color: isActive ? AppTheme.secondaryGreen.withValues(alpha: 0.08) : inactiveColor.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
         border: Border.all(
-          color: isActive ? AppTheme.secondaryGreen.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.2),
+          color: isActive ? AppTheme.secondaryGreen.withValues(alpha: 0.2) : inactiveColor.withValues(alpha: 0.2),
         ),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 13, color: isActive ? AppTheme.secondaryGreen : Colors.grey),
+          Icon(icon, size: 13, color: isActive ? AppTheme.secondaryGreen : inactiveColor),
           const SizedBox(width: 4),
           Text(label, style: TextStyle(
             fontSize: 11, fontWeight: FontWeight.w600,
-            color: isActive ? AppTheme.secondaryGreen : Colors.grey,
+            color: isActive ? AppTheme.secondaryGreen : inactiveColor,
           )),
         ],
       ),

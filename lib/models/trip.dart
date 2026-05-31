@@ -27,6 +27,9 @@ class Trip {
   final String notes;
   final List<Map<String, dynamic>> tasks;
   final List<Map<String, dynamic>> memories;
+  /// For group trips: list of {name, role, avatar} maps.
+  /// Seeded from numTravelers on trip creation; names can be updated later.
+  final List<Map<String, String>> members;
 
   Trip({
     required this.id,
@@ -41,6 +44,7 @@ class Trip {
     this.notes = '',
     this.tasks = const [],
     this.memories = const [],
+    this.members = const [],
   });
 
   Trip copyWith({
@@ -56,6 +60,7 @@ class Trip {
     String? notes,
     List<Map<String, dynamic>>? tasks,
     List<Map<String, dynamic>>? memories,
+    List<Map<String, String>>? members,
   }) {
     return Trip(
       id: id ?? this.id,
@@ -70,7 +75,18 @@ class Trip {
       notes: notes ?? this.notes,
       tasks: tasks ?? this.tasks,
       memories: memories ?? this.memories,
+      members: members ?? this.members,
     );
+  }
+
+  /// Generates seeded placeholder members from [count].
+  /// The first slot is always 'Organizer', the rest are 'Member'.
+  static List<Map<String, String>> seedMembers(int count) {
+    return List.generate(count, (i) => {
+      'name': i == 0 ? 'You (Organizer)' : 'Traveler ${i + 1}',
+      'role': i == 0 ? 'Organizer' : 'Member',
+      'avatar': '',
+    });
   }
 
   // Mock database of trips

@@ -33,8 +33,10 @@ class ApiService {
 
   ApiService._internal();
 
-  // RENDER BACKEND URL
-  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
+  // In debug (flutter run), hit local FastAPI. In release, hit the Render cloud backend.
+  static String baseUrl = kDebugMode
+      ? 'http://localhost:8000'
+      : 'https://lakbay-finalv2backend.onrender.com';
 
   String? token;
   String? lastError;
@@ -52,7 +54,7 @@ class ApiService {
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email, 'password': password}),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -125,7 +127,7 @@ class ApiService {
           'password': password,
           'confirm_password': password,
         }),
-      );
+      ).timeout(const Duration(seconds: 10));
 
       if (response.statusCode == 201) {
         return true;
@@ -275,7 +277,7 @@ class ApiService {
         Uri.parse('$baseUrl/ai/chat'),
         headers: headers,
         body: json.encode({'prompt': prompt}),
-      );
+      ).timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -308,7 +310,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/trips'),
         headers: headers,
-      );
+      ).timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -355,6 +357,7 @@ class ApiService {
   // Save trip itinerary and metadata to PostgreSQL database
   Future<bool> createTrip(Trip newTrip) async {
     try {
+      lastError = null;
       final headers = {
         'Content-Type': 'application/json',
       };
@@ -391,6 +394,11 @@ class ApiService {
         Uri.parse('$baseUrl/trips'),
         headers: headers,
         body: json.encode(body),
+      ).timeout(
+        const Duration(seconds: 15),
+        onTimeout: () {
+          throw Exception('Connection timed out. Please check your internet connection and try again.');
+        },
       );
 
       if (response.statusCode == 201) {
@@ -399,11 +407,24 @@ class ApiService {
         }
         return true;
       } else {
+        try {
+          final errBody = json.decode(response.body);
+          lastError = errBody['detail'] ?? 'Failed to save trip (Status ${response.statusCode})';
+        } catch (_) {
+          lastError = 'Failed to save trip (Status ${response.statusCode})';
+        }
         if (kDebugMode) {
           print('Failed to save trip. status: ${response.statusCode}, body: ${response.body}');
         }
       }
     } catch (e) {
+      if (e.toString().contains('timed out') || e.toString().contains('TimeoutException')) {
+        lastError = 'Connection timed out. Please check your internet and try again.';
+      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection refused')) {
+        lastError = 'Cannot reach the server. Make sure the backend is running.';
+      } else {
+        lastError = 'Failed to save trip. Please try again.';
+      }
       if (kDebugMode) {
         print('Error saving trip: $e');
       }

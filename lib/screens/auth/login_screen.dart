@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:geolocator/geolocator.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/constants/app_constants.dart';
@@ -34,6 +36,19 @@ class _LoginScreenState extends State<LoginScreen> {
     final auth = context.read<AuthProvider>();
     final success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
     if (success && mounted) {
+      // Trigger background location permission request to prime GPS caches early (mobile-only)
+      if (!kIsWeb) {
+        try {
+          Geolocator.requestPermission().then((permission) {
+            if (permission == LocationPermission.whileInUse || permission == LocationPermission.always) {
+              try {
+                Geolocator.getLastKnownPosition();
+              } catch (_) {}
+            }
+          }).catchError((_) {});
+        } catch (_) {}
+      }
+
       // Reset navigation index to Home (0)
       try {
         context.read<NavProvider>().reset();

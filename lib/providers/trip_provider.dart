@@ -357,6 +357,7 @@ class TripProvider extends ChangeNotifier {
           itinerary: agenda,
           isGroup: isGroup,
           numTravelers: numTravelers,
+          members: isGroup ? Trip.seedMembers(numTravelers) : const [],
         );
 
         notifyListeners();
@@ -587,6 +588,7 @@ class TripProvider extends ChangeNotifier {
             itinerary: agenda,
             isGroup: isGroup,
             numTravelers: numTravelers,
+            members: isGroup ? Trip.seedMembers(numTravelers) : const [],
           );
         } else {
           _latestGeneratedTrip = null;
@@ -609,6 +611,7 @@ class TripProvider extends ChangeNotifier {
     if (_latestGeneratedTrip == null) return false;
 
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     try {
@@ -619,6 +622,7 @@ class TripProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
+      _errorMessage = _apiService.lastError ?? 'Failed to save itinerary.';
       return false;
     } catch (e) {
       _errorMessage = 'Failed to save itinerary.';
@@ -641,7 +645,7 @@ class TripProvider extends ChangeNotifier {
         notifyListeners();
         return true;
       }
-      _errorMessage = 'Failed to save trip to database.';
+      _errorMessage = _apiService.lastError ?? 'Failed to save trip to database.';
       return false;
     } catch (e) {
       _errorMessage = 'Failed to save trip.';
