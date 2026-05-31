@@ -67,6 +67,7 @@ class _LoadingOverlayWidgetState extends State<_LoadingOverlayWidget>
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return FadeTransition(
       opacity: _fadeAnim,
       child: Material(
@@ -84,7 +85,7 @@ class _LoadingOverlayWidgetState extends State<_LoadingOverlayWidget>
                   vertical: AppConstants.spaceXL,
                 ),
                 decoration: BoxDecoration(
-                  color: AppTheme.cardColorDark,
+                  color: isDark ? AppTheme.cardColorDark : Colors.white,
                   borderRadius: BorderRadius.circular(AppConstants.radiusXL),
                   border: Border.all(
                     color: AppTheme.primaryBlue.withValues(alpha: 0.25),
@@ -112,7 +113,7 @@ class _LoadingOverlayWidgetState extends State<_LoadingOverlayWidget>
                       style: GoogleFonts.outfit(
                         fontSize: 14,
                         fontWeight: FontWeight.w500,
-                        color: AppTheme.textPrimaryDark,
+                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         height: 1.5,
                       ),
                     ),

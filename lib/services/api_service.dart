@@ -33,10 +33,8 @@ class ApiService {
 
   ApiService._internal();
 
-  // In debug (flutter run), hit local FastAPI. In release, hit the Render cloud backend.
-  static String baseUrl = kDebugMode
-      ? 'http://localhost:8000'
-      : 'https://lakbay-finalv2backend.onrender.com';
+  // Always points to the Render cloud backend (never localhost).
+  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
 
   String? token;
   String? lastError;
@@ -54,7 +52,7 @@ class ApiService {
         Uri.parse('$baseUrl/auth/login'),
         headers: {'Content-Type': 'application/json'},
         body: json.encode({'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -99,7 +97,12 @@ class ApiService {
         }
       }
     } catch (e) {
-      lastError = 'Cannot connect to server.';
+      // Render free-tier cold start can take up to 60 s — hint the user to retry.
+      if (e.toString().contains('TimeoutException')) {
+        lastError = 'Server is waking up. Please wait a moment and try again.';
+      } else {
+        lastError = 'Cannot connect to server. Check your internet and try again.';
+      }
 
       if (kDebugMode) {
         print('Login request error: $e');
@@ -127,7 +130,7 @@ class ApiService {
           'password': password,
           'confirm_password': password,
         }),
-      ).timeout(const Duration(seconds: 10));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 201) {
         return true;
@@ -277,7 +280,7 @@ class ApiService {
         Uri.parse('$baseUrl/ai/chat'),
         headers: headers,
         body: json.encode({'prompt': prompt}),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -310,7 +313,7 @@ class ApiService {
       final response = await http.get(
         Uri.parse('$baseUrl/trips'),
         headers: headers,
-      ).timeout(const Duration(seconds: 15));
+      ).timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -395,9 +398,9 @@ class ApiService {
         headers: headers,
         body: json.encode(body),
       ).timeout(
-        const Duration(seconds: 15),
+        const Duration(seconds: 60),
         onTimeout: () {
-          throw Exception('Connection timed out. Please check your internet connection and try again.');
+          throw Exception('Server is waking up — please wait a moment and try again.');
         },
       );
 

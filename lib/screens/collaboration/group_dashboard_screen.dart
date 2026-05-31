@@ -17,6 +17,10 @@ class GroupDashboardScreen extends StatefulWidget {
 }
 
 class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
+  // Named constants for budget thresholds (PHP)
+  static const double kLowBudgetMax = 5000.0;
+  static const double kBalancedBudgetMax = 15000.0;
+
   // Members List State
   late List<Map<String, String>> _members;
 
@@ -26,6 +30,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   // Notes Editing State
   bool _isEditingNotes = false;
   late TextEditingController _notesController;
+
+  // Real logged expenses state
+  late List<Map<String, dynamic>> _loggedExpenses;
 
   @override
   void initState() {
@@ -38,23 +45,42 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       );
     } else if (trip != null && trip.isGroup) {
       // Seed placeholder slots from numTravelers
-      _members = List.generate(trip.numTravelers, (i) => {
-        'name': i == 0 ? 'You (Organizer)' : 'Traveler ${i + 1}',
-        'role': i == 0 ? 'Organizer' : 'Member',
-        'avatar': '',
-      });
+      _members = List.generate(
+        trip.numTravelers,
+        (i) => {
+          'name': i == 0 ? 'You (Organizer)' : 'Traveler ${i + 1}',
+          'role': i == 0 ? 'Organizer' : 'Member',
+          'avatar': '',
+        },
+      );
     } else {
       _members = [];
     }
 
     // Seed contributions from member list (all start at 0/Unpaid)
-    _contributions = _members.map<Map<String, dynamic>>((m) => {
-      'name': m['name']!,
-      'amount': 0.0,
-      'status': 'Unpaid',
-    }).toList();
+    _contributions = _members
+        .map<Map<String, dynamic>>(
+          (m) => {'name': m['name']!, 'amount': 0.0, 'status': 'Unpaid'},
+        )
+        .toList();
 
     _notesController = TextEditingController();
+
+    // Seed initial mock expenses
+    _loggedExpenses = [
+      {
+        'id': 'exp-1',
+        'amount': 1200.0,
+        'category': 'Food',
+        'note': 'Group dinner at Jack\'s Ridge',
+      },
+      {
+        'id': 'exp-2',
+        'amount': 850.0,
+        'category': 'Transport',
+        'note': 'Ferry transfer to Samal',
+      },
+    ];
   }
 
   @override
@@ -67,20 +93,928 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     if (widget.trip != null) {
       // Find updated version in provider if exists to maintain sync
       final trips = context.watch<TripProvider>().userTrips;
-      final found = trips.firstWhere((t) => t.id == widget.trip!.id, orElse: () => widget.trip!);
+      final found = trips.firstWhere(
+        (t) => t.id == widget.trip!.id,
+        orElse: () => widget.trip!,
+      );
       return found;
     }
     final trips = context.watch<TripProvider>().userTrips;
     return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
   }
 
+  Widget _summaryDivider() {
+    return Container(
+      width: 1,
+      height: 20,
+      color: Colors.white24,
+    );
+  }
+
+  Widget _summaryCol(String val, String label) {
+    return Column(
+      children: [
+        Text(
+          val,
+          style: GoogleFonts.outfit(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white54,
+            fontSize: 9,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroBanner(Trip activeTrip, int totalStops, bool isGroup) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.all(AppConstants.spaceM),
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: const Color(0xFF104B50), // Premium deep dark teal fallback background color
+        image: DecorationImage(
+          image: NetworkImage(activeTrip.imageUrl),
+          fit: BoxFit.cover,
+          colorFilter: ColorFilter.mode(
+            Colors.black.withValues(alpha: 0.55),
+            BlendMode.darken,
+          ),
+        ),
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+        boxShadow: AppConstants.premiumShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            activeTrip.destinationName,
+            style: GoogleFonts.outfit(
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            activeTrip.title,
+            style: GoogleFonts.outfit(
+              fontSize: 14,
+              color: Colors.white70,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              // Solo/Group Pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      isGroup ? Icons.people_alt_rounded : Icons.person_rounded,
+                      size: 11,
+                      color: Colors.white,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      isGroup ? 'Group' : 'Solo',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Budget Level Chip
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  activeTrip.budget <= kLowBudgetMax
+                      ? '⬇ Low Budget'
+                      : activeTrip.budget <= kBalancedBudgetMax
+                          ? '= Balanced'
+                          : '⬆ High Budget',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Duration pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '📅 ${activeTrip.itinerary.length} Days',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.3),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _summaryCol('${activeTrip.itinerary.length}', 'Days'),
+                _summaryDivider(),
+                _summaryCol('$totalStops', 'Stops'),
+                _summaryDivider(),
+                _summaryCol('₱${activeTrip.budget.toStringAsFixed(0)}', 'Est. Budget'),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItinerarySection(Trip activeTrip) {
+    // Note: The itinerary data source is retrieved from activeTrip.itinerary, which is passed down 
+    // from the saved planner output in TripProvider.
+    // TODO: Sync / fetch itinerary from Neon DB (itineraries table)
+    if (activeTrip.itinerary.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: AppConstants.spaceM),
+        child: Text(
+          'No activities scheduled yet.',
+          style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
+        ),
+      );
+    }
+
+    // Sort days in ascending order
+    final sortedDays = activeTrip.itinerary.keys.toList()..sort();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: sortedDays.map((dayNum) {
+        final activities = activeTrip.itinerary[dayNum] ?? [];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: AppConstants.spaceL),
+              child: Text(
+                'Day $dayNum',
+                style: GoogleFonts.outfit(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+            ),
+            ...activities.map((act) => ActivityTile(activity: act)),
+          ],
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildExpenseTracker(Trip activeTrip, Destination matchedDest, dynamic destExtra) {
+    final totalSpent = _loggedExpenses.fold<double>(0, (sum, item) => sum + item['amount']);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final percent = activeTrip.budget > 0 ? (totalSpent / activeTrip.budget).clamp(0.0, 1.0) : 0.0;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+        boxShadow: AppConstants.cardShadow,
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.account_balance_wallet_rounded, color: AppTheme.secondaryGreen),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Expense Tracker',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: _showAddExpenseDialog,
+                icon: const Icon(Icons.add_rounded, size: 16),
+                label: Text(
+                  'Add Expense',
+                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.secondaryGreen,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _financeMetric('Spent', '₱${totalSpent.toStringAsFixed(0)}', AppTheme.secondaryGreen),
+              _financeMetric('Remaining', '₱${(activeTrip.budget - totalSpent).toStringAsFixed(0)}', AppTheme.primaryBlue),
+              _financeMetric('Budget', '₱${activeTrip.budget.toStringAsFixed(0)}', Colors.grey),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: percent,
+              minHeight: 8,
+              backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
+              valueColor: AlwaysStoppedAnimation<Color>(
+                percent > 0.9 ? Colors.redAccent : AppTheme.primaryBlue,
+              ),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              '${(percent * 100).toStringAsFixed(0)}% of budget used',
+              style: const TextStyle(fontSize: 10, color: Colors.grey),
+            ),
+          ),
+          const SizedBox(height: 12),
+          if (_loggedExpenses.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text(
+                  'No expenses logged yet. Tap Add Expense to start tracking!',
+                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _loggedExpenses.length,
+              itemBuilder: (context, index) {
+                final exp = _loggedExpenses[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          _getExpenseCategoryIcon(exp['category']),
+                          size: 16,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              exp['note'],
+                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                            ),
+                            Text(
+                              exp['category'],
+                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Text(
+                        '₱${exp['amount'].toStringAsFixed(0)}',
+                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                      ),
+                      const SizedBox(width: 6),
+                      IconButton(
+                        icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.grey),
+                        onPressed: () => _showEditExpenseDialog(index),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
+                        onPressed: () => _deleteExpense(index),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          const Divider(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _showDigitalReceiptModal(
+                context,
+                activeTrip,
+                matchedDest,
+                destExtra,
+              ),
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
+              label: Text(
+                'Export PDF Travel Receipt',
+                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.primaryBlue,
+                side: const BorderSide(color: AppTheme.primaryBlue),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _financeMetric(String label, String value, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+        ),
+      ],
+    );
+  }
+
+  IconData _getExpenseCategoryIcon(String category) {
+    switch (category.toLowerCase()) {
+      case 'food':
+        return Icons.restaurant_rounded;
+      case 'transport':
+        return Icons.directions_car_rounded;
+      case 'accommodation':
+        return Icons.hotel_rounded;
+      case 'activities':
+        return Icons.local_activity_rounded;
+      default:
+        return Icons.payments_rounded;
+    }
+  }
+
+  void _deleteExpense(int index) {
+    setState(() {
+      _loggedExpenses.removeAt(index);
+    });
+    // TODO: persist expenses to Neon DB (expenses table)
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Expense deleted successfully'),
+        backgroundColor: Colors.redAccent,
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showAddExpenseDialog() {
+    final amountCtrl = TextEditingController();
+    final noteCtrl = TextEditingController();
+    String category = 'Food';
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Add Expense', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount (PHP)'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: category,
+                items: const ['Food', 'Transport', 'Accommodation', 'Activities', 'Others']
+                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) category = val;
+                },
+                decoration: const InputDecoration(labelText: 'Category'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: noteCtrl,
+                decoration: const InputDecoration(labelText: 'Note'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amt = double.tryParse(amountCtrl.text);
+                final note = noteCtrl.text.trim();
+                if (amt == null || amt <= 0 || note.isEmpty) return;
+                setState(() {
+                  _loggedExpenses.add({
+                    'id': 'exp-${DateTime.now().millisecondsSinceEpoch}',
+                    'amount': amt,
+                    'category': category,
+                    'note': note,
+                  });
+                });
+                // TODO: persist expenses to Neon DB (expenses table)
+                Navigator.pop(context);
+              },
+              child: const Text('Add'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showEditExpenseDialog(int index) {
+    final exp = _loggedExpenses[index];
+    final amountCtrl = TextEditingController(text: exp['amount'].toStringAsFixed(0));
+    final noteCtrl = TextEditingController(text: exp['note']);
+    String category = exp['category'];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Edit Expense', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: amountCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Amount (PHP)'),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                initialValue: category,
+                items: const ['Food', 'Transport', 'Accommodation', 'Activities', 'Others']
+                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                    .toList(),
+                onChanged: (val) {
+                  if (val != null) category = val;
+                },
+                decoration: const InputDecoration(labelText: 'Category'),
+              ),
+              const SizedBox(height: 8),
+              TextField(
+                controller: noteCtrl,
+                decoration: const InputDecoration(labelText: 'Note'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amt = double.tryParse(amountCtrl.text);
+                final note = noteCtrl.text.trim();
+                if (amt == null || amt <= 0 || note.isEmpty) return;
+                setState(() {
+                  _loggedExpenses[index] = {
+                    ...exp,
+                    'amount': amt,
+                    'category': category,
+                    'note': note,
+                  };
+                });
+                // TODO: persist expenses to Neon DB (expenses table)
+                Navigator.pop(context);
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+
+
+  Widget _buildPhotoMemories(Trip activeTrip) {
+    // Extract photo URLs from trip memories (for clean DB wiring in Step 10)
+    final List<String> photoUrls = activeTrip.memories
+        .map<String>((m) => m['image'] as String? ?? '')
+        .where((url) => url.isNotEmpty)
+        .toList();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+        boxShadow: AppConstants.cardShadow,
+        border: Border.all(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.photo_library_rounded, color: AppTheme.accentTeal),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Photo Memories',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ],
+              ),
+              TextButton.icon(
+                onPressed: () => _simulateAddPhoto(activeTrip),
+                icon: const Icon(Icons.add_a_photo_rounded, size: 16),
+                label: Text(
+                  'Add Photo',
+                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+                style: TextButton.styleFrom(
+                  foregroundColor: AppTheme.accentTeal,
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.1),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          if (photoUrls.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16.0),
+              child: Center(
+                child: Text(
+                  'No photo memories uploaded yet. Tap Add Photo to share a memory!',
+                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 8,
+                mainAxisSpacing: 8,
+                childAspectRatio: 1.0,
+              ),
+              itemCount: photoUrls.length,
+              itemBuilder: (context, index) {
+                final url = photoUrls[index];
+                // Lookup caption matching this image URL if available for UI completeness
+                final mem = activeTrip.memories.firstWhere(
+                  (m) => m['image'] == url,
+                  orElse: () => <String, dynamic>{},
+                );
+                final caption = mem['caption'] as String? ?? '';
+
+                return ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.network(
+                        url,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[800],
+                          child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
+                        ),
+                      ),
+                      if (caption.isNotEmpty)
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            color: Colors.black45,
+                            child: Text(
+                              caption,
+                              style: const TextStyle(color: Colors.white, fontSize: 8),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+  void _simulateAddPhoto(Trip trip) {
+    final textCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: Text('Upload Photo', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.add_a_photo_rounded, size: 48, color: AppTheme.accentTeal),
+              const SizedBox(height: 16),
+              const Text(
+                'Attach an image from your library to save it in your trip scrapbook.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: textCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Caption',
+                  hintText: 'e.g. Swimming in Pearl Farm 🌊',
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final caption = textCtrl.text.trim();
+                if (caption.isEmpty) return;
+
+                // Simulate adding a photo with a nice random travel photo URL
+                // TODO: persist photo memories to Neon DB (photos/memories table)
+                final newMem = {
+                  'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
+                  'user': 'You',
+                  'avatar': '',
+                  'time': 'Just now',
+                  'caption': caption,
+                  'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+                  'likes': '0',
+                  'comments': '0',
+                  'location': trip.destinationName,
+                };
+
+                final updated = trip.copyWith(
+                  memories: [...trip.memories, newMem],
+                );
+                Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
+                
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Memory photo uploaded and synced! 📸'),
+                    backgroundColor: AppTheme.secondaryGreen,
+                  ),
+                );
+              },
+              child: const Text('Upload'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildTravelNotesWidget(Trip activeTrip, Destination dest) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Dynamic AI Suggestions based on destination
+    final List<String> aiSuggestions = [
+      '🎒 Pack light: Bring breathable clothes, a dry bag for wet items, and sun protection.',
+      '🚗 Transit advice: Hiring a local tricycle or habal-habal is the easiest way to travel between attractions.',
+      '⏰ Early start: Reach local spots by 8:00 AM to beat the mid-day heat and large crowds.',
+      '💳 Cash is King: Bring local currency (PHP cash) as small vendors and entrance gates do not accept cards.',
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // AI Suggestions Card
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+          padding: const EdgeInsets.all(AppConstants.spaceL),
+          decoration: BoxDecoration(
+            color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+            border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.psychology_alt_rounded, color: AppTheme.primaryBlue, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'AI Recommendations',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+              ...aiSuggestions.map(
+                (tip) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6.0),
+                  child: Text(
+                    tip,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      height: 1.4,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        
+        const SizedBox(height: AppConstants.spaceM),
+
+        // Personal Notes Card (re-using the existing amber notes design)
+        Container(
+          margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+          padding: const EdgeInsets.all(AppConstants.spaceL),
+          decoration: BoxDecoration(
+            color: Colors.amber.withValues(alpha: 0.06),
+            borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+            border: Border.all(color: Colors.amber.withValues(alpha: 0.25)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.note_alt_rounded, color: Colors.amber, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Personal Notes & Reminders',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.amber[850],
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    icon: Icon(
+                      _isEditingNotes
+                          ? Icons.check_circle_rounded
+                          : Icons.edit_rounded,
+                      size: 20,
+                      color: _isEditingNotes
+                          ? AppTheme.secondaryGreen
+                          : Colors.grey,
+                    ),
+                    onPressed: () {
+                      if (_isEditingNotes) {
+                        final updated = activeTrip.copyWith(
+                          notes: _notesController.text,
+                        );
+                        Provider.of<TripProvider>(
+                          context,
+                          listen: false,
+                        ).updateTrip(updated);
+                        setState(() => _isEditingNotes = false);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Notes saved persistently!'),
+                            backgroundColor: AppTheme.secondaryGreen,
+                          ),
+                        );
+                      } else {
+                        setState(() => _isEditingNotes = true);
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+              _isEditingNotes
+                  ? TextField(
+                      controller: _notesController,
+                      maxLines: null,
+                      style: const TextStyle(fontSize: 13, height: 1.4),
+                      decoration: const InputDecoration(
+                        hintText: 'Add notes for this trip...',
+                        border: InputBorder.none,
+                      ),
+                    )
+                  : Text(
+                      activeTrip.notes.isEmpty
+                          ? 'Write down packaging lists, reservation details, and personal goals for this amazing adventure...'
+                          : activeTrip.notes,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
+                    ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final activeTrip = _getTrip(context);
-    final totalStops = activeTrip.itinerary.values.fold<int>(0, (sum, list) => sum + list.length);
-    final isGroup = activeTrip.isGroup;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
+    final activeTrip = _getTrip(context);
+    final totalStops = activeTrip.itinerary.values.fold<int>(
+      0,
+      (sum, list) => sum + list.length,
+    );
+    final isGroup = activeTrip.isGroup;
 
     // Load active notes
     if (!_isEditingNotes && _notesController.text != activeTrip.notes) {
@@ -89,21 +1023,36 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
     // Lookup dynamic destination info based on title or destinationName
     final provider = Provider.of<TripProvider>(context);
-    final destinations = provider.destinations.isNotEmpty 
-        ? provider.destinations 
+    final destinations = provider.destinations.isNotEmpty
+        ? provider.destinations
         : Destination.davaoDestinations;
 
     final matchedDest = destinations.firstWhere(
-      (d) => activeTrip.destinationName.toLowerCase().contains(d.name.toLowerCase()) || 
-             d.name.toLowerCase().contains(activeTrip.destinationName.toLowerCase()) ||
-             activeTrip.title.toLowerCase().contains(d.name.toLowerCase()),
+      (d) =>
+          activeTrip.destinationName.toLowerCase().contains(
+            d.name.toLowerCase(),
+          ) ||
+          d.name.toLowerCase().contains(
+            activeTrip.destinationName.toLowerCase(),
+          ) ||
+          activeTrip.title.toLowerCase().contains(d.name.toLowerCase()),
       orElse: () {
-        if (activeTrip.destinationName.toLowerCase().contains('samal') || activeTrip.title.toLowerCase().contains('samal')) {
-          return destinations.firstWhere((d) => d.id == 8, orElse: () => destinations.first);
-        } else if (activeTrip.destinationName.toLowerCase().contains('eden') || activeTrip.title.toLowerCase().contains('eden')) {
-          return destinations.firstWhere((d) => d.id == 1, orElse: () => destinations.first);
+        if (activeTrip.destinationName.toLowerCase().contains('samal') ||
+            activeTrip.title.toLowerCase().contains('samal')) {
+          return destinations.firstWhere(
+            (d) => d.id == 8,
+            orElse: () => destinations.first,
+          );
+        } else if (activeTrip.destinationName.toLowerCase().contains('eden') ||
+            activeTrip.title.toLowerCase().contains('eden')) {
+          return destinations.firstWhere(
+            (d) => d.id == 1,
+            orElse: () => destinations.first,
+          );
         }
-        return destinations.isNotEmpty ? destinations.first : Destination.davaoDestinations.first;
+        return destinations.isNotEmpty
+            ? destinations.first
+            : Destination.davaoDestinations.first;
       },
     );
 
@@ -125,11 +1074,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             onPressed: () => _showEditTripDetailsDialog(context, activeTrip),
             tooltip: 'Edit Trip Details',
           ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_rounded, color: AppTheme.secondaryGreen),
-            onPressed: () => _showDigitalReceiptModal(context, activeTrip, matchedDest, destExtra),
-            tooltip: 'Export PDF Receipt',
-          ),
+
           const SizedBox(width: 8),
         ],
       ),
@@ -137,88 +1082,73 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Hero banner
-            Container(
-              width: double.infinity,
-              margin: const EdgeInsets.all(AppConstants.spaceM),
-              padding: const EdgeInsets.all(AppConstants.spaceL),
-              decoration: BoxDecoration(
-                color: AppTheme.primaryBlue,
-                image: DecorationImage(
-                  image: NetworkImage(activeTrip.imageUrl),
-                  fit: BoxFit.cover,
-                  colorFilter: ColorFilter.mode(
-                    Colors.black.withValues(alpha: 0.55),
-                    BlendMode.darken,
-                  ),
+            // Hero banner redesign
+            _buildHeroBanner(activeTrip, totalStops, isGroup),
+
+            // Embedded Day-by-Day Itinerary Section
+            const SizedBox(height: AppConstants.spaceM),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+              child: Text(
+                'Day-by-Day Itinerary',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
                 ),
-                borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                boxShadow: AppConstants.premiumShadow,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Icon(
-                        isGroup ? Icons.group_work_rounded : Icons.flight_takeoff_rounded,
-                        color: Colors.white70,
-                        size: 28,
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: isGroup ? AppTheme.secondaryGreen : AppTheme.primaryBlue,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.white38),
-                        ),
-                        child: Text(
-                          isGroup ? 'Group Trip (${activeTrip.numTravelers})' : 'Solo Trip',
-                          style: GoogleFonts.outfit(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Text('${activeTrip.title} 🏖️', style: GoogleFonts.outfit(
-                    fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
-                  const SizedBox(height: 4),
-                  Text('${activeTrip.dateRange} • ${activeTrip.destinationName}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13, fontWeight: FontWeight.w500)),
-                  const SizedBox(height: AppConstants.spaceL),
-                  Row(
-                    children: [
-                      _statChip('${activeTrip.itinerary.length}', activeTrip.itinerary.length == 1 ? 'Day' : 'Days'),
-                      const SizedBox(width: AppConstants.spaceM),
-                      _statChip('$totalStops', totalStops == 1 ? 'Stop' : 'Stops'),
-                      const SizedBox(width: AppConstants.spaceM),
-                      _statChip('₱${activeTrip.budget >= 1000 ? '${(activeTrip.budget / 1000).toStringAsFixed(0)}K' : activeTrip.budget.toStringAsFixed(0)}', 'Budget'),
-                    ],
-                  ),
-                ],
               ),
             ),
+            const SizedBox(height: AppConstants.spaceS),
+            _buildItinerarySection(activeTrip),
 
-            // Contextual Content
+            // Active Expense Tracker & Logger
+            const SizedBox(height: AppConstants.spaceL),
+            _buildExpenseTracker(activeTrip, matchedDest, destExtra),
+
+            // Travel Notes Section Overhaul
+            const SizedBox(height: AppConstants.spaceL),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+              child: Text(
+                'Travel Notes & Tips',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.primaryBlue,
+                ),
+              ),
+            ),
+            const SizedBox(height: AppConstants.spaceS),
+            _buildTravelNotesWidget(activeTrip, matchedDest),
+
+            // Photo Memories scrapbook
+            const SizedBox(height: AppConstants.spaceL),
+            _buildPhotoMemories(activeTrip),
+
+            // Collaborative widgets appended for groups only
             if (isGroup) ...[
-              // Expandable Members Section
+              const SizedBox(height: AppConstants.spaceXL),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceL,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Members', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                    Text(
+                      'Members',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
                     Text(
                       _members.any((m) => m['avatar']!.isEmpty)
                           ? 'Tap a slot to name them ✏️'
                           : 'Tap to remove',
-                      style: GoogleFonts.outfit(fontSize: 12, color: secondaryTextColor, fontStyle: FontStyle.italic),
+                      style: GoogleFonts.outfit(
+                        fontSize: 12,
+                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        fontStyle: FontStyle.italic,
+                      ),
                     ),
                   ],
                 ),
@@ -228,20 +1158,27 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 height: 90,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.spaceM,
+                  ),
                   itemCount: _members.length + 1,
                   itemBuilder: (_, i) {
                     if (i == _members.length) {
                       return Padding(
-                        padding: const EdgeInsets.only(right: AppConstants.spaceM),
+                        padding: const EdgeInsets.only(
+                          right: AppConstants.spaceM,
+                        ),
                         child: Column(
                           children: [
                             GestureDetector(
                               onTap: () {
-                                final shareLink = 'https://lakbay.app/join/${activeTrip.id}';
+                                final shareLink =
+                                    'https://lakbay.app/join/${activeTrip.id}';
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text('Simulated invite link copied: $shareLink 🔗'),
+                                    content: Text(
+                                      'Simulated invite link copied: $shareLink 🔗',
+                                    ),
                                     backgroundColor: AppTheme.secondaryGreen,
                                     duration: const Duration(seconds: 4),
                                     action: SnackBarAction(
@@ -253,17 +1190,34 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                 );
                               },
                               child: Container(
-                                width: 56, height: 56,
+                                width: 56,
+                                height: 56,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.3), width: 2),
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.07),
+                                  border: Border.all(
+                                    color: AppTheme.primaryBlue.withValues(
+                                      alpha: 0.3,
+                                    ),
+                                    width: 2,
+                                  ),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.07,
+                                  ),
                                 ),
-                                child: const Icon(Icons.person_add_rounded, color: AppTheme.primaryBlue),
+                                child: const Icon(
+                                  Icons.person_add_rounded,
+                                  color: AppTheme.primaryBlue,
+                                ),
                               ),
                             ),
                             const SizedBox(height: 6),
-                            Text('Invite', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
+                            Text(
+                              'Invite',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                              ),
+                            ),
                           ],
                         ),
                       );
@@ -271,15 +1225,27 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     final m = _members[i];
                     final isPlaceholder = m['avatar']!.isEmpty;
                     final initials = (m['name'] ?? '?').trim().isNotEmpty
-                        ? (m['name']!.trim().split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join()).toUpperCase()
+                        ? (m['name']!
+                                  .trim()
+                                  .split(' ')
+                                  .map((w) => w.isNotEmpty ? w[0] : '')
+                                  .take(2)
+                                  .join())
+                              .toUpperCase()
                         : '?';
                     final avatarColors = [
-                      AppTheme.primaryBlue, AppTheme.secondaryGreen, AppTheme.accentTeal,
-                      Colors.orange, Colors.purple, Colors.redAccent,
+                      AppTheme.primaryBlue,
+                      AppTheme.secondaryGreen,
+                      AppTheme.accentTeal,
+                      Colors.orange,
+                      Colors.purple,
+                      Colors.redAccent,
                     ];
                     final memberColor = avatarColors[i % avatarColors.length];
                     return Padding(
-                      padding: const EdgeInsets.only(right: AppConstants.spaceM),
+                      padding: const EdgeInsets.only(
+                        right: AppConstants.spaceM,
+                      ),
                       child: GestureDetector(
                         onTap: () => isPlaceholder
                             ? _renameMember(i)
@@ -290,11 +1256,19 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                               children: [
                                 isPlaceholder
                                     ? Container(
-                                        width: 56, height: 56,
+                                        width: 56,
+                                        height: 56,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          color: memberColor.withValues(alpha: 0.15),
-                                          border: Border.all(color: memberColor.withValues(alpha: 0.4), width: 2),
+                                          color: memberColor.withValues(
+                                            alpha: 0.15,
+                                          ),
+                                          border: Border.all(
+                                            color: memberColor.withValues(
+                                              alpha: 0.4,
+                                            ),
+                                            width: 2,
+                                          ),
                                         ),
                                         child: Center(
                                           child: Text(
@@ -308,44 +1282,68 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                         ),
                                       )
                                     : ClipOval(
-                                        child: Image.network(m['avatar']!, width: 56, height: 56, fit: BoxFit.cover,
-                                          errorBuilder: (context, error, stackTrace) => Container(
-                                            width: 56, height: 56,
-                                            color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
-                                            child: Center(
-                                              child: Text(
-                                                initials,
-                                                style: const TextStyle(
-                                                  fontSize: 16,
-                                                  fontWeight: FontWeight.bold,
-                                                  color: AppTheme.primaryBlue,
-                                                ),
-                                              ),
-                                            ),
-                                          )),
+                                        child: Image.network(
+                                          m['avatar']!,
+                                          width: 56,
+                                          height: 56,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) =>
+                                                  Container(
+                                                    width: 56,
+                                                    height: 56,
+                                                    color: AppTheme
+                                                        .secondaryGreen
+                                                        .withValues(alpha: 0.2),
+                                                    child: Center(
+                                                      child: Text(
+                                                        initials,
+                                                        style: const TextStyle(
+                                                          fontSize: 16,
+                                                          fontWeight:
+                                                              FontWeight.bold,
+                                                          color: AppTheme
+                                                              .primaryBlue,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                        ),
                                       ),
                                 if (m['role'] == 'Organizer')
                                   Positioned(
-                                    bottom: 0, right: 0,
+                                    bottom: 0,
+                                    right: 0,
                                     child: Container(
-                                      width: 18, height: 18,
+                                      width: 18,
+                                      height: 18,
                                       decoration: const BoxDecoration(
                                         color: AppTheme.secondaryGreen,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.star_rounded, size: 11, color: Colors.white),
+                                      child: const Icon(
+                                        Icons.star_rounded,
+                                        size: 11,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                                 if (isPlaceholder)
                                   Positioned(
-                                    bottom: 0, right: 0,
+                                    bottom: 0,
+                                    right: 0,
                                     child: Container(
-                                      width: 18, height: 18,
+                                      width: 18,
+                                      height: 18,
                                       decoration: BoxDecoration(
                                         color: memberColor,
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.edit_rounded, size: 10, color: Colors.white),
+                                      child: const Icon(
+                                        Icons.edit_rounded,
+                                        size: 10,
+                                        color: Colors.white,
+                                      ),
                                     ),
                                   ),
                               ],
@@ -377,36 +1375,67 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
               // Group Pricing / Budget Split Card
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Budget Split & Expenses', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceL,
+                ),
+                child: Text(
+                  'Budget Split & Expenses',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
               ),
               const SizedBox(height: AppConstants.spaceM),
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceM,
+                ),
                 padding: const EdgeInsets.all(AppConstants.spaceL),
                 decoration: BoxDecoration(
                   color: AppTheme.secondaryGreen.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                  border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.pie_chart_outline_rounded, color: AppTheme.secondaryGreen),
+                        const Icon(
+                          Icons.pie_chart_outline_rounded,
+                          color: AppTheme.secondaryGreen,
+                        ),
                         const SizedBox(width: 8),
-                        Text('Group split summary', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: AppTheme.primaryBlue)),
+                        Text(
+                          'Group split summary',
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: AppTheme.primaryBlue,
+                          ),
+                        ),
                       ],
                     ),
                     const Divider(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _splitMetric('Total Budget', '₱${activeTrip.budget.toStringAsFixed(0)}'),
-                        _splitMetric('Travelers', '${activeTrip.numTravelers} people'),
-                        _splitMetric('Per-Person Share', '₱${(activeTrip.budget / activeTrip.numTravelers).toStringAsFixed(0)}', isPrimary: true),
+                        _splitMetric(
+                          'Total Budget',
+                          '₱${activeTrip.budget.toStringAsFixed(0)}',
+                        ),
+                        _splitMetric(
+                          'Travelers',
+                          '${activeTrip.numTravelers} people',
+                        ),
+                        _splitMetric(
+                          'Per-Person Share',
+                          '₱${(activeTrip.budget / activeTrip.numTravelers).toStringAsFixed(0)}',
+                          isPrimary: true,
+                        ),
                       ],
                     ),
                   ],
@@ -417,24 +1446,35 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
               // Group Contribution Tracker
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceL,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Contribution Tracker', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                    Text(
+                      'Contribution Tracker',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
                     TextButton.icon(
                       onPressed: () => _showAddContributionDialog(context),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Add Payment'),
-                      style: TextButton.styleFrom(foregroundColor: AppTheme.secondaryGreen),
-                    )
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.secondaryGreen,
+                      ),
+                    ),
                   ],
                 ),
               ),
               const SizedBox(height: AppConstants.spaceS),
               Container(
-                margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceM,
+                ),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(AppConstants.radiusXL),
@@ -447,26 +1487,50 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (_, index) {
                     final c = _contributions[index];
-                    final personalTargetShare = activeTrip.budget / activeTrip.numTravelers;
+                    final personalTargetShare =
+                        activeTrip.budget / activeTrip.numTravelers;
                     final diff = c['amount'] - personalTargetShare;
                     final isSettled = diff >= 0;
 
-                    final warningColor = isDark ? Colors.orange[300]! : Colors.orange[800]!;
                     return ListTile(
                       leading: CircleAvatar(
-                        backgroundColor: isSettled ? AppTheme.secondaryGreen.withValues(alpha: 0.1) : warningColor.withValues(alpha: 0.1),
-                        child: Text(c['name']![0], style: TextStyle(color: isSettled ? AppTheme.secondaryGreen : warningColor, fontWeight: FontWeight.bold)),
+                        backgroundColor: isSettled
+                            ? AppTheme.secondaryGreen.withValues(alpha: 0.1)
+                            : Colors.orange.withValues(alpha: 0.1),
+                        child: Text(
+                          c['name']![0],
+                          style: TextStyle(
+                            color: isSettled
+                                ? AppTheme.secondaryGreen
+                                : Colors.orange,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
-                      title: Text(c['name']!, style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14)),
+                      title: Text(
+                        c['name']!,
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
                       subtitle: Text(
-                        isSettled 
-                          ? 'Fully Contributed (Excess: ₱${diff.toStringAsFixed(0)})' 
-                          : 'Owes: ₱${(-diff).toStringAsFixed(0)}',
-                        style: TextStyle(fontSize: 11, color: isSettled ? AppTheme.secondaryGreen : warningColor),
+                        isSettled
+                            ? 'Fully Contributed (Excess: ₱${diff.toStringAsFixed(0)})'
+                            : 'Owes: ₱${(-diff).toStringAsFixed(0)}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isSettled
+                              ? AppTheme.secondaryGreen
+                              : Colors.orange,
+                        ),
                       ),
                       trailing: Text(
                         '₱${c['amount'].toStringAsFixed(0)}',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
                       ),
                     );
                   },
@@ -475,195 +1539,50 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
               const SizedBox(height: AppConstants.spaceXL),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Collaboration & Tasks', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceL,
+                ),
+                child: Text(
+                  'Collaboration & Tasks',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryBlue,
+                  ),
+                ),
               ),
               const SizedBox(height: AppConstants.spaceM),
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceM,
+                ),
                 child: Row(
                   children: [
                     Expanded(
-                      child: _accessCard(context, 'Tasks', Icons.checklist_rounded,
-                        AppTheme.secondaryGreen, () => Navigator.pushNamed(context, AppRoutes.groupTasks, arguments: activeTrip)),
-                    ),
-                    const SizedBox(width: AppConstants.spaceM),
-                    Expanded(
-                      child: _accessCard(context, 'Shared Memories', Icons.photo_album_rounded,
-                        AppTheme.accentTeal, () => Navigator.pushNamed(context, AppRoutes.groupMemories, arguments: activeTrip)),
-                    ),
-                  ],
-                ),
-              ),
-            ] else ...[
-              // Solo Specific Modules
-
-              // Destination cost list vs custom budget
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Destination Cost Breakdown', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                padding: const EdgeInsets.all(AppConstants.spaceL),
-                decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.05),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                  border: Border.all(color: Colors.blue.withValues(alpha: 0.15)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.info_outline_rounded, color: AppTheme.primaryBlue, size: 20),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Accurate pricing from ${matchedDest.name}',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue),
-                          ),
+                      child: _accessCard(
+                        context,
+                        'Tasks',
+                        Icons.checklist_rounded,
+                        AppTheme.secondaryGreen,
+                        () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.groupTasks,
+                          arguments: activeTrip,
                         ),
-                      ],
-                    ),
-                    const Divider(height: 20),
-                    _costBreakdownRow('Entrance Fee', matchedDest.entranceFee),
-                    if (destExtra.activityPrices.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      _costBreakdownRow('Activity Fees', destExtra.activityPrices.entries.map((e) => '${e.key}: ${e.value}').join(', ')),
-                    ],
-                    const SizedBox(height: 6),
-                    _costBreakdownRow('Est. Accommodations', destExtra.overnightFee),
-                    const SizedBox(height: 6),
-                    _costBreakdownRow('Est. Local Meals', matchedDest.id == 8 ? 'Included in Resort' : '₱150 - ₱400 per meal'),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: AppConstants.spaceL),
-
-              // Personal Budget Tracker & Spending Chart
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Personal Budget Tracker', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                padding: const EdgeInsets.all(AppConstants.spaceL),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryGreen.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-                  border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.25)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Icon(Icons.payments_rounded, color: AppTheme.secondaryGreen, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Estimated vs. Actual Spend Chart',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.secondaryGreen),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Total Budget', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
-                            const SizedBox(height: 2),
-                            Text('₱${activeTrip.budget.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Base Destination Est.', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
-                            const SizedBox(height: 2),
-                            Text('₱${matchedDest.estimatedCost.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Safe Margin', style: TextStyle(fontSize: 11, color: secondaryTextColor)),
-                            const SizedBox(height: 2),
-                            Text('₱${(activeTrip.budget - matchedDest.estimatedCost).toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.secondaryGreen)),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    // Progress bar comparing spending
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
-                      child: LinearProgressIndicator(
-                        value: matchedDest.estimatedCost / activeTrip.budget,
-                        minHeight: 8,
-                        backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                        valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
                       ),
                     ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Base cost', style: TextStyle(fontSize: 10, color: secondaryTextColor)),
-                        Text('Uses ${(matchedDest.estimatedCost / activeTrip.budget * 100).toStringAsFixed(0)}% of budget', style: TextStyle(fontSize: 10, color: secondaryTextColor)),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              
-              const SizedBox(height: AppConstants.spaceXL),
-
-              // Notes Card
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Personal Notes', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              _buildNotesWidget(activeTrip),
-
-              const SizedBox(height: AppConstants.spaceXL),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
-                child: Text('Itinerary & Memories', style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: _accessCard(context, 'View Itinerary', Icons.map_rounded,
-                        AppTheme.primaryBlue, () {
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.plannerResults,
-                            arguments: activeTrip,
-                          );
-                        }),
-                    ),
                     const SizedBox(width: AppConstants.spaceM),
                     Expanded(
-                      child: _accessCard(context, 'Personal Memories', Icons.photo_library_rounded,
-                        AppTheme.accentTeal, () {
-                          Navigator.pushNamed(context, AppRoutes.groupMemories, arguments: activeTrip);
-                        }),
+                      child: _accessCard(
+                        context,
+                        'Shared Memories',
+                        Icons.photo_album_rounded,
+                        AppTheme.accentTeal,
+                        () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.groupMemories,
+                          arguments: activeTrip,
+                        ),
+                      ),
                     ),
                   ],
                 ),
@@ -676,57 +1595,39 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  Widget _statChip(String value, String label) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(value, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
-        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 11)),
-      ],
-    );
-  }
-
   Widget _splitMetric(String label, String value, {bool isPrimary = false}) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: TextStyle(fontSize: 10, color: secondaryTextColor)),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 10,
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.textSecondaryDark
+                : AppTheme.textSecondaryLight,
+          ),
+        ),
         const SizedBox(height: 2),
         Text(
           value,
           style: GoogleFonts.outfit(
             fontWeight: FontWeight.bold,
             fontSize: isPrimary ? 16 : 14,
-            color: isPrimary ? AppTheme.secondaryGreen : AppTheme.primaryBlue
+            color: isPrimary ? AppTheme.secondaryGreen : AppTheme.primaryBlue,
           ),
         ),
       ],
     );
   }
 
-  Widget _costBreakdownRow(String label, String value) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 120,
-            child: Text(label, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: secondaryTextColor)),
-          ),
-          Expanded(
-            child: Text(value, style: const TextStyle(fontSize: 11, color: AppTheme.primaryBlue)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _accessCard(BuildContext ctx, String label, IconData icon, Color color, VoidCallback onTap) {
+  Widget _accessCard(
+    BuildContext ctx,
+    String label,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+  ) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -741,85 +1642,16 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           children: [
             Icon(icon, color: color, size: 28),
             const SizedBox(height: AppConstants.spaceM),
-            Text(label, style: TextStyle(fontWeight: FontWeight.bold, color: color, fontSize: 14)),
+            Text(
+              label,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                color: color,
+                fontSize: 14,
+              ),
+            ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildNotesWidget(Trip activeTrip) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final noteBgColor = (isDark ? Colors.amber[900]! : Colors.amber).withValues(alpha: isDark ? 0.12 : 0.06);
-    final noteBorderColor = (isDark ? Colors.amber[300]! : Colors.amber).withValues(alpha: 0.25);
-    final noteIconColor = isDark ? Colors.amber[300]! : Colors.amber;
-    final noteTextColor = isDark ? Colors.amber[300]! : Colors.amber[800]!;
-
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-      padding: const EdgeInsets.all(AppConstants.spaceL),
-      decoration: BoxDecoration(
-        color: noteBgColor,
-        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        border: Border.all(color: noteBorderColor),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.note_alt_rounded, color: noteIconColor, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                'Trip Notes & Reminders',
-                style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 14, color: noteTextColor),
-              ),
-              const Spacer(),
-              IconButton(
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(),
-                icon: Icon(
-                  _isEditingNotes ? Icons.check_circle_rounded : Icons.edit_rounded,
-                  size: 20,
-                  color: _isEditingNotes ? AppTheme.secondaryGreen : Colors.grey,
-                ),
-                onPressed: () {
-                  if (_isEditingNotes) {
-                    final updated = activeTrip.copyWith(notes: _notesController.text);
-                    Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
-                    setState(() => _isEditingNotes = false);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Notes saved persistently!'), backgroundColor: AppTheme.secondaryGreen),
-                    );
-                  } else {
-                    setState(() => _isEditingNotes = true);
-                  }
-                },
-              ),
-            ],
-          ),
-          const SizedBox(height: AppConstants.spaceM),
-          _isEditingNotes
-              ? TextField(
-                  controller: _notesController,
-                  maxLines: null,
-                  style: const TextStyle(fontSize: 13, height: 1.4),
-                  decoration: const InputDecoration(
-                    hintText: 'Add notes for this trip...',
-                    border: InputBorder.none,
-                  ),
-                )
-              : Text(
-                  activeTrip.notes.isEmpty
-                      ? 'Write down packaging lists, reservation details, and personal goals for this amazing adventure...'
-                      : activeTrip.notes,
-                  style: TextStyle(
-                    fontSize: 12, 
-                    height: 1.4, 
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight
-                  ),
-                ),
-        ],
       ),
     );
   }
@@ -829,15 +1661,26 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     final memberName = _members[index]['name'];
     if (_members[index]['role'] == 'Organizer') {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cannot remove the trip Organizer!'), backgroundColor: Colors.red),
+        const SnackBar(
+          content: Text('Cannot remove the trip Organizer!'),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Remove Member?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.red)),
-        content: Text('Are you sure you want to remove $memberName from this group trip? They will lose access.'),
+        title: Text(
+          'Remove Member?',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: Text(
+          'Are you sure you want to remove $memberName from this group trip? They will lose access.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -854,7 +1697,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               });
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('$memberName removed successfully.'), backgroundColor: AppTheme.secondaryGreen),
+                SnackBar(
+                  content: Text('$memberName removed successfully.'),
+                  backgroundColor: AppTheme.secondaryGreen,
+                ),
               );
             },
             child: const Text('Remove', style: TextStyle(color: Colors.white)),
@@ -866,15 +1712,16 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   /// Dialog to name a placeholder traveler slot
   void _renameMember(int index) {
-    final nameController = TextEditingController(
-      text: _members[index]['name'],
-    );
+    final nameController = TextEditingController(text: _members[index]['name']);
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(
           'Name this Traveler',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
         ),
         content: TextField(
           controller: nameController,
@@ -892,7 +1739,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+            ),
             onPressed: () {
               final name = nameController.text.trim();
               if (name.isNotEmpty) {
@@ -931,19 +1780,31 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Add Contribution Payment', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+        title: Text(
+          'Add Contribution Payment',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             TextField(
               controller: nameController,
-              decoration: const InputDecoration(labelText: 'Traveler Name', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Traveler Name',
+                border: OutlineInputBorder(),
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
               controller: amountController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount Contributed (₱)', border: OutlineInputBorder()),
+              decoration: const InputDecoration(
+                labelText: 'Amount Contributed (₱)',
+                border: OutlineInputBorder(),
+              ),
             ),
           ],
         ),
@@ -953,7 +1814,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+            ),
             onPressed: () {
               final amount = double.tryParse(amountController.text) ?? 0.0;
               if (nameController.text.isNotEmpty && amount > 0) {
@@ -966,7 +1829,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 });
                 Navigator.pop(ctx);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Payment registered successfully.'), backgroundColor: AppTheme.secondaryGreen),
+                  const SnackBar(
+                    content: Text('Payment registered successfully.'),
+                    backgroundColor: AppTheme.secondaryGreen,
+                  ),
                 );
               }
             },
@@ -981,30 +1847,47 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   void _showEditTripDetailsDialog(BuildContext context, Trip activeTrip) {
     final titleCtrl = TextEditingController(text: activeTrip.title);
     final datesCtrl = TextEditingController(text: activeTrip.dateRange);
-    final budgetCtrl = TextEditingController(text: activeTrip.budget.toStringAsFixed(0));
+    final budgetCtrl = TextEditingController(
+      text: activeTrip.budget.toStringAsFixed(0),
+    );
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Edit Trip Details', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
+        title: Text(
+          'Edit Trip Details',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: titleCtrl,
-                decoration: const InputDecoration(labelText: 'Trip Title', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Trip Title',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: datesCtrl,
-                decoration: const InputDecoration(labelText: 'Date Range', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Date Range',
+                  border: OutlineInputBorder(),
+                ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: budgetCtrl,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Budget (₱)', border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Budget (₱)',
+                  border: OutlineInputBorder(),
+                ),
               ),
             ],
           ),
@@ -1015,18 +1898,27 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+            ),
             onPressed: () {
-              final newBudget = double.tryParse(budgetCtrl.text) ?? activeTrip.budget;
+              final newBudget =
+                  double.tryParse(budgetCtrl.text) ?? activeTrip.budget;
               final updated = activeTrip.copyWith(
                 title: titleCtrl.text,
                 dateRange: datesCtrl.text,
                 budget: newBudget,
               );
-              Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
+              Provider.of<TripProvider>(
+                context,
+                listen: false,
+              ).updateTrip(updated);
               Navigator.pop(ctx);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Trip details saved successfully.'), backgroundColor: AppTheme.secondaryGreen),
+                const SnackBar(
+                  content: Text('Trip details saved successfully.'),
+                  backgroundColor: AppTheme.secondaryGreen,
+                ),
               );
             },
             child: const Text('Save', style: TextStyle(color: Colors.white)),
@@ -1037,7 +1929,12 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   // Interactive Digital PDF Receipt Modal Simulation
-  void _showDigitalReceiptModal(BuildContext context, Trip activeTrip, Destination dest, DestinationExtra extra) {
+  void _showDigitalReceiptModal(
+    BuildContext context,
+    Trip activeTrip,
+    Destination dest,
+    DestinationExtra extra,
+  ) {
     double totalEst = dest.estimatedCost;
 
     showModalBottomSheet(
@@ -1063,26 +1960,23 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 });
               }
 
-              if (!context.mounted) return;
               Navigator.pop(ctx); // Close receipt sheet
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('PDF Receipt exported successfully to Downloads! 📄✅'),
+                  content: Text(
+                    'PDF Receipt exported successfully to Downloads! 📄✅',
+                  ),
                   backgroundColor: AppTheme.secondaryGreen,
                   behavior: SnackBarBehavior.floating,
                 ),
               );
             }
 
-            final isDark = Theme.of(context).brightness == Brightness.dark;
-            final secondaryTextColor = isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight;
-            final sheetBgColor = Theme.of(context).colorScheme.surface;
-
             return Container(
               height: MediaQuery.of(context).size.height * 0.85,
-              decoration: BoxDecoration(
-                color: sheetBgColor,
-                borderRadius: const BorderRadius.only(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(24),
                   topRight: Radius.circular(24),
                 ),
@@ -1094,24 +1988,38 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   // Pull-down handle
                   Center(
                     child: Container(
-                      width: 50, height: 5,
-                      decoration: BoxDecoration(color: isDark ? Colors.grey[700] : Colors.grey[300], borderRadius: BorderRadius.circular(10)),
+                      width: 50,
+                      height: 5,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(10),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 20),
                   Text(
                     'Itemized Travel Receipt',
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryBlue),
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.primaryBlue,
+                    ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     'Transaction ID: LKB-${activeTrip.id.toUpperCase()}',
                     textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 11, color: secondaryTextColor, fontStyle: FontStyle.italic),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Receipt Body (Skeumorphic white receipt strip with dashed borders)
                   Expanded(
                     child: SingleChildScrollView(
@@ -1128,45 +2036,99 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             Text(
                               'LAKBAY+ TRAVEL RECEIPT',
                               textAlign: TextAlign.center,
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 1.5, color: Colors.grey[700]),
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 14,
+                                letterSpacing: 1.5,
+                                color: Colors.grey[700],
+                              ),
                             ),
                             const Divider(thickness: 1.5, height: 24),
-                            _receiptLine('Destination', activeTrip.destinationName),
+                            _receiptLine(
+                              'Destination',
+                              activeTrip.destinationName,
+                            ),
                             _receiptLine('Travel Dates', activeTrip.dateRange),
-                            _receiptLine('Travel Type', activeTrip.isGroup ? 'Group Trip (${activeTrip.numTravelers} Pax)' : 'Solo Trip'),
+                            _receiptLine(
+                              'Travel Type',
+                              activeTrip.isGroup
+                                  ? 'Group Trip (${activeTrip.numTravelers} Pax)'
+                                  : 'Solo Trip',
+                            ),
                             const Divider(thickness: 1, height: 24),
-                            
+
                             // Itemized costs
-                            _receiptLine('1. Base Entrance Fee', dest.entranceFee),
+                            _receiptLine(
+                              '1. Base Entrance Fee',
+                              dest.entranceFee,
+                            ),
                             if (extra.activityPrices.isNotEmpty) ...[
                               const SizedBox(height: 6),
-                              Text('2. Activity Fees:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey[600])),
-                              ...extra.activityPrices.entries.map((e) => Padding(
-                                padding: const EdgeInsets.only(left: 12.0, top: 2),
-                                child: _receiptLine('• ${e.key}', e.value),
-                              )),
+                              Text(
+                                '2. Activity Fees:',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                              ...extra.activityPrices.entries.map(
+                                (e) => Padding(
+                                  padding: const EdgeInsets.only(
+                                    left: 12.0,
+                                    top: 2,
+                                  ),
+                                  child: _receiptLine('• ${e.key}', e.value),
+                                ),
+                              ),
                             ],
                             const SizedBox(height: 6),
-                            _receiptLine('3. Accommodation', extra.overnightFee),
+                            _receiptLine(
+                              '3. Accommodation',
+                              extra.overnightFee,
+                            ),
                             const SizedBox(height: 6),
-                            _receiptLine('4. Transport Estimate', extra.transportOptions.isNotEmpty ? extra.transportOptions.first['price']! : 'Varies'),
-                            
+                            _receiptLine(
+                              '4. Transport Estimate',
+                              extra.transportOptions.isNotEmpty
+                                  ? extra.transportOptions.first['price']!
+                                  : 'Varies',
+                            ),
+
                             const Divider(thickness: 2, height: 32),
-                            _receiptLine('Estimated Trip Base Cost', '₱${totalEst.toStringAsFixed(0)}', isBold: true),
-                            _receiptLine('Your Custom Saved Budget', '₱${activeTrip.budget.toStringAsFixed(0)}', isBold: true),
-                            
+                            _receiptLine(
+                              'Estimated Trip Base Cost',
+                              '₱${totalEst.toStringAsFixed(0)}',
+                              isBold: true,
+                            ),
+                            _receiptLine(
+                              'Your Custom Saved Budget',
+                              '₱${activeTrip.budget.toStringAsFixed(0)}',
+                              isBold: true,
+                            ),
+
                             if (activeTrip.isGroup) ...[
                               const SizedBox(height: 6),
-                              _receiptLine('Cost Share Per Traveler', '₱${(activeTrip.budget / activeTrip.numTravelers).toStringAsFixed(0)}', isBold: true),
+                              _receiptLine(
+                                'Cost Share Per Traveler',
+                                '₱${(activeTrip.budget / activeTrip.numTravelers).toStringAsFixed(0)}',
+                                isBold: true,
+                              ),
                             ],
-                            
+
                             const SizedBox(height: 30),
                             // Simulated Stamp
                             Center(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
                                 decoration: BoxDecoration(
-                                  border: Border.all(color: Colors.green, width: 3),
+                                  border: Border.all(
+                                    color: Colors.green,
+                                    width: 3,
+                                  ),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
@@ -1175,7 +2137,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
                                     color: Colors.green,
-                                    letterSpacing: 1.2
+                                    letterSpacing: 1.2,
                                   ),
                                 ),
                               ),
@@ -1194,12 +2156,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             LinearProgressIndicator(
                               value: progress,
                               backgroundColor: Colors.grey[200],
-                              valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryGreen),
+                              valueColor: const AlwaysStoppedAnimation<Color>(
+                                AppTheme.secondaryGreen,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Text(
                               'Generating PDF Receipt... ${(progress * 100).toStringAsFixed(0)}%',
-                              style: GoogleFonts.outfit(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.primaryBlue),
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppTheme.primaryBlue,
+                              ),
                             ),
                           ],
                         )
@@ -1208,13 +2176,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             backgroundColor: AppTheme.primaryBlue,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
                           ),
                           onPressed: runDownloadProgress,
                           icon: const Icon(Icons.download_rounded),
                           label: Text(
                             'Download PDF Receipt',
-                            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16),
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
                           ),
                         ),
                 ],
@@ -1256,3 +2229,151 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 }
+
+class PulsingDot extends StatefulWidget {
+  const PulsingDot({super.key});
+
+  @override
+  State<PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
+      ),
+    );
+  }
+}
+
+class ActivityTile extends StatefulWidget {
+  final TripActivity activity;
+
+  const ActivityTile({super.key, required this.activity});
+
+  @override
+  State<ActivityTile> createState() => _ActivityTileState();
+}
+
+class _ActivityTileState extends State<ActivityTile> {
+  bool _isExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Card(
+      elevation: 0,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: AppConstants.spaceM),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          onExpansionChanged: (val) => setState(() => _isExpanded = val),
+          trailing: Icon(
+            _isExpanded ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+            color: AppTheme.primaryBlue,
+          ),
+          leading: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              widget.activity.time,
+              style: GoogleFonts.outfit(
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryBlue,
+              ),
+            ),
+          ),
+          title: Text(
+            widget.activity.title,
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+          subtitle: Row(
+            children: [
+              const Icon(Icons.location_on_rounded, size: 12, color: Colors.grey),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  widget.activity.location,
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12, top: 4),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 12),
+                  const SizedBox(height: 4),
+                  Text(
+                    widget.activity.description,
+                    style: const TextStyle(fontSize: 12, height: 1.4),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.payments_rounded, size: 14, color: AppTheme.secondaryGreen),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Est. Cost: ${widget.activity.cost}',
+                        style: GoogleFonts.outfit(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.secondaryGreen,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+

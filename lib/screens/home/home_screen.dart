@@ -58,14 +58,11 @@ class _HomeScreenState extends State<HomeScreen> {
       'Davao del Sur',
       'Davao Oriental',
       'Davao de Oro',
-      'Davao Occidental'
+      'Davao Occidental',
     ];
     for (final dist in districts) {
       if (dist.toLowerCase().contains(query)) {
-        matches.add({
-          'name': dist,
-          'type': 'district',
-        });
+        matches.add({'name': dist, 'type': 'district'});
       }
     }
 
@@ -93,7 +90,7 @@ class _HomeScreenState extends State<HomeScreen> {
     'Wildlife',
     'Food',
     'Adventure',
-    'Relaxation'
+    'Relaxation',
   ];
 
   final List<Map<String, dynamic>> _promoSlides = [
@@ -101,19 +98,22 @@ class _HomeScreenState extends State<HomeScreen> {
       'id': 8,
       'title': 'Pearl Farm\nBeach Resort',
       'subtitle': 'Samal Island, Davao del Norte',
-      'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
     },
     {
       'id': 15,
       'title': 'Dahican Beach\nSurf Paradise',
       'subtitle': 'Mati City, Davao Oriental',
-      'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=900&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=900&q=80',
     },
     {
       'id': 12,
       'title': 'Mount Apo\nNational Park',
       'subtitle': 'Digos City, Davao del Sur',
-      'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
     },
   ];
 
@@ -149,7 +149,9 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     try {
-      final recommended = await ApiService().fetchRecommendedDestinations(limit: 6);
+      final recommended = await ApiService().fetchRecommendedDestinations(
+        limit: 6,
+      );
       if (mounted) {
         setState(() {
           _recommendedDestinations = recommended;
@@ -228,7 +230,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Filter by selected category
     if (_selectedCategory != 'All') {
-      list = list.where((d) => d.category.toLowerCase().contains(_selectedCategory.toLowerCase())).toList();
+      list = list
+          .where(
+            (d) => d.category.toLowerCase().contains(
+              _selectedCategory.toLowerCase(),
+            ),
+          )
+          .toList();
     }
 
     // Filter by selected district / province
@@ -250,8 +258,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<TripProvider>();
-    final allDests = provider.destinations.isNotEmpty ? provider.destinations : Destination.davaoDestinations;
+    final allDests = provider.destinations.isNotEmpty
+        ? provider.destinations
+        : Destination.davaoDestinations;
     final filtered = _filteredDestinations(allDests);
 
     return Scaffold(
@@ -267,7 +278,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   end: Alignment.bottomRight,
                   colors: [AppTheme.primaryBlue, Color(0xFF104B50)],
                 ),
-                borderRadius: BorderRadius.vertical(bottom: Radius.circular(32)),
+                borderRadius: BorderRadius.vertical(
+                  bottom: Radius.circular(32),
+                ),
               ),
               padding: EdgeInsets.only(
                 top: MediaQuery.of(context).padding.top + AppConstants.spaceM,
@@ -283,51 +296,53 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.08),
-                                    blurRadius: 8,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                              ),
-                              padding: const EdgeInsets.all(6),
-                              child: Image.asset(
-                                'assets/images/lakbay_logo.png',
-                                fit: BoxFit.contain,
-                              ),
+                            Image.asset(
+                              'assets/images/lakbay_logo.png',
+                              width: 40,
+                              height: 40,
+                              fit: BoxFit.contain,
                             ),
                             const SizedBox(width: AppConstants.spaceM),
-                              Column(
+                            Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Builder(builder: (context) {
-                                  final firstName = context
-                                      .watch<AuthProvider>()
-                                      .userProfile
-                                      ?.displayName
-                                      .split(' ')
-                                      .first ?? 'Traveler';
-                                  return Text(
-                                    'Good Morning, $firstName 👋',
-                                    style: GoogleFonts.outfit(
-                                        fontSize: 13, color: Colors.white60));
-                                }),
-                                Text('Discover Davao', style: GoogleFonts.outfit(
-                                  fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white)),
+                                Builder(
+                                  builder: (context) {
+                                    final firstName =
+                                        context
+                                            .watch<AuthProvider>()
+                                            .userProfile
+                                            ?.displayName
+                                            .split(' ')
+                                            .first ??
+                                        'Traveler';
+                                    return Text(
+                                      'Good Morning, $firstName 👋',
+                                      style: GoogleFonts.outfit(
+                                        fontSize: 13,
+                                        color: Colors.white60,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                Text(
+                                  'Discover Davao',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
                               ],
                             ),
                           ],
                         ),
                       ),
                       GestureDetector(
-                        onTap: () => Navigator.pushNamed(context, AppRoutes.notifications),
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.notifications,
+                        ),
                         child: Stack(
                           clipBehavior: Clip.none,
                           children: [
@@ -339,14 +354,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(color: Colors.white24),
                               ),
-                              child: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
+                              child: const Icon(
+                                Icons.notifications_outlined,
+                                color: Colors.white,
+                                size: 22,
+                              ),
                             ),
                             if (provider.unreadNotificationCount > 0)
                               Positioned(
                                 right: -4,
                                 top: -4,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                    vertical: 2,
+                                  ),
                                   decoration: const BoxDecoration(
                                     color: Colors.red,
                                     shape: BoxShape.circle,
@@ -359,7 +381,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                     child: Text(
                                       provider.unreadNotificationCount > 9
                                           ? '9+'
-                                          : provider.unreadNotificationCount.toString(),
+                                          : provider.unreadNotificationCount
+                                                .toString(),
                                       style: const TextStyle(
                                         color: Colors.white,
                                         fontSize: 9,
@@ -381,7 +404,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
-                        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusL,
+                        ),
                         boxShadow: AppConstants.premiumShadow,
                       ),
                       child: TextField(
@@ -395,21 +420,37 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                         decoration: InputDecoration(
                           hintText: 'Search destinations in Davao...',
-                          hintStyle: TextStyle(color: AppTheme.textSecondaryLight.withValues(alpha: 0.6), fontSize: 14),
-                          prefixIcon: const Icon(Icons.search_rounded, color: AppTheme.primaryBlue),
+                          hintStyle: TextStyle(
+                            color: AppTheme.textSecondaryLight.withValues(
+                              alpha: 0.6,
+                            ),
+                            fontSize: 14,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.search_rounded,
+                            color: AppTheme.primaryBlue,
+                          ),
                           suffixIcon: GestureDetector(
                             onTap: _showFilterBottomSheet,
                             child: Container(
                               margin: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
                                 color: AppTheme.secondaryGreen,
-                                borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                                borderRadius: BorderRadius.circular(
+                                  AppConstants.radiusM,
+                                ),
                               ),
-                              child: const Icon(Icons.tune_rounded, color: Colors.white, size: 18),
+                              child: const Icon(
+                                Icons.tune_rounded,
+                                color: Colors.white,
+                                size: 18,
+                              ),
                             ),
                           ),
                           border: InputBorder.none,
-                          contentPadding: const EdgeInsets.symmetric(vertical: 14),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 14,
+                          ),
                         ),
                       ),
                     ),
@@ -431,7 +472,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 height: 40,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.spaceM,
+                  ),
                   itemCount: _categories.length,
                   itemBuilder: (_, i) {
                     final cat = _categories[i];
@@ -444,20 +487,40 @@ class _HomeScreenState extends State<HomeScreen> {
                       }),
                       child: AnimatedContainer(
                         duration: AppConstants.animDurationFast,
-                        margin: const EdgeInsets.only(right: AppConstants.spaceS),
-                        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS),
+                        margin: const EdgeInsets.only(
+                          right: AppConstants.spaceS,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppConstants.spaceM,
+                          vertical: AppConstants.spaceS,
+                        ),
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-                          borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                          color: isSelected
+                              ? AppTheme.primaryBlue
+                              : Colors.transparent,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusCircular,
+                          ),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withValues(alpha: 0.3),
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight).withValues(
+                                    alpha: 0.3,
+                                  ),
                           ),
                         ),
-                        child: Text(cat, style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.textSecondaryLight,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
-                        )),
+                        child: Text(
+                          cat,
+                          style: TextStyle(
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            fontWeight: isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     );
                   },
@@ -473,7 +536,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 const SizedBox(height: AppConstants.spaceL),
                 SectionHeader(
                   title: 'Featured',
-                  onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                  onActionPressed: () =>
+                      Navigator.pushNamed(context, AppRoutes.destinationList),
                 ),
                 const SizedBox(height: AppConstants.spaceS),
                 SizedBox(
@@ -519,7 +583,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: isActive
                             ? AppTheme.primaryBlue
                             : AppTheme.primaryBlue.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusCircular,
+                        ),
                       ),
                     );
                   }),
@@ -530,7 +596,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
           // Dual-Engine Recommendations and Global Popular Leaderboard or Search Results
           SliverToBoxAdapter(
-            child: _searchQuery.isEmpty && _selectedCategory == 'All' && _selectedDistrict == 'All'
+            child:
+                _searchQuery.isEmpty &&
+                    _selectedCategory == 'All' &&
+                    _selectedDistrict == 'All'
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -543,7 +612,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: AppConstants.spaceL),
                       SectionHeader(
                         title: 'Search Results',
-                        onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                        onActionPressed: () => Navigator.pushNamed(
+                          context,
+                          AppRoutes.destinationList,
+                        ),
                       ),
                       const SizedBox(height: AppConstants.spaceS),
                       SizedBox(
@@ -556,27 +628,42 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(16),
                                       decoration: BoxDecoration(
-                                        color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+                                        color: AppTheme.primaryBlue.withValues(
+                                          alpha: 0.05,
+                                        ),
                                         shape: BoxShape.circle,
                                       ),
-                                      child: const Icon(Icons.search_off_rounded, size: 40, color: AppTheme.primaryBlue),
+                                      child: const Icon(
+                                        Icons.search_off_rounded,
+                                        size: 40,
+                                        color: AppTheme.primaryBlue,
+                                      ),
                                     ),
                                     const SizedBox(height: 12),
                                     Text(
                                       'No destinations found',
-                                      style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue),
+                                      style: GoogleFonts.outfit(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: AppTheme.primaryBlue,
+                                      ),
                                     ),
                                     const SizedBox(height: 4),
-                                    const Text(
+                                    Text(
                                       'Try adjusting your search or filters',
-                                      style: TextStyle(color: AppTheme.textSecondaryLight, fontSize: 12),
+                                      style: TextStyle(
+                                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                        fontSize: 12,
+                                      ),
                                     ),
                                   ],
                                 ),
                               )
                             : ListView.builder(
                                 scrollDirection: Axis.horizontal,
-                                padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AppConstants.spaceM,
+                                ),
                                 itemCount: filtered.length,
                                 itemBuilder: (_, i) => DestinationCard(
                                   destination: filtered[i],
@@ -595,14 +682,17 @@ class _HomeScreenState extends State<HomeScreen> {
           // District Bento Explorer
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceM,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: AppConstants.spaceXL),
                   SectionHeader(
                     title: 'Explore Districts',
-                    onActionPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
+                    onActionPressed: () =>
+                        Navigator.pushNamed(context, AppRoutes.destinationList),
                   ),
                   const SizedBox(height: AppConstants.spaceS),
                   Padding(
@@ -610,7 +700,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Text(
                       'Encourage exploration of all 6 districts within the Davao Region',
                       style: GoogleFonts.outfit(
-                        color: AppTheme.textSecondaryLight.withValues(alpha: 0.8),
+                        color: (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight).withValues(
+                          alpha: 0.8,
+                        ),
                         fontSize: 13,
                       ),
                     ),
@@ -622,96 +714,17 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
-          // AI Mood Suggestions
-          SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const SizedBox(height: AppConstants.spaceXL),
-                SectionHeader(
-                  title: 'AI Mood Suggestions 🤖',
-                  onActionPressed: () {
-                    context.read<NavProvider>().setIndex(1);
-                  },
-                ),
-                const SizedBox(height: AppConstants.spaceS),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                  child: Text(
-                    'Select a mood to start planning your perfect Davao adventure instantly',
-                    style: GoogleFonts.outfit(
-                      color: AppTheme.textSecondaryLight.withValues(alpha: 0.8),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppConstants.spaceM),
-                SizedBox(
-                  height: 48,
-                  child: ListView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-                    children: [
-                      _buildMoodTile(context, '🏔️ Adventure', const Color(0xFFE8F5E9), const Color(0xFF2E7D32)),
-                      _buildMoodTile(context, '🌿 Relaxation', const Color(0xFFE0F2F1), const Color(0xFF00796B)),
-                      _buildMoodTile(context, '👨‍👩‍👧 Family', const Color(0xFFF3E5F5), const Color(0xFF6A1B9A)),
-                      _buildMoodTile(context, '🌊 Beach', const Color(0xFFE1F5FE), const Color(0xFF0288D1)),
-                      _buildMoodTile(context, '🌲 Nature', const Color(0xFFF1F8E9), const Color(0xFF558B2F)),
-                      _buildMoodTile(context, '🏙️ Culture', const Color(0xFFFFF3E0), const Color(0xFFE65100)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
 
-          const SliverToBoxAdapter(child: SizedBox(height: AppConstants.spaceXL)),
+
+          const SliverToBoxAdapter(
+            child: SizedBox(height: AppConstants.spaceXL),
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildMoodTile(BuildContext context, String mood, Color bgColor, Color textColor) {
-    return GestureDetector(
-      onTap: () {
-        final pureMood = mood.substring(3).trim(); // Remove emoji
-        final tripProv = context.read<TripProvider>();
-        final navProv = context.read<NavProvider>();
-        
-        tripProv.setActivePlanningMoodPrompt("Suggest a $pureMood trip in Davao Region.");
-        navProv.setIndex(1); // Navigate to Planner Page (Index 1)
-      },
-      child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.symmetric(horizontal: 20),
-        decoration: BoxDecoration(
-          color: bgColor,
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: textColor.withValues(alpha: 0.15),
-            width: 1.5,
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: textColor.withValues(alpha: 0.05),
-              blurRadius: 8,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: Center(
-          child: Text(
-            mood,
-            style: GoogleFonts.outfit(
-              color: textColor,
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+
 
   Widget _buildRecommendedSection(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -721,15 +734,22 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const SizedBox(height: AppConstants.spaceL),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-            child: SectionHeader(title: 'Recommended For You ✨', onActionPressed: () {}),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+            ),
+            child: SectionHeader(
+              title: 'Recommended For You ✨',
+              onActionPressed: () {},
+            ),
           ),
           const SizedBox(height: AppConstants.spaceS),
           SizedBox(
             height: 290,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceM,
+              ),
               itemCount: 3,
               itemBuilder: (_, _) => _buildShimmerCard(context),
             ),
@@ -766,14 +786,23 @@ class _HomeScreenState extends State<HomeScreen> {
                     'AI-curated travel experiences tailored for you',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
                     ),
                   ),
                 ],
               ),
               TextButton(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
-                child: const Text('View All', style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold)),
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.destinationList),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppTheme.secondaryGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -783,7 +812,9 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 310,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+            ),
             itemCount: _recommendedDestinations.length,
             itemBuilder: (context, index) {
               final dest = _recommendedDestinations[index];
@@ -797,7 +828,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildRecommendedCard(BuildContext context, Destination dest) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Extract a nice personalized tag from matchReasons
     String matchTag = "AI Pick";
     if (dest.matchReasons.isNotEmpty) {
@@ -832,7 +863,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
                     color: AppTheme.primaryBlue.withOpacity(0.15),
-                    child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
+                    child: const Icon(
+                      Icons.landscape,
+                      size: 60,
+                      color: AppTheme.primaryBlue,
+                    ),
                   ),
                 ),
               ),
@@ -859,7 +894,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   top: AppConstants.spaceM,
                   left: AppConstants.spaceM,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       gradient: const LinearGradient(
                         colors: [AppTheme.secondaryGreen, AppTheme.accentTeal],
@@ -876,7 +914,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.auto_awesome, color: Colors.white, size: 10),
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 10,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           matchTag,
@@ -895,15 +937,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 top: AppConstants.spaceM,
                 right: AppConstants.spaceM,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.9),
-                    borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                    borderRadius: BorderRadius.circular(
+                      AppConstants.radiusCircular,
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(Icons.star_rounded, color: Color(0xFFFBBC04), size: 12),
+                      const Icon(
+                        Icons.star_rounded,
+                        color: Color(0xFFFBBC04),
+                        size: 12,
+                      ),
                       const SizedBox(width: 2),
                       Text(
                         dest.rating.toStringAsFixed(1),
@@ -941,7 +992,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_rounded, color: AppTheme.secondaryGreen, size: 12),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: AppTheme.secondaryGreen,
+                          size: 12,
+                        ),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
@@ -961,7 +1016,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.secondaryGreen.withOpacity(0.9),
                               borderRadius: BorderRadius.circular(6),
@@ -982,11 +1040,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Micro tag for matching category
                         Flexible(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: Colors.white10,
                               borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.white24, width: 0.5),
+                              border: Border.all(
+                                color: Colors.white24,
+                                width: 0.5,
+                              ),
                             ),
                             child: Text(
                               dest.category,
@@ -1019,15 +1083,22 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           const SizedBox(height: AppConstants.spaceL),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-            child: SectionHeader(title: 'Popular Destinations 🔥', onActionPressed: () {}),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+            ),
+            child: SectionHeader(
+              title: 'Popular Destinations 🔥',
+              onActionPressed: () {},
+            ),
           ),
           const SizedBox(height: AppConstants.spaceS),
           SizedBox(
             height: 290,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceM,
+              ),
               itemCount: 3,
               itemBuilder: (_, _) => _buildShimmerCard(context),
             ),
@@ -1064,14 +1135,23 @@ class _HomeScreenState extends State<HomeScreen> {
                     'Davao Region\'s highest rated and trending places',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
                     ),
                   ),
                 ],
               ),
               TextButton(
-                onPressed: () => Navigator.pushNamed(context, AppRoutes.destinationList),
-                child: const Text('View All', style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold)),
+                onPressed: () =>
+                    Navigator.pushNamed(context, AppRoutes.destinationList),
+                child: const Text(
+                  'View All',
+                  style: TextStyle(
+                    color: AppTheme.secondaryGreen,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1081,7 +1161,9 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 300,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+            ),
             itemCount: _popularDestinations.length,
             itemBuilder: (context, index) {
               final dest = _popularDestinations[index];
@@ -1093,9 +1175,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPopularLeaderboardCard(BuildContext context, Destination dest, int index) {
+  Widget _buildPopularLeaderboardCard(
+    BuildContext context,
+    Destination dest,
+    int index,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Choose rank background gradient and border color
     List<Color> rankColors = [AppTheme.primaryBlue, AppTheme.accentTeal];
     if (index == 0) {
@@ -1106,7 +1192,8 @@ class _HomeScreenState extends State<HomeScreen> {
       rankColors = [const Color(0xFFCD7F32), const Color(0xFF8B4513)]; // Bronze
     }
 
-    final isTrending = dest.trendingStatus == 'high' || dest.trendingStatus == 'rising';
+    final isTrending =
+        dest.trendingStatus == 'high' || dest.trendingStatus == 'rising';
 
     return GestureDetector(
       onTap: () {
@@ -1134,7 +1221,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
                     color: AppTheme.primaryBlue.withOpacity(0.15),
-                    child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
+                    child: const Icon(
+                      Icons.landscape,
+                      size: 60,
+                      color: AppTheme.primaryBlue,
+                    ),
                   ),
                 ),
               ),
@@ -1192,7 +1283,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   top: AppConstants.spaceM,
                   right: AppConstants.spaceM,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.redAccent,
                       borderRadius: BorderRadius.circular(8),
@@ -1207,7 +1301,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.local_fire_department_rounded, color: Colors.white, size: 10),
+                        Icon(
+                          Icons.local_fire_department_rounded,
+                          color: Colors.white,
+                          size: 10,
+                        ),
                         SizedBox(width: 2),
                         Text(
                           'HOT',
@@ -1227,15 +1325,24 @@ class _HomeScreenState extends State<HomeScreen> {
                   top: AppConstants.spaceM,
                   right: AppConstants.spaceM,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white.withOpacity(0.9),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.radiusCircular,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Icon(Icons.star_rounded, color: Color(0xFFFBBC04), size: 12),
+                        const Icon(
+                          Icons.star_rounded,
+                          color: Color(0xFFFBBC04),
+                          size: 12,
+                        ),
                         const SizedBox(width: 2),
                         Text(
                           dest.rating.toStringAsFixed(1),
@@ -1273,7 +1380,11 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 3),
                     Row(
                       children: [
-                        const Icon(Icons.location_on_rounded, color: AppTheme.secondaryGreen, size: 11),
+                        const Icon(
+                          Icons.location_on_rounded,
+                          color: AppTheme.secondaryGreen,
+                          size: 11,
+                        ),
                         const SizedBox(width: 3),
                         Expanded(
                           child: Text(
@@ -1294,16 +1405,26 @@ class _HomeScreenState extends State<HomeScreen> {
                         if ((dest.popularityScore * 100).round() > 0) ...[
                           Flexible(
                             child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.primaryBlue.withOpacity(0.85),
                                 borderRadius: BorderRadius.circular(6),
-                                border: Border.all(color: Colors.white30, width: 0.5),
+                                border: Border.all(
+                                  color: Colors.white30,
+                                  width: 0.5,
+                                ),
                               ),
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  const Icon(Icons.trending_up_rounded, color: Colors.white, size: 10),
+                                  const Icon(
+                                    Icons.trending_up_rounded,
+                                    color: Colors.white,
+                                    size: 10,
+                                  ),
                                   const SizedBox(width: 3),
                                   Flexible(
                                     child: Text(
@@ -1326,7 +1447,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         // Mini fee badge
                         Flexible(
                           child: Text(
-                            dest.entranceFee.toLowerCase().contains('free') ? 'Free Entry' : dest.entranceFee,
+                            dest.entranceFee.toLowerCase().contains('free')
+                                ? 'Free Entry'
+                                : dest.entranceFee,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
@@ -1363,7 +1486,9 @@ class _HomeScreenState extends State<HomeScreen> {
           height: 24,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue.withOpacity(0.4)),
+            valueColor: AlwaysStoppedAnimation<Color>(
+              AppTheme.primaryBlue.withOpacity(0.4),
+            ),
           ),
         ),
       ),
@@ -1376,43 +1501,37 @@ class _HomeScreenState extends State<HomeScreen> {
         'name': 'Davao City',
         'mood': 'Urban Culture & Heritage',
         'image': 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
-        'height': 160.0,
       },
       {
         'name': 'Davao del Norte',
         'mood': 'Adventure Gateways',
         'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-        'height': 140.0,
       },
       {
         'name': 'Davao Oriental',
         'mood': 'Coastal Escapes',
         'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
-        'height': 140.0,
       },
       {
         'name': 'Davao del Sur',
         'mood': 'Mountain Retreats',
         'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
-        'height': 140.0,
       },
       {
         'name': 'Davao de Oro',
         'mood': 'Wilderness & Rivers',
         'image': 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80',
-        'height': 140.0,
       },
       {
         'name': 'Davao Occidental',
         'mood': 'Hidden Coastal Gems',
         'image': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
-        'height': 120.0,
       },
     ];
 
     return Column(
       children: [
-        _buildBentoCard(context, districts[0], allDests),
+        _buildBentoCard(context, districts[0], allDests, isHero: true),
         const SizedBox(height: 12),
         Row(
           children: [
@@ -1430,17 +1549,23 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         const SizedBox(height: 12),
-        _buildBentoCard(context, districts[5], allDests),
+        _buildBentoCard(context, districts[5], allDests, isFullWidth: true),
       ],
     );
   }
 
-  Widget _buildBentoCard(BuildContext context, Map<String, dynamic> district, List<Destination> allDests) {
+  Widget _buildBentoCard(
+    BuildContext context, 
+    Map<String, dynamic> district, 
+    List<Destination> allDests, 
+    {bool isHero = false, bool isFullWidth = false}
+  ) {
     final name = district['name'] as String;
     final mood = district['mood'] as String;
     final image = district['image'] as String;
-    final height = district['height'] as double;
-
+    
+    // Set heights: hero is 360.0, secondary cards are 140.0
+    final height = isHero ? 360.0 : 140.0;
     final int count = allDests.where((d) => d.district == name).length;
 
     return GestureDetector(
@@ -1454,7 +1579,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Container(
         height: height,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.12),
@@ -1464,7 +1589,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
           child: Stack(
             children: [
               Positioned.fill(
@@ -1485,58 +1610,148 @@ class _HomeScreenState extends State<HomeScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: [
-                        Colors.transparent,
-                        Colors.black.withValues(alpha: 0.35),
-                        Colors.black.withValues(alpha: 0.75),
-                      ],
+                      colors: isHero 
+                        ? [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.2),
+                            Colors.black.withValues(alpha: 0.5),
+                            Colors.black.withValues(alpha: 0.85),
+                          ]
+                        : [
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.35),
+                            Colors.black.withValues(alpha: 0.75),
+                          ],
                     ),
                   ),
                 ),
               ),
               Positioned(
-                bottom: 12,
-                left: 14,
-                right: 14,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      name,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                bottom: isHero ? 24 : 12,
+                left: isHero ? 24 : 12,
+                right: isHero ? 24 : 12,
+                child: isHero
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  name,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 26,
+                                    fontWeight: FontWeight.bold,
+                                    height: 1.1,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  '$name · Urban & Culture',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white.withValues(alpha: 0.8),
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.white24),
+                                  ),
+                                  child: Text(
+                                    '$count ${count == 1 ? "destination" : "destinations"}',
+                                    style: GoogleFonts.outfit(
+                                      color: Colors.white,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondaryGreen,
+                              borderRadius: BorderRadius.circular(99),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.secondaryGreen.withValues(alpha: 0.3),
+                                  blurRadius: 10,
+                                  offset: const Offset(0, 4),
+                                )
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Explore',
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                              ],
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            name,
+                            style: GoogleFonts.outfit(
+                              color: Colors.white,
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  mood,
+                                  style: GoogleFonts.outfit(
+                                    color: Colors.white,
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '$count ${count == 1 ? "dest" : "dests"}',
+                                style: GoogleFonts.outfit(
+                                  color: Colors.white70,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      mood,
-                      style: GoogleFonts.outfit(
-                        color: Colors.white70,
-                        fontSize: 11,
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryGreen.withValues(alpha: 0.95),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '$count ${count == 1 ? "destination" : "destinations"}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
               ),
             ],
           ),
@@ -1557,19 +1772,28 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            Widget buildChoiceChip(String text, bool isSelected, VoidCallback onTap) {
+            Widget buildChoiceChip(
+              String text,
+              bool isSelected,
+              VoidCallback onTap,
+            ) {
               return GestureDetector(
                 onTap: onTap,
                 child: AnimatedContainer(
                   duration: AppConstants.animDurationFast,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
-                    color: isSelected 
-                        ? AppTheme.primaryBlue 
+                    color: isSelected
+                        ? AppTheme.primaryBlue
                         : (isDark ? Colors.white10 : Colors.white),
                     borderRadius: BorderRadius.circular(99),
                     border: Border.all(
-                      color: isSelected ? AppTheme.primaryBlue : (isDark ? Colors.white12 : Colors.black12),
+                      color: isSelected
+                          ? AppTheme.primaryBlue
+                          : (isDark ? Colors.white12 : Colors.black12),
                     ),
                     boxShadow: isSelected
                         ? [
@@ -1577,17 +1801,21 @@ class _HomeScreenState extends State<HomeScreen> {
                               color: AppTheme.primaryBlue.withOpacity(0.2),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
-                            )
+                            ),
                           ]
                         : null,
                   ),
                   child: Text(
                     text,
                     style: TextStyle(
-                      color: isSelected 
-                          ? Colors.white 
-                          : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                      fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark
+                                ? AppTheme.textSecondaryDark
+                                : AppTheme.textSecondaryLight),
+                      fontWeight: isSelected
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       fontSize: 13,
                     ),
                   ),
@@ -1640,7 +1868,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             },
                             child: const Text(
                               'Reset All',
-                              style: TextStyle(color: AppTheme.secondaryGreen, fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                color: AppTheme.secondaryGreen,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
                           ),
                         ],
@@ -1654,24 +1885,27 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                          color: isDark
+                              ? AppTheme.textPrimaryDark
+                              : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          'Popularity',
-                          'Rating',
-                          'Cost: Low to High',
-                          'Cost: High to Low',
-                        ].map((sort) {
-                          return buildChoiceChip(sort, _sortBy == sort, () {
-                            setModalState(() => _sortBy = sort);
-                            setState(() {});
-                          });
-                        }).toList(),
+                        children:
+                            [
+                              'Popularity',
+                              'Rating',
+                              'Cost: Low to High',
+                              'Cost: High to Low',
+                            ].map((sort) {
+                              return buildChoiceChip(sort, _sortBy == sort, () {
+                                setModalState(() => _sortBy = sort);
+                                setState(() {});
+                              });
+                            }).toList(),
                       ),
                       const SizedBox(height: 20),
 
@@ -1681,27 +1915,34 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                          color: isDark
+                              ? AppTheme.textPrimaryDark
+                              : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          'All',
-                          'Davao City',
-                          'Davao del Norte',
-                          'Davao del Sur',
-                          'Davao Oriental',
-                          'Davao de Oro',
-                          'Davao Occidental',
-                        ].map((dist) {
-                          return buildChoiceChip(dist, _selectedDistrict == dist, () {
-                            setModalState(() => _selectedDistrict = dist);
-                            setState(() {});
-                          });
-                        }).toList(),
+                        children:
+                            [
+                              'All',
+                              'Davao City',
+                              'Davao del Norte',
+                              'Davao del Sur',
+                              'Davao Oriental',
+                              'Davao de Oro',
+                              'Davao Occidental',
+                            ].map((dist) {
+                              return buildChoiceChip(
+                                dist,
+                                _selectedDistrict == dist,
+                                () {
+                                  setModalState(() => _selectedDistrict = dist);
+                                  setState(() {});
+                                },
+                              );
+                            }).toList(),
                       ),
                       const SizedBox(height: 20),
 
@@ -1711,30 +1952,39 @@ class _HomeScreenState extends State<HomeScreen> {
                         style: GoogleFonts.outfit(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                          color: isDark
+                              ? AppTheme.textPrimaryDark
+                              : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: 10),
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
-                        children: [
-                          'All',
-                          'Nature',
-                          'Beach',
-                          'Mountain',
-                          'Urban',
-                          'Culture',
-                          'Wildlife',
-                          'Food',
-                          'Adventure',
-                          'Relaxation',
-                        ].map((theme) {
-                          return buildChoiceChip(theme, _selectedCategory == theme, () {
-                            setModalState(() => _selectedCategory = theme);
-                            setState(() {});
-                          });
-                        }).toList(),
+                        children:
+                            [
+                              'All',
+                              'Nature',
+                              'Beach',
+                              'Mountain',
+                              'Urban',
+                              'Culture',
+                              'Wildlife',
+                              'Food',
+                              'Adventure',
+                              'Relaxation',
+                            ].map((theme) {
+                              return buildChoiceChip(
+                                theme,
+                                _selectedCategory == theme,
+                                () {
+                                  setModalState(
+                                    () => _selectedCategory = theme,
+                                  );
+                                  setState(() {});
+                                },
+                              );
+                            }).toList(),
                       ),
                       const SizedBox(height: 24),
 
@@ -1747,13 +1997,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             backgroundColor: AppTheme.primaryBlue,
                             elevation: 2,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                              borderRadius: BorderRadius.circular(
+                                AppConstants.radiusL,
+                              ),
                             ),
                           ),
                           onPressed: () => Navigator.pop(context),
                           child: const Text(
                             'Apply Filters',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ),
@@ -1767,8 +2023,6 @@ class _HomeScreenState extends State<HomeScreen> {
       },
     );
   }
-
-
 
   void _showOverlay() {
     if (_suggestionsOverlayEntry != null) {
@@ -1805,7 +2059,8 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Align(
             alignment: Alignment.topLeft,
             child: SizedBox(
-              width: MediaQuery.of(context).size.width - (AppConstants.spaceL * 2),
+              width:
+                  MediaQuery.of(context).size.width - (AppConstants.spaceL * 2),
               child: Material(
                 elevation: 8,
                 borderRadius: BorderRadius.circular(AppConstants.radiusL),
@@ -1814,7 +2069,9 @@ class _HomeScreenState extends State<HomeScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                    border: Border.all(color: isDark ? Colors.white10 : Colors.black12),
+                    border: Border.all(
+                      color: isDark ? Colors.white10 : Colors.black12,
+                    ),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withOpacity(0.08),
@@ -1839,8 +2096,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ? AppTheme.primaryBlue.withOpacity(0.08)
                                 : AppTheme.secondaryGreen.withOpacity(0.08),
                             child: Icon(
-                              isDistrict ? Icons.location_on_rounded : Icons.place_rounded,
-                              color: isDistrict ? AppTheme.primaryBlue : AppTheme.secondaryGreen,
+                              isDistrict
+                                  ? Icons.location_on_rounded
+                                  : Icons.place_rounded,
+                              color: isDistrict
+                                  ? AppTheme.primaryBlue
+                                  : AppTheme.secondaryGreen,
                               size: 20,
                             ),
                           ),
@@ -1849,12 +2110,21 @@ class _HomeScreenState extends State<HomeScreen> {
                             style: GoogleFonts.outfit(
                               fontWeight: FontWeight.w600,
                               fontSize: 14,
-                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                              color: isDark
+                                  ? AppTheme.textPrimaryDark
+                                  : AppTheme.textPrimaryLight,
                             ),
                           ),
                           subtitle: Text(
-                            isDistrict ? 'District / Province' : item['subtitle']!,
-                            style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            isDistrict
+                                ? 'District / Province'
+                                : item['subtitle']!,
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isDark
+                                  ? AppTheme.textSecondaryDark
+                                  : AppTheme.textSecondaryLight,
+                            ),
                           ),
                           onTap: () {
                             if (isDistrict) {
@@ -1865,9 +2135,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _searchFocusNode.unfocus();
                               });
                             } else {
-                              final dest = Destination.davaoDestinations.firstWhere(
-                                (d) => d.name == item['name'],
-                              );
+                              final dest = Destination.davaoDestinations
+                                  .firstWhere((d) => d.name == item['name']);
                               setState(() {
                                 _searchFocusNode.unfocus();
                               });
@@ -1892,11 +2161,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildContinuePlanningSliver(BuildContext context, PlannerDraft draft) {
+  Widget _buildContinuePlanningSliver(
+    BuildContext context,
+    PlannerDraft draft,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return SliverToBoxAdapter(
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(AppConstants.spaceM, AppConstants.spaceL, AppConstants.spaceM, 0),
+        padding: const EdgeInsets.fromLTRB(
+          AppConstants.spaceM,
+          AppConstants.spaceL,
+          AppConstants.spaceM,
+          0,
+        ),
         child: Container(
           padding: const EdgeInsets.all(AppConstants.spaceM),
           decoration: BoxDecoration(
@@ -1927,7 +2204,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
                       color: AppTheme.primaryBlue.withOpacity(0.1),
-                      child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
+                      child: const Icon(
+                        Icons.place_rounded,
+                        color: AppTheme.primaryBlue,
+                      ),
                     ),
                   ),
                 ),
@@ -1951,7 +2231,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       draft.progressText,
                       style: GoogleFonts.outfit(
                         fontSize: 11,
-                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        color: isDark
+                            ? AppTheme.textSecondaryDark
+                            : AppTheme.textSecondaryLight,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -1968,10 +2250,15 @@ class _HomeScreenState extends State<HomeScreen> {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                 ),
                 onPressed: () {
-                  context.read<NavProvider>().setIndex(1); // Navigates to Planner tab
+                  context.read<NavProvider>().setIndex(
+                    1,
+                  ); // Navigates to Planner tab
                 },
                 child: Text(
                   'Resume',

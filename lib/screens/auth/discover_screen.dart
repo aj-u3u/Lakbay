@@ -41,30 +41,23 @@ class _DiscoverScreenState extends State<DiscoverScreen>
     {
       'image':
           'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
-      'title': 'Explore Davao Region',
+      'title': 'Discover Davao',
       'subtitle':
-          'From Pearl Farm to Mount Apo — your next adventure starts here.',
+          'Explore the best destinations the region has to offer.',
     },
     {
       'image':
           'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=900&q=80',
-      'title': 'AI-Powered Itineraries',
+      'title': 'Plan with AI',
       'subtitle':
-          'Let Lakbay+ craft the perfect Davao trip plan just for you.',
+          'Your personal Lakbay AI builds the perfect itinerary for you.',
     },
     {
       'image':
           'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
-      'title': 'Capture Your Memories',
+      'title': 'Travel and Remember',
       'subtitle':
-          'Journal every destination, share stories, relive adventures.',
-    },
-    {
-      'image':
-          'https://images.unsplash.com/photo-1552728089-57bdde30beb3?w=900&q=80',
-      'title': 'Discover Hidden Gems',
-      'subtitle':
-          'Uncover the best of all 6 Davao districts — beautifully off the beaten path.',
+          'Capture memories and relive every journey.',
     },
   ];
 
@@ -204,23 +197,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               ),
             ),
 
-            // ── Skip button — top right ──────────────────────────────────
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConstants.spaceM),
-                  child: TextButton(
-                    onPressed: () => Navigator.pushNamed(
-                        context, AppRoutes.login),
-                    child: const Text(
-                      'Log In',
-                      style: TextStyle(color: Colors.white70, fontSize: 15),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+            // ── Skip button removed per spec ─────────────────────────────
 
             // ── Bottom content: dots + text + CTA buttons ────────────────
             Positioned(
@@ -271,7 +248,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
                     const SizedBox(height: AppConstants.spaceXL),
 
-                    // "Get Started" → Create Account (primary filled — spec)
                     CustomButton(
                       label: 'Get Started',
                       onPressed: () =>
@@ -281,12 +257,26 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                       trailingIcon: Icons.arrow_forward_rounded,
                     ),
                     const SizedBox(height: AppConstants.spaceM),
-
-                    // "Log In" → Login Page (outlined, white on dark bg)
-                    _OutlinedWhiteButton(
-                      label: 'Log In',
-                      onPressed: () => Navigator.pushNamed(
-                          context, AppRoutes.login),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "Already have an account?  ",
+                          style: TextStyle(color: Colors.white70, fontSize: 13),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, AppRoutes.login),
+                          child: const Text(
+                            'Sign In',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: AppConstants.spaceXL),
                   ],

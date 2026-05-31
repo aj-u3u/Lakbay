@@ -9,6 +9,7 @@ import '../../widgets/buttons/custom_button.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
+import 'wishlist_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -33,6 +34,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   final _menuItems = [
+    {'icon': Icons.favorite_border_rounded, 'label': 'My Wishlist'},
     {'icon': Icons.person_outline_rounded, 'label': 'Edit Profile'},
     {'icon': Icons.lock_outline_rounded, 'label': 'Change Password'},
     {'icon': Icons.notifications_outlined, 'label': 'Notifications'},
@@ -1133,9 +1135,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   title: Text(item['label'] as String, style: const TextStyle(
                     fontWeight: FontWeight.w500, fontSize: 15)),
-                  trailing: const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: AppTheme.textSecondaryLight),
+                  trailing: Icon(
+                    Icons.arrow_forward_ios_rounded,
+                    size: 14,
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
                   onTap: () {
                     switch (item['label'] as String) {
+                      case 'My Wishlist':
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const WishlistScreen(),
+                          ),
+                        );
+                        break;
                       case 'Edit Profile':
                         _showEditProfileSheet(context, authProvider, user);
                         break;

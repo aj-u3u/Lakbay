@@ -45,18 +45,59 @@ class _PlannerScreenState extends State<PlannerScreen> {
   int _currentStep = 0;
 
   final List<String> _districts = [
-    'Davao City', 'Davao del Norte', 'Davao del Sur',
-    'Davao Oriental', 'Davao de Oro', 'Davao Occidental',
+    'Davao City',
+    'Davao del Norte',
+    'Davao del Sur',
+    'Davao Oriental',
+    'Davao de Oro',
+    'Davao Occidental',
   ];
   final List<String> _vibes = [
-    'Nature', 'Beach', 'Mountain', 'Adventure', 'Culture', 'Food', 'Luxury', 'Family', 'Relaxation',
+    'Nature',
+    'Beach',
+    'Mountain',
+    'Adventure',
+    'Culture',
+    'Food',
+    'Luxury',
+    'Family',
+    'Relaxation',
   ];
-  final List<String> _durations = ['1 Day', '2 Days', '3 Days', '4 Days', '5 Days', '7 Days'];
-  final List<String> _budgets = ['₱3,000', '₱5,000', '₱10,000', '₱15,000', '₱20,000', '₱30,000'];
-  final List<String> _dateOptions = ['This Weekend', 'Next Weekend', 'Next Month', 'Flexible Dates'];
-  final List<String> _budgetCategories = ['Low Budget', 'Balanced Budget', 'High Budget'];
-  final List<String> _destDurations = ['1 Day', '2 Days', '3 Days', '4 Days', '5 Days'];
-  
+  final List<String> _durations = [
+    '1 Day',
+    '2 Days',
+    '3 Days',
+    '4 Days',
+    '5 Days',
+    '7 Days',
+  ];
+  final List<String> _budgets = [
+    '₱3,000',
+    '₱5,000',
+    '₱10,000',
+    '₱15,000',
+    '₱20,000',
+    '₱30,000',
+  ];
+  final List<String> _dateOptions = [
+    'This Weekend',
+    'Next Weekend',
+    'Next Month',
+    'Flexible Dates',
+  ];
+  final List<String> _budgetCategories = [
+    'Low Budget',
+    'Balanced Budget',
+    'High Budget',
+  ];
+  final List<String> _destDurations = [
+    '1 Day',
+    '2 Days',
+    '3 Days',
+    '4 Days',
+    '5 Days',
+  ];
+
   final List<String> _travelTypes = ['Solo Travel', 'Group Travel'];
   final List<String> _travelerCounts = ['2', '3', '4', '5', '6+'];
 
@@ -84,27 +125,27 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _currentStep = 10;
       setState(() {
         _messages.clear();
-        _messages.add(_ChatMessage(
-          text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          _ChatMessage(
+            text:
+                "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     } else {
       _isDestinationMode = false;
       _currentStep = 7; // Configure to fully free-form conversation!
       setState(() {
-        _messages.add(_ChatMessage(
-          text:
-              "Hello! I am your Lakbay AI Travel Assistant 🤖.\n\n"
-              "I can help you design the perfect custom travel itinerary anywhere in the Davao Region!\n\n"
-              "Simply tell me what you want, e.g.:\n"
-              "💬 *\"Plan a 3-day beach trip to Mati with a 10k budget next month for 4 people\"*\n"
-              "💬 *\"Show me low-budget family adventures in Toril, Davao City\"*\n\n"
-              "How can I help you explore today?",
-          isUser: false,
-          timestamp: DateTime.now(),
-        ));
+        _messages.add(
+          _ChatMessage(
+            text:
+                "Hello! I am your Lakbay AI travel assistant. I can help you design the perfect custom travel itinerary anywhere in the Davao Region. How can I help you explore today?",
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       });
     }
     _scrollToBottom();
@@ -150,17 +191,46 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _selectedTravelType = '';
       _numTravelers = 1;
       _isTyping = false;
-      _messages.add(_ChatMessage(
-        text:
-            "Hello! I am your Lakbay AI Travel Assistant 🤖.\n\n"
-            "I can help you design the perfect custom travel itinerary anywhere in the Davao Region!\n\n"
-            "Simply tell me what you want, e.g.:\n"
-            "💬 *\"Plan a 3-day beach trip to Mati with a 10k budget next month for 4 people\"*\n"
-            "💬 *\"Show me low-budget family adventures in Toril, Davao City\"*\n\n"
-            "How can I help you explore today?",
-        isUser: false,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        _ChatMessage(
+          text:
+              "Hello! I am your Lakbay AI travel assistant. I can help you design the perfect custom travel itinerary anywhere in the Davao Region. How can I help you explore today?",
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
+    });
+    _scrollToBottom();
+  }
+
+  void _resetChatWithSuccessMessage() {
+    final tripProv = context.read<TripProvider>();
+    tripProv.setActivePlanDestination(null);
+    tripProv.updateDraft(null); // Clear draft!
+    setState(() {
+      _messages.clear();
+      _currentStep = 7; // Configure to fully free-form conversation!
+      _isDestinationMode = false;
+      _extractedDays = false;
+      _extractedTravelType = false;
+      _extractedBudget = false;
+      _selectedDistrict = '';
+      _selectedDays = 3;
+      _selectedVibe = '';
+      _selectedBudget = 5000;
+      _activeDest = null;
+      _selectedDate = '';
+      _selectedBudgetCategory = '';
+      _selectedTravelType = '';
+      _numTravelers = 1;
+      _isTyping = false;
+      _messages.add(
+        _ChatMessage(
+          text: "Your trip has been saved! Ready to plan another adventure? 🗺️",
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
     });
     _scrollToBottom();
   }
@@ -170,7 +240,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     _messageCtrl.clear();
 
     setState(() {
-      _messages.add(_ChatMessage(text: text, isUser: true, timestamp: DateTime.now()));
+      _messages.add(
+        _ChatMessage(text: text, isUser: true, timestamp: DateTime.now()),
+      );
       _isTyping = true;
     });
     _scrollToBottom();
@@ -182,7 +254,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
       if (_isDestinationMode) {
         // Intercept correction attempts during active planning steps
         const correctableSteps = [10, 11, 12, 115, 116, 125, 128, 13];
-        if (correctableSteps.contains(_currentStep) && _detectCorrectionIntent(text)) {
+        if (correctableSteps.contains(_currentStep) &&
+            _detectCorrectionIntent(text)) {
           await _handleCorrectionIntent(text);
           return;
         }
@@ -220,20 +293,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
         if (success) {
           setState(() {
-            _messages.add(_ChatMessage(
-              text: provider.latestChatResponse ?? "Here are my thoughts on your request.",
-              isUser: false,
-              timestamp: DateTime.now(),
-              recommendations: provider.latestRecommendations.isNotEmpty ? provider.latestRecommendations : null,
-            ));
+            _messages.add(
+              _ChatMessage(
+                text:
+                    provider.latestChatResponse ??
+                    "Here are my thoughts on your request.",
+                isUser: false,
+                timestamp: DateTime.now(),
+                recommendations: provider.latestRecommendations.isNotEmpty
+                    ? provider.latestRecommendations
+                    : null,
+              ),
+            );
           });
         } else {
           setState(() {
-            _messages.add(_ChatMessage(
-              text: "I couldn't process that query. Please make sure you are logged in to use the AI Travel Assistant.",
-              isUser: false,
-              timestamp: DateTime.now(),
-            ));
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't process that query. Please make sure you are logged in to use the AI Travel Assistant.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
           });
         }
         _scrollToBottom();
@@ -255,37 +337,45 @@ class _PlannerScreenState extends State<PlannerScreen> {
       case 0:
         _selectedDistrict = text;
         _currentStep = 1;
-        aiResponse = "Great choice! $_selectedDistrict is beautiful. 🗺️\n\nHow many days are you planning to stay?";
+        aiResponse =
+            "Great choice! $_selectedDistrict is beautiful. 🗺️\n\nHow many days are you planning to stay?";
         break;
       case 1:
-        final parsed = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 3;
+        final parsed =
+            int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 3;
         _selectedDays = parsed;
         _currentStep = 2;
-        aiResponse = "Got it! A $_selectedDays-day trip to $_selectedDistrict. 🌟\n\nWho will you be traveling with? Solo or with a Group?";
+        aiResponse =
+            "Got it! A $_selectedDays-day trip to $_selectedDistrict. 🌟\n\nWho will you be traveling with? Solo or with a Group?";
         break;
       case 2:
         _selectedTravelType = text;
         if (text.toLowerCase().contains('group')) {
           _currentStep = 3;
-          aiResponse = "Awesome, a group trip! 👥 How many travelers will be joining?";
+          aiResponse =
+              "Awesome, a group trip! 👥 How many travelers will be joining?";
         } else {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
           _currentStep = 5;
-          aiResponse = "A solo adventure! 🎒 What is your estimated budget for this adventure?";
+          aiResponse =
+              "A solo adventure! 🎒 What is your estimated budget for this adventure?";
         }
         break;
       case 3:
         final count = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 2;
         _numTravelers = count;
         _currentStep = 5;
-        aiResponse = "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this adventure?";
+        aiResponse =
+            "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this adventure?";
         break;
       case 5:
-        final clean = double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
+        final clean =
+            double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
         _selectedBudget = clean;
         _currentStep = 4;
-        aiResponse = "Got it! A budget of ₱${_selectedBudget.toStringAsFixed(0)} is set. 💰\n\nWhat kind of travel vibe or theme do you prefer?";
+        aiResponse =
+            "Got it! A budget of ₱${_selectedBudget.toStringAsFixed(0)} is set. 💰\n\nWhat kind of travel vibe or theme do you prefer?";
         break;
       case 4:
         _selectedVibe = text;
@@ -308,26 +398,34 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
         if (!mounted) return;
 
-        setState(() { _isTyping = false; });
+        setState(() {
+          _isTyping = false;
+        });
 
         if (trip != null) {
           setState(() {
             _currentStep = 7;
-            _messages.add(_ChatMessage(
-              text: "Here is your custom travel itinerary! 🏝️\nI hope you enjoy exploring the beauty of the Davao Region.",
-              isUser: false,
-              timestamp: DateTime.now(),
-              generatedTrip: trip,
-            ));
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "Here is your custom travel itinerary! 🏝️\nI hope you enjoy exploring the beauty of the Davao Region.",
+                isUser: false,
+                timestamp: DateTime.now(),
+                generatedTrip: trip,
+              ),
+            );
           });
         } else {
           setState(() {
             _currentStep = 4;
-            _messages.add(_ChatMessage(
-              text: "Ah, I ran into an error generating your plan. Please check your options and try again!",
-              isUser: false,
-              timestamp: DateTime.now(),
-            ));
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "Ah, I ran into an error generating your plan. Please check your options and try again!",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
           });
         }
         _saveDraft();
@@ -337,7 +435,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     setState(() {
       _isTyping = false;
-      _messages.add(_ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()));
+      _messages.add(
+        _ChatMessage(
+          text: aiResponse,
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
     });
     _saveDraft();
     _scrollToBottom();
@@ -361,36 +465,42 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (_currentStep == 4) draftStep = 3;
     if (_currentStep == 5) draftStep = 2;
 
-    tripProv.updateDraft(PlannerDraft(
-      destinationName: _selectedDistrict,
-      step: draftStep,
-      days: _selectedDays,
-      vibe: _selectedVibe,
-      budget: _selectedBudget,
-      imageUrl: match.imageUrl,
-    ));
+    tripProv.updateDraft(
+      PlannerDraft(
+        destinationName: _selectedDistrict,
+        step: draftStep,
+        days: _selectedDays,
+        vibe: _selectedVibe,
+        budget: _selectedBudget,
+        imageUrl: match.imageUrl,
+      ),
+    );
   }
 
   bool _isPastDate(String input) {
     final text = input.toLowerCase().trim();
-    if (text.contains('yesterday') || text.contains('last week') || text.contains('last month') || text.contains('ago') || text.contains('previous')) {
+    if (text.contains('yesterday') ||
+        text.contains('last week') ||
+        text.contains('last month') ||
+        text.contains('ago') ||
+        text.contains('previous')) {
       return true;
     }
-    
+
     final parsed = _parseSmartDate(input);
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
     if (parsed.isBefore(todayMidnight)) {
       return true;
     }
-    
+
     return false;
   }
 
   DateTime _parseSmartDate(String input) {
     final text = input.trim();
     final today = DateTime.now();
-    
+
     // Check if input is a pure number (e.g. "2" or "15" or "31")
     final pureDayReg = RegExp(r'^(\d{1,2})$');
     final match = pureDayReg.firstMatch(text);
@@ -413,7 +523,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         } catch (_) {}
       }
     }
-    
+
     final textLower = text.toLowerCase();
     if (textLower == 'this weekend') {
       final daysUntilSat = (6 - today.weekday) % 7;
@@ -424,13 +534,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
     } else if (textLower == 'next month') {
       return DateTime(today.year, today.month + 1, 1);
     }
-    
+
     final parsed = DateTime.tryParse(text);
     if (parsed != null) {
       return parsed;
     }
-    
-    final monthDayReg1 = RegExp(r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b', caseSensitive: false);
+
+    final monthDayReg1 = RegExp(
+      r'\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})\b',
+      caseSensitive: false,
+    );
     final m1 = monthDayReg1.firstMatch(textLower);
     if (m1 != null) {
       final monthStr = m1.group(1)!;
@@ -444,7 +557,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
       return candidate;
     }
 
-    final monthDayReg2 = RegExp(r'\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b', caseSensitive: false);
+    final monthDayReg2 = RegExp(
+      r'\b(\d{1,2})\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b',
+      caseSensitive: false,
+    );
     final m2 = monthDayReg2.firstMatch(textLower);
     if (m2 != null) {
       final day = int.tryParse(m2.group(1) ?? '') ?? today.day;
@@ -462,7 +578,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   int _monthNumber(String shortMonth) {
-    const list = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+    const list = [
+      'jan',
+      'feb',
+      'mar',
+      'apr',
+      'may',
+      'jun',
+      'jul',
+      'aug',
+      'sep',
+      'oct',
+      'nov',
+      'dec',
+    ];
     final idx = list.indexOf(shortMonth.toLowerCase());
     return idx != -1 ? idx + 1 : DateTime.now().month;
   }
@@ -475,7 +604,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _extractPrefsFromPrompt(String prompt) {
     final text = prompt.toLowerCase();
-    
+
     // 1. Extract days
     final daysMatch = RegExp(r'\b(\d+)\s*(?:day|days)\b').firstMatch(text);
     if (daysMatch != null) {
@@ -485,14 +614,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _extractedDays = true;
       }
     }
-    
+
     // 2. Extract travel type & traveler count
-    if (text.contains('solo') || text.contains('myself') || text.contains('alone') || text.contains('single traveler')) {
+    if (text.contains('solo') ||
+        text.contains('myself') ||
+        text.contains('alone') ||
+        text.contains('single traveler')) {
       _selectedTravelType = 'Solo';
       _numTravelers = 1;
       _extractedTravelType = true;
     } else {
-      final groupMatch = RegExp(r'\b(?:group of|we are|splitting with|split between)\s*(\d+)\b|\b(\d+)\s*(?:pax|people|persons|members|friends|head|guests|of us)\b').firstMatch(text);
+      final groupMatch = RegExp(
+        r'\b(?:group of|we are|splitting with|split between)\s*(\d+)\b|\b(\d+)\s*(?:pax|people|persons|members|friends|head|guests|of us)\b',
+      ).firstMatch(text);
       if (groupMatch != null) {
         final countStr = groupMatch.group(1) ?? groupMatch.group(2);
         final count = int.tryParse(countStr ?? '');
@@ -501,14 +635,22 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _numTravelers = count;
           _extractedTravelType = true;
         }
-      } else if (text.contains('group') || text.contains('family') || text.contains('friends') || text.contains('couple') || text.contains('we ')) {
+      } else if (text.contains('group') ||
+          text.contains('family') ||
+          text.contains('friends') ||
+          text.contains('couple') ||
+          text.contains('we ')) {
         _selectedTravelType = 'Group';
         _extractedTravelType = true;
       }
     }
-    
+
     // 3. Extract budget style
-    if (text.contains('low') || text.contains('cheap') || text.contains('budget') || text.contains('essential') || text.contains('affordable')) {
+    if (text.contains('low') ||
+        text.contains('cheap') ||
+        text.contains('budget') ||
+        text.contains('essential') ||
+        text.contains('affordable')) {
       final budgetMatch = RegExp(r'\b(\d+[\d,]*)\s*(k)?\b').firstMatch(text);
       if (budgetMatch != null) {
         var valStr = budgetMatch.group(1)!.replaceAll(',', '');
@@ -531,12 +673,17 @@ class _PlannerScreenState extends State<PlannerScreen> {
         if (text.contains('low') || text.contains('cheap')) {
           _selectedBudgetCategory = 'Low Budget';
           _extractedBudget = true;
-        } else if (text.contains('affordable') || text.contains('moderate') || text.contains('comfort')) {
+        } else if (text.contains('affordable') ||
+            text.contains('moderate') ||
+            text.contains('comfort')) {
           _selectedBudgetCategory = 'Balanced Budget';
           _extractedBudget = true;
         }
       }
-    } else if (text.contains('luxury') || text.contains('premium') || text.contains('high') || text.contains('expensive')) {
+    } else if (text.contains('luxury') ||
+        text.contains('premium') ||
+        text.contains('high') ||
+        text.contains('expensive')) {
       _selectedBudgetCategory = 'High Budget';
       _extractedBudget = true;
     }
@@ -549,7 +696,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     setState(() {
       _isTyping = true;
     });
-    
+
     final aiResponse =
         "Excellent! Preparing your **$_selectedBudgetCategory** plan for "
         "${dest.name} ($_selectedDays day${_selectedDays > 1 ? 's' : ''}, $_selectedDate)... ⏳";
@@ -560,31 +707,37 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final trip = await _generateDestinationPlan(dest);
 
     if (!mounted) return;
-    setState(() { _isTyping = false; });
+    setState(() {
+      _isTyping = false;
+    });
 
     // Build cost breakdown message
     final costBreakdown = _buildCostBreakdownText(dest);
 
     setState(() {
       _currentStep = 15;
-      _messages.add(_ChatMessage(
-        text: costBreakdown,
-        isUser: false,
-        timestamp: DateTime.now(),
-      ));
+      _messages.add(
+        _ChatMessage(
+          text: costBreakdown,
+          isUser: false,
+          timestamp: DateTime.now(),
+        ),
+      );
     });
     _scrollToBottom();
 
     await Future.delayed(const Duration(milliseconds: 600));
     setState(() {
-      _messages.add(_ChatMessage(
-        text:
-            "Here is your personalised **$_selectedBudgetCategory** itinerary for ${dest.name}! 🎉\n"
-            "Tap the bookmark icon to save it to My Trips.",
-        isUser: false,
-        timestamp: DateTime.now(),
-        generatedTrip: trip,
-      ));
+      _messages.add(
+        _ChatMessage(
+          text:
+              "Here is your personalised **$_selectedBudgetCategory** itinerary for ${dest.name}! 🎉\n"
+              "Tap the bookmark icon to save it to My Trips.",
+          isUser: false,
+          timestamp: DateTime.now(),
+          generatedTrip: trip,
+        ),
+      );
     });
     _scrollToBottom();
   }
@@ -597,14 +750,32 @@ class _PlannerScreenState extends State<PlannerScreen> {
   bool _detectCorrectionIntent(String text) {
     final lower = text.toLowerCase().trim();
     const triggers = [
-      'no,', 'nope', 'wait,', 'wait ',
-      'actually', 'i meant', 'i mean',
-      'not right', 'wrong', 'incorrect',
-      'change it', 'fix it', 'change the', 'fix the',
-      'correction', 're-do', 'redo',
-      "that's not", "that is not",
-      'should be', 'supposed to be',
-      'not june', 'not may', 'not 1', 'not 2', 'not 3',
+      'no,',
+      'nope',
+      'wait,',
+      'wait ',
+      'actually',
+      'i meant',
+      'i mean',
+      'not right',
+      'wrong',
+      'incorrect',
+      'change it',
+      'fix it',
+      'change the',
+      'fix the',
+      'correction',
+      're-do',
+      'redo',
+      "that's not",
+      "that is not",
+      'should be',
+      'supposed to be',
+      'not june',
+      'not may',
+      'not 1',
+      'not 2',
+      'not 3',
     ];
     return triggers.any((t) => lower.contains(t));
   }
@@ -647,12 +818,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _showPlanConfirmationCard(Destination dest) {
     setState(() {
       _isTyping = false;
-      _messages.add(_ChatMessage(
-        text: 'Here\'s what I understood from your input — please confirm before we continue:',
-        isUser: false,
-        timestamp: DateTime.now(),
-        isConfirmationPrompt: true,
-      ));
+      _messages.add(
+        _ChatMessage(
+          text:
+              'Here\'s what I understood from your input — please confirm before we continue:',
+          isUser: false,
+          timestamp: DateTime.now(),
+          isConfirmationPrompt: true,
+        ),
+      );
     });
     _scrollToBottom();
   }
@@ -661,7 +835,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Future<void> _handleCorrectionIntent(String text) async {
     _parseCorrection(text);
     final dest = _activeDest!;
-    setState(() { _isTyping = false; });
+    setState(() {
+      _isTyping = false;
+    });
     _showPlanConfirmationCard(dest);
     _currentStep = 115;
   }
@@ -686,11 +862,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
         if (_isPastDate(text)) {
           setState(() {
             _isTyping = false;
-            _messages.add(_ChatMessage(
-              text: "⚠️ Please choose an upcoming travel date. Yesterday and past dates cannot be selected!",
-              isUser: false,
-              timestamp: DateTime.now(),
-            ));
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "⚠️ Please choose an upcoming travel date. Yesterday and past dates cannot be selected!",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
           });
           _scrollToBottom();
           return;
@@ -709,7 +888,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         } else {
           // Both date and duration are known — show confirmation card
           _currentStep = 115;
-          setState(() { _isTyping = false; });
+          setState(() {
+            _isTyping = false;
+          });
           _showPlanConfirmationCard(dest);
           return;
         }
@@ -717,25 +898,33 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       // Step 11 — user picks duration
       case 11:
-        final parsed = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+        final parsed =
+            int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
         _selectedDays = parsed;
         _extractedDays = true;
         _extractPrefsFromPrompt(text);
 
         // Both date and duration are now known — always confirm before advancing
         _currentStep = 115;
-        setState(() { _isTyping = false; });
+        setState(() {
+          _isTyping = false;
+        });
         _showPlanConfirmationCard(dest);
         return;
 
       // Step 115 — waiting for user to confirm date + duration
       case 115:
         final lower = text.toLowerCase();
-        if (lower.contains('confirm') || lower.contains('correct') ||
-            lower.contains('yes') || lower.contains('right') ||
-            lower.contains('looks good') || lower.contains('ok') ||
-            lower.contains('sure') || lower.contains('proceed') ||
-            lower.contains('continue') || lower == '✅') {
+        if (lower.contains('confirm') ||
+            lower.contains('correct') ||
+            lower.contains('yes') ||
+            lower.contains('right') ||
+            lower.contains('looks good') ||
+            lower.contains('ok') ||
+            lower.contains('sure') ||
+            lower.contains('proceed') ||
+            lower.contains('continue') ||
+            lower == '✅') {
           // User confirmed — advance to travel type
           if (!_extractedTravelType) {
             _currentStep = 12;
@@ -754,7 +943,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         } else {
           // User typed something else — treat as an inline correction
           _parseCorrection(text);
-          setState(() { _isTyping = false; });
+          setState(() {
+            _isTyping = false;
+          });
           _showPlanConfirmationCard(dest);
           return;
         }
@@ -764,7 +955,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
       case 116:
         _parseCorrection(text);
         _currentStep = 115;
-        setState(() { _isTyping = false; });
+        setState(() {
+          _isTyping = false;
+        });
         _showPlanConfirmationCard(dest);
         return;
 
@@ -776,13 +969,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
         if (text.toLowerCase().contains('group')) {
           _currentStep = 125;
-          aiResponse = "Awesome, a group trip! 👥 How many travelers will be joining?";
+          aiResponse =
+              "Awesome, a group trip! 👥 How many travelers will be joining?";
         } else {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
-          
+
           _currentStep = 128;
-          aiResponse = "A solo adventure! 🎒 What is your estimated budget for this trip?";
+          aiResponse =
+              "A solo adventure! 🎒 What is your estimated budget for this trip?";
         }
         break;
 
@@ -793,23 +988,27 @@ class _PlannerScreenState extends State<PlannerScreen> {
         _extractPrefsFromPrompt(text);
 
         _currentStep = 128;
-        aiResponse = "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this group trip?";
+        aiResponse =
+            "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this group trip?";
         break;
 
       // Step 128 — user sets their estimated budget
       case 128:
-        final clean = double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
+        final clean =
+            double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
         _selectedBudget = clean;
         _currentStep = 13;
         final prompt = _buildSuggestedBudgetPrompt(dest);
         setState(() {
           _isTyping = false;
-          _messages.add(_ChatMessage(
-            text: prompt,
-            isUser: false,
-            timestamp: DateTime.now(),
-            isBudgetPrompt: true,
-          ));
+          _messages.add(
+            _ChatMessage(
+              text: prompt,
+              isUser: false,
+              timestamp: DateTime.now(),
+              isBudgetPrompt: true,
+            ),
+          );
         });
         _scrollToBottom();
         return;
@@ -819,7 +1018,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
         final cleanInput = text.toLowerCase();
         if (cleanInput.contains('low')) {
           _selectedBudgetCategory = 'Low Budget';
-        } else if (cleanInput.contains('high') || cleanInput.contains('premium')) {
+        } else if (cleanInput.contains('high') ||
+            cleanInput.contains('premium')) {
           _selectedBudgetCategory = 'High Budget';
         } else {
           _selectedBudgetCategory = 'Balanced Budget';
@@ -832,7 +1032,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
     setState(() {
       _isTyping = false;
       if (aiResponse.isNotEmpty) {
-        _messages.add(_ChatMessage(text: aiResponse, isUser: false, timestamp: DateTime.now()));
+        _messages.add(
+          _ChatMessage(
+            text: aiResponse,
+            isUser: false,
+            timestamp: DateTime.now(),
+          ),
+        );
       }
     });
     _scrollToBottom();
@@ -843,7 +1049,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
   // =========================================================================
   void _appendAIMessage(String text) {
     setState(() {
-      _messages.add(_ChatMessage(text: text, isUser: false, timestamp: DateTime.now()));
+      _messages.add(
+        _ChatMessage(text: text, isUser: false, timestamp: DateTime.now()),
+      );
     });
     _scrollToBottom();
   }
@@ -873,13 +1081,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
         return _parsePrice(types[mid]['price'] ?? '0');
       }
     }
-    
+
     final feeStr = extra.overnightFee;
     if (feeStr.toLowerCase().contains('not applicable')) return 0.0;
-    final numbers = RegExp(r'\d[\d,\.]*').allMatches(feeStr.replaceAll(',', '')).map((m) => double.tryParse(m.group(0) ?? '') ?? 0.0).toList();
+    final numbers = RegExp(r'\d[\d,\.]*')
+        .allMatches(feeStr.replaceAll(',', ''))
+        .map((m) => double.tryParse(m.group(0) ?? '') ?? 0.0)
+        .toList();
     if (numbers.isEmpty) return 0.0;
     if (numbers.length == 1) return numbers[0];
-    
+
     if (category == 'Low Budget') {
       return numbers[0];
     } else if (category == 'High Budget') {
@@ -892,10 +1103,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Map<String, String>? _getTransportOption(Destination dest, String category) {
     final options = dest.extra.transportOptions;
     if (options.isEmpty) return null;
-    
+
     final sorted = List<Map<String, String>>.from(options)
-      ..sort((a, b) => _parsePrice(a['price'] ?? '0').compareTo(_parsePrice(b['price'] ?? '0')));
-    
+      ..sort(
+        (a, b) => _parsePrice(
+          a['price'] ?? '0',
+        ).compareTo(_parsePrice(b['price'] ?? '0')),
+      );
+
     if (category == 'Low Budget') {
       return sorted.first;
     } else if (category == 'High Budget') {
@@ -910,11 +1125,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final opt = _getTransportOption(dest, category);
     if (opt == null) return 0.0;
     final priceStr = opt['price'] ?? '0';
-    
-    final numbers = RegExp(r'\d[\d,\.]*').allMatches(priceStr.replaceAll(',', '')).map((m) => double.tryParse(m.group(0) ?? '') ?? 0.0).toList();
+
+    final numbers = RegExp(r'\d[\d,\.]*')
+        .allMatches(priceStr.replaceAll(',', ''))
+        .map((m) => double.tryParse(m.group(0) ?? '') ?? 0.0)
+        .toList();
     if (numbers.isEmpty) return 0.0;
     if (numbers.length == 1) return numbers[0];
-    
+
     if (category == 'Low Budget') {
       return numbers[0];
     } else if (category == 'High Budget') {
@@ -927,17 +1145,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
   double _getActivitiesCost(Destination dest, String category) {
     final prices = dest.extra.activityPrices;
     if (prices.isEmpty) return 0.0;
-    
+
     final parsedPrices = prices.values.map((p) => _parsePrice(p)).toList();
     if (parsedPrices.isEmpty) return 0.0;
-    
+
     if (category == 'Low Budget') {
       parsedPrices.sort();
       return parsedPrices.first;
     } else if (category == 'High Budget') {
       return parsedPrices.reduce((sum, p) => sum + p);
     } else {
-      final avg = parsedPrices.reduce((sum, p) => sum + p) / parsedPrices.length;
+      final avg =
+          parsedPrices.reduce((sum, p) => sum + p) / parsedPrices.length;
       return avg * (parsedPrices.length > 1 ? 2 : 1);
     }
   }
@@ -957,7 +1176,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final double totalTransport = _getTransportCost(dest, category);
 
     // 2. Meals
-    final double mealsPerDay = isLow ? 150.0 * 3 : isHigh ? 600.0 * 3 : 300.0 * 3;
+    final double mealsPerDay = isLow
+        ? 150.0 * 3
+        : isHigh
+        ? 600.0 * 3
+        : 300.0 * 3;
     final double totalMeals = mealsPerDay * _selectedDays;
 
     // 3. Activities
@@ -965,16 +1188,29 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     // 4. Accommodation
     final double accommodationPerNight = _getAccommodationCost(dest, category);
-    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
+    final double totalAccomm = _selectedDays > 1
+        ? accommodationPerNight * (_selectedDays - 1)
+        : 0.0;
 
     // 5. Environmental & Entrance Fees
     final double environmentalFee = _parsePrice(extra.environmentalFee);
     final double entranceFee = _parsePrice(dest.entranceFee);
 
-    return totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+    return totalTransport +
+        totalMeals +
+        totalActivities +
+        totalAccomm +
+        environmentalFee +
+        entranceFee;
   }
 
-  double _calculateOptimizedCost(Destination dest, String transCat, String accommCat, String mealCat, String actCat) {
+  double _calculateOptimizedCost(
+    Destination dest,
+    String transCat,
+    String accommCat,
+    String mealCat,
+    String actCat,
+  ) {
     final extra = dest.extra;
     final isLowMeal = mealCat == 'Low Budget';
     final isHighMeal = mealCat == 'High Budget';
@@ -983,7 +1219,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final double totalTransport = _getTransportCost(dest, transCat);
 
     // 2. Meals
-    final double mealsPerDay = isLowMeal ? 150.0 * 3 : isHighMeal ? 600.0 * 3 : 300.0 * 3;
+    final double mealsPerDay = isLowMeal
+        ? 150.0 * 3
+        : isHighMeal
+        ? 600.0 * 3
+        : 300.0 * 3;
     final double totalMeals = mealsPerDay * _selectedDays;
 
     // 3. Activities
@@ -991,16 +1231,21 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     // 4. Accommodation
     final double accommodationPerNight = _getAccommodationCost(dest, accommCat);
-    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
+    final double totalAccomm = _selectedDays > 1
+        ? accommodationPerNight * (_selectedDays - 1)
+        : 0.0;
 
     // 5. Environmental & Entrance Fees
     final double environmentalFee = _parsePrice(extra.environmentalFee);
     final double entranceFee = _parsePrice(dest.entranceFee);
 
-    return totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+    return totalTransport +
+        totalMeals +
+        totalActivities +
+        totalAccomm +
+        environmentalFee +
+        entranceFee;
   }
-
-
 
   String _buildSuggestedBudgetPrompt(Destination dest) {
     final lowCost = _calculateOptionCost(dest, 'Low Budget');
@@ -1009,7 +1254,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     final isGroup = _selectedTravelType.toLowerCase().contains('group');
     final numTravelers = isGroup ? _numTravelers : 1;
-    
+
     // Suggest based on per-person cost
     double userPerPersonBudget = _selectedBudget;
     if (isGroup && _selectedBudget > 5000) {
@@ -1019,26 +1264,35 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final minRequired = lowCost * numTravelers;
     String warningText = '';
     if (_selectedBudget < minRequired) {
-      warningText = "⚠️ **WARNING**: Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** is lower than the minimum required expense of **₱${_formatCurrency(minRequired)}** for this trip. We highly recommend saving more money before traveling, to ensure a safe, comfortable, and stress-free journey! 🎒💰\n\n";
+      warningText =
+          "⚠️ **WARNING**: Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** is lower than the minimum required expense of **₱${_formatCurrency(minRequired)}** for this trip. We highly recommend saving more money before traveling, to ensure a safe, comfortable, and stress-free journey! 🎒💰\n\n";
     }
 
     String suggestion = '';
     if (userPerPersonBudget >= highCost) {
-      suggestion = "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our premium **High Budget** style! This includes all activities and premium lodging.";
+      suggestion =
+          "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our premium **High Budget** style! This includes all activities and premium lodging.";
     } else if (userPerPersonBudget >= balancedCost) {
-      suggestion = "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our **Balanced Budget** style (₱${_formatCurrency(balancedCost)} per person) for a comfortable and complete experience!";
+      suggestion =
+          "Your estimated budget of **₱${_formatCurrency(_selectedBudget)}** fits perfectly with our **Balanced Budget** style (₱${_formatCurrency(balancedCost)} per person) for a comfortable and complete experience!";
     } else {
-      suggestion = "To fit your estimated budget of **₱${_formatCurrency(_selectedBudget)}**, we suggest our value-conscious **Low Budget** style (₱${_formatCurrency(lowCost)} per person) covering essential transit and entrance fees.";
+      suggestion =
+          "To fit your estimated budget of **₱${_formatCurrency(_selectedBudget)}**, we suggest our value-conscious **Low Budget** style (₱${_formatCurrency(lowCost)} per person) covering essential transit and entrance fees.";
     }
 
-    String lowText = "🟢 **Low Budget** — ₱${_formatCurrency(lowCost)} per person";
-    String balancedText = "🟡 **Balanced Budget** — ₱${_formatCurrency(balancedCost)} per person";
-    String highText = "🔴 **High Budget** — ₱${_formatCurrency(highCost)} per person";
+    String lowText =
+        "🟢 **Low Budget** — ₱${_formatCurrency(lowCost)} per person";
+    String balancedText =
+        "🟡 **Balanced Budget** — ₱${_formatCurrency(balancedCost)} per person";
+    String highText =
+        "🔴 **High Budget** — ₱${_formatCurrency(highCost)} per person";
 
     if (isGroup) {
       lowText += " (Group Total: ₱${_formatCurrency(lowCost * numTravelers)})";
-      balancedText += " (Group Total: ₱${_formatCurrency(balancedCost * numTravelers)})";
-      highText += " (Group Total: ₱${_formatCurrency(highCost * numTravelers)})";
+      balancedText +=
+          " (Group Total: ₱${_formatCurrency(balancedCost * numTravelers)})";
+      highText +=
+          " (Group Total: ₱${_formatCurrency(highCost * numTravelers)})";
     }
 
     return "${warningText}Thank you! Based on your estimated budget of **₱${_formatCurrency(_selectedBudget)}**:\n\n"
@@ -1057,29 +1311,51 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final isHigh = _selectedBudgetCategory == 'High Budget';
 
     // 1. Transport
-    final double totalTransport = _getTransportCost(dest, _selectedBudgetCategory);
+    final double totalTransport = _getTransportCost(
+      dest,
+      _selectedBudgetCategory,
+    );
     final transportOpt = _getTransportOption(dest, _selectedBudgetCategory);
     String transportInfo = '';
     if (transportOpt != null) {
-      transportInfo = "${transportOpt['vehicle'] ?? ''} from ${transportOpt['from'] ?? ''} → ${transportOpt['to'] ?? ''}";
+      transportInfo =
+          "${transportOpt['vehicle'] ?? ''} from ${transportOpt['from'] ?? ''} → ${transportOpt['to'] ?? ''}";
     }
 
     // 2. Meals
-    final double mealsPerDay = isLow ? 150.0 * 3 : isHigh ? 600.0 * 3 : 300.0 * 3;
+    final double mealsPerDay = isLow
+        ? 150.0 * 3
+        : isHigh
+        ? 600.0 * 3
+        : 300.0 * 3;
     final double totalMeals = mealsPerDay * _selectedDays;
 
     // 3. Activities
-    final double totalActivities = _getActivitiesCost(dest, _selectedBudgetCategory);
+    final double totalActivities = _getActivitiesCost(
+      dest,
+      _selectedBudgetCategory,
+    );
 
     // 4. Accommodation
-    final double accommodationPerNight = _getAccommodationCost(dest, _selectedBudgetCategory);
-    final double totalAccomm = _selectedDays > 1 ? accommodationPerNight * (_selectedDays - 1) : 0.0;
+    final double accommodationPerNight = _getAccommodationCost(
+      dest,
+      _selectedBudgetCategory,
+    );
+    final double totalAccomm = _selectedDays > 1
+        ? accommodationPerNight * (_selectedDays - 1)
+        : 0.0;
 
     // 5. Environmental & Entrance Fees
     final double environmentalFee = _parsePrice(extra.environmentalFee);
     final double entranceFee = _parsePrice(dest.entranceFee);
 
-    final double grandTotal = totalTransport + totalMeals + totalActivities + totalAccomm + environmentalFee + entranceFee;
+    final double grandTotal =
+        totalTransport +
+        totalMeals +
+        totalActivities +
+        totalAccomm +
+        environmentalFee +
+        entranceFee;
 
     // Pick accommodation type based on category
     String accommType = '';
@@ -1094,7 +1370,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
       }
     }
 
-    final emoji = isLow ? '🟢' : isHigh ? '🔴' : '🟡';
+    final emoji = isLow
+        ? '🟢'
+        : isHigh
+        ? '🔴'
+        : '🟡';
 
     return "$emoji **$_selectedBudgetCategory Cost Breakdown**\n"
         "📍 ${dest.name} • $_selectedDays Day${_selectedDays > 1 ? 's' : ''} • $_selectedDate\n\n"
@@ -1105,7 +1385,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         "🎯 **Activities** — ₱${totalActivities.toStringAsFixed(0)}\n"
         "   ${dest.activities.take(3).join(' • ')}\n"
         "${_selectedDays > 1 && totalAccomm > 0 ? '🏨 **Accommodation** (${_selectedDays - 1} night${_selectedDays > 2 ? 's' : ''}) — ₱${totalAccomm.toStringAsFixed(0)}\n'
-            '   ${accommType.isNotEmpty ? accommType : 'Standard Room'}\n' : ''}"
+                  '   ${accommType.isNotEmpty ? accommType : 'Standard Room'}\n' : ''}"
         "🌿 **Environmental Fee** — ${extra.environmentalFee}\n"
         "🎟️ **Entrance Fee** — ${dest.entranceFee}\n\n"
         "━━━━━━━━━━━━━━━━━━\n"
@@ -1127,7 +1407,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
         : '${_formatDate(startDate)} – ${_formatDate(endDate)}';
 
     // User's per-person budget limit
-    final double perPersonLimit = _selectedBudget / (_numTravelers > 0 ? _numTravelers : 1);
+    final double perPersonLimit =
+        _selectedBudget / (_numTravelers > 0 ? _numTravelers : 1);
 
     // Intelligently select category if not explicitly chosen
     String activeCategory = _selectedBudgetCategory;
@@ -1144,7 +1425,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
 
     // Check if the chosen category cost exceeds the user's financial limit
-    bool needsCostOptimization = _calculateOptionCost(dest, activeCategory) > perPersonLimit;
+    bool needsCostOptimization =
+        _calculateOptionCost(dest, activeCategory) > perPersonLimit;
 
     // Optimization modifiers per category
     String transportCategory = activeCategory;
@@ -1156,18 +1438,36 @@ class _PlannerScreenState extends State<PlannerScreen> {
       // Intelligently minimize costs step-by-step to fit within the limit
       // 1. First downgrade transport to Low Budget (commuter transit)
       transportCategory = 'Low Budget';
-      double optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+      double optimizedCost = _calculateOptimizedCost(
+        dest,
+        transportCategory,
+        accommCategory,
+        mealCategory,
+        activityCategory,
+      );
 
       // 2. If still exceeding, downgrade accommodation to Low Budget (camp space/hostel)
       if (optimizedCost > perPersonLimit) {
         accommCategory = 'Low Budget';
-        optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+        optimizedCost = _calculateOptimizedCost(
+          dest,
+          transportCategory,
+          accommCategory,
+          mealCategory,
+          activityCategory,
+        );
       }
 
       // 3. If still exceeding, downgrade meals to Low Budget
       if (optimizedCost > perPersonLimit) {
         mealCategory = 'Low Budget';
-        optimizedCost = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+        optimizedCost = _calculateOptimizedCost(
+          dest,
+          transportCategory,
+          accommCategory,
+          mealCategory,
+          activityCategory,
+        );
       }
 
       // 4. If still exceeding, downgrade activities to Low Budget (focus on free activities)
@@ -1190,72 +1490,57 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final extra = dest.extra;
 
     final transportOpt = _getTransportOption(dest, transportCategory);
-    final bool isGroupTrip = _selectedTravelType.toLowerCase().contains('group');
-
-    double helperParsePrice(String text) {
-      final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
-      return double.tryParse(cleanText) ?? 0.0;
-    }
-
-    String formatCost(String baseCost, {bool isPerPerson = true}) {
-      if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
-        return 'Free';
-      }
-      if (!isGroupTrip) return baseCost;
-      
-      final val = helperParsePrice(baseCost);
-      if (val == 0.0) return baseCost;
-
-      if (isPerPerson) {
-        final total = val * _numTravelers;
-        return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
-      } else {
-        // Collective cost (e.g. cottage, taxi, double room split)
-        final split = val / (_numTravelers > 0 ? _numTravelers : 1);
-        return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
-      }
-    }
 
     for (int day = 1; day <= _selectedDays; day++) {
       final List<TripActivity> dayPlan = [];
       final String loc = dest.name;
 
       // Morning: transport + arrival or next-day activity
-      dayPlan.add(TripActivity(
-        time: '07:00 AM',
-        title: day == 1 ? 'Depart & Travel to ${dest.name}' : 'Morning at ${dest.name}',
-        description: day == 1
-            ? (transportOpt != null
-                ? '${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}.'
-                : 'Head to ${dest.location} via your preferred transport.')
-            : 'Start the day with breakfast and light exploration around the area.',
-        cost: day == 1
-            ? (transportOpt != null ? formatCost(transportOpt['price']!, isPerPerson: false) : 'Free')
-            : 'Free',
-        location: day == 1 ? 'En Route' : loc,
-      ));
+      dayPlan.add(
+        TripActivity(
+          time: '07:00 AM',
+          title: day == 1
+              ? 'Depart & Travel to ${dest.name}'
+              : 'Morning at ${dest.name}',
+          description: day == 1
+              ? (transportOpt != null
+                    ? '${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}.'
+                    : 'Head to ${dest.location} via your preferred transport.')
+              : 'Start the day with breakfast and light exploration around the area.',
+          cost: day == 1
+              ? (transportOpt != null ? transportOpt['price']! : 'Free')
+              : 'Free',
+          location: day == 1 ? 'En Route' : loc,
+        ),
+      );
 
       // Entrance / check-in
-      dayPlan.add(TripActivity(
-        time: '09:00 AM',
-        title: day == 1 ? 'Arrival & Check-In at ${dest.name}' : 'Full Day Exploration',
-        description: day == 1
-            ? 'Pay entrance fee (${dest.entranceFee}) and environmental fee (${extra.environmentalFee}). Collect maps and orient with the surroundings.'
-            : 'Enjoy a beautiful morning exploring the core sights of the destination.',
-        cost: day == 1 ? formatCost(dest.entranceFee, isPerPerson: true) : 'Free',
-        location: loc,
-      ));
+      dayPlan.add(
+        TripActivity(
+          time: '09:00 AM',
+          title: day == 1
+              ? 'Arrival & Check-In at ${dest.name}'
+              : 'Full Day Exploration',
+          description: day == 1
+              ? 'Pay entrance fee (${dest.entranceFee}) and environmental fee (${extra.environmentalFee}). Collect maps and orient with the surroundings.'
+              : 'Enjoy a beautiful morning exploring the core sights of the destination.',
+          cost: day == 1 ? dest.entranceFee : 'Free',
+          location: loc,
+        ),
+      );
 
       // Main activity
       if (dest.activities.isNotEmpty) {
         final actIdx = (day - 1) % dest.activities.length;
         final actName = dest.activities[actIdx];
-        
+
         // Find price for this specific activity
         String actPrice = 'Free';
         final prices = extra.activityPrices;
         final matchingKey = prices.keys.firstWhere(
-          (k) => k.toLowerCase().contains(actName.toLowerCase()) || actName.toLowerCase().contains(k.toLowerCase()),
+          (k) =>
+              k.toLowerCase().contains(actName.toLowerCase()) ||
+              actName.toLowerCase().contains(k.toLowerCase()),
           orElse: () => '',
         );
         if (matchingKey.isNotEmpty) {
@@ -1266,41 +1551,56 @@ class _PlannerScreenState extends State<PlannerScreen> {
           actPrice = isHighAct ? '₱400' : '₱200';
         }
 
-        dayPlan.add(TripActivity(
-          time: '10:30 AM',
-          title: actName,
-          description: isLowAct
-              ? 'Budget-friendly option — enjoy $actName with value-conscious settings.'
-              : isHighAct
-                  ? 'Premium private guided $actName with top-tier equipment and priority access.'
-                  : 'Standard experience of $actName with standard equipment.',
-          cost: formatCost(actPrice, isPerPerson: true),
-          location: loc,
-        ));
+        dayPlan.add(
+          TripActivity(
+            time: '10:30 AM',
+            title: actName,
+            description: isLowAct
+                ? 'Budget-friendly option — enjoy $actName with value-conscious settings.'
+                : isHighAct
+                ? 'Premium private guided $actName with top-tier equipment and priority access.'
+                : 'Standard experience of $actName with standard equipment.',
+            cost: actPrice,
+            location: loc,
+          ),
+        );
       }
 
       // Lunch
-      dayPlan.add(TripActivity(
-        time: '12:30 PM',
-        title: 'Lunch Break',
-        description: isLowMeal
-            ? 'Affordable local eateries or packed lunch. Karinderia-style meals available nearby.'
-            : isHighMeal
-                ? 'Premium in-resort dining or top-rated restaurant nearby.'
-                : 'Mid-range restaurant or in-resort café.',
-        cost: formatCost(isLowMeal ? '₱150' : isHighMeal ? '₱600' : '₱300', isPerPerson: true),
-        location: loc,
-      ));
+      dayPlan.add(
+        TripActivity(
+          time: '12:30 PM',
+          title: 'Lunch Break',
+          description: isLowMeal
+              ? 'Affordable local eateries or packed lunch. Karinderia-style meals available nearby.'
+              : isHighMeal
+              ? 'Premium in-resort dining or top-rated restaurant nearby.'
+              : 'Mid-range restaurant or in-resort café.',
+          cost: isLowMeal
+              ? '₱150'
+              : isHighMeal
+              ? '₱600'
+              : '₱300',
+          location: loc,
+        ),
+      );
 
       // Afternoon activity
-      dayPlan.add(TripActivity(
-        time: '02:00 PM',
-        title: 'Afternoon ${dest.category} Experience',
-        description: 'Explore more of ${dest.name}. '
-            '${extra.travelNotes.isNotEmpty ? extra.travelNotes.first : 'Enjoy the scenery and take photos.'}',
-        cost: formatCost(isLowAct ? '₱100' : isHighAct ? '₱500' : '₱250', isPerPerson: true),
-        location: loc,
-      ));
+      dayPlan.add(
+        TripActivity(
+          time: '02:00 PM',
+          title: 'Afternoon ${dest.category} Experience',
+          description:
+              'Explore more of ${dest.name}. '
+              '${extra.travelNotes.isNotEmpty ? extra.travelNotes.first : 'Enjoy the scenery and take photos.'}',
+          cost: isLowAct
+              ? '₱100'
+              : isHighAct
+              ? '₱500'
+              : '₱250',
+          location: loc,
+        ),
+      );
 
       // Evening / Overnight
       if (_selectedDays > 1 && day < _selectedDays) {
@@ -1308,32 +1608,48 @@ class _PlannerScreenState extends State<PlannerScreen> {
         String accommName = 'Standard Room';
         String accommPrice = '₱800–₱1,200 / night';
         if (accommTypes.isNotEmpty) {
-          int accommIdx = isLowAcc ? 0 : isHighAcc ? accommTypes.length - 1 : accommTypes.length ~/ 2;
+          int accommIdx = isLowAcc
+              ? 0
+              : isHighAcc
+              ? accommTypes.length - 1
+              : accommTypes.length ~/ 2;
           accommIdx = accommIdx.clamp(0, accommTypes.length - 1);
           accommName = accommTypes[accommIdx]['type'] ?? accommName;
           accommPrice = accommTypes[accommIdx]['price'] ?? accommPrice;
         }
-        dayPlan.add(TripActivity(
-          time: '06:00 PM',
-          title: 'Dinner & Check-In: $accommName',
-          description: '${extra.mealInclusions.isNotEmpty ? extra.mealInclusions.first : 'Dinner at nearby grill houses.'} Overnight at $accommName.',
-          cost: formatCost(accommPrice, isPerPerson: false),
-          location: loc,
-        ));
+        dayPlan.add(
+          TripActivity(
+            time: '06:00 PM',
+            title: 'Dinner & Check-In: $accommName',
+            description:
+                '${extra.mealInclusions.isNotEmpty ? extra.mealInclusions.first : 'Dinner at nearby grill houses.'} Overnight at $accommName.',
+            cost: accommPrice,
+            location: loc,
+          ),
+        );
       } else {
-        dayPlan.add(TripActivity(
-          time: '05:00 PM',
-          title: 'Wrap Up & Return Trip',
-          description: 'Pack up and head back via ${transportOpt != null ? transportOpt['vehicle'] ?? 'transport' : 'transport'}.',
-          cost: transportOpt != null ? formatCost(transportOpt['price']!, isPerPerson: false) : 'Free',
-          location: 'En Route Home',
-        ));
+        dayPlan.add(
+          TripActivity(
+            time: '05:00 PM',
+            title: 'Wrap Up & Return Trip',
+            description:
+                'Pack up and head back via ${transportOpt != null ? transportOpt['vehicle'] ?? 'transport' : 'transport'}.',
+            cost: transportOpt != null ? transportOpt['price']! : 'Free',
+            location: 'En Route Home',
+          ),
+        );
       }
 
       agenda[day] = dayPlan;
     }
 
-    final double budgetEst = _calculateOptimizedCost(dest, transportCategory, accommCategory, mealCategory, activityCategory);
+    final double budgetEst = _calculateOptimizedCost(
+      dest,
+      transportCategory,
+      accommCategory,
+      mealCategory,
+      activityCategory,
+    );
 
     return Trip(
       id: 'ai-dest-trip-${DateTime.now().millisecondsSinceEpoch}',
@@ -1343,15 +1659,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
       budget: budgetEst,
       imageUrl: dest.imageUrl,
       itinerary: agenda,
-      isGroup: isGroupTrip,
+      isGroup: _selectedTravelType.toLowerCase().contains('group'),
       numTravelers: _numTravelers,
-      members: isGroupTrip ? Trip.seedMembers(_numTravelers) : const [],
     );
   }
 
   String _formatDate(DateTime d) {
-    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[d.month - 1]} ${d.day}, ${d.year}';
   }
 
@@ -1381,11 +1708,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _isDestinationMode = true;
           _currentStep = 10;
           _messages.clear();
-          _messages.add(_ChatMessage(
-            text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
-            isUser: false,
-            timestamp: DateTime.now(),
-          ));
+          _messages.add(
+            _ChatMessage(
+              text:
+                  "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+              isUser: false,
+              timestamp: DateTime.now(),
+            ),
+          );
         });
         _scrollToBottom();
       });
@@ -1414,7 +1744,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 color: Colors.white.withValues(alpha: 0.15),
                 shape: BoxShape.circle,
               ),
-              child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: Colors.white, size: 20),
+              child: const ImageIcon(
+                AssetImage('assets/icons/ai_planner.png'),
+                color: Colors.white,
+                size: 20,
+              ),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -1427,21 +1761,32 @@ class _PlannerScreenState extends State<PlannerScreen> {
                         ? 'Planning: ${_activeDest!.name}'
                         : 'Lakbay AI Assistant',
                     style: GoogleFonts.outfit(
-                        fontWeight: FontWeight.bold, fontSize: 15, color: Colors.white),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: Colors.white,
+                    ),
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                   ),
                   Row(
                     children: [
                       Container(
-                        width: 6, height: 6,
-                        decoration: const BoxDecoration(color: Colors.greenAccent, shape: BoxShape.circle),
+                        width: 6,
+                        height: 6,
+                        decoration: const BoxDecoration(
+                          color: Colors.greenAccent,
+                          shape: BoxShape.circle,
+                        ),
                       ),
                       const SizedBox(width: 4),
                       Expanded(
                         child: Text(
                           _isDestinationMode ? 'Destination Mode' : 'Online',
-                          style: GoogleFonts.outfit(fontSize: 10, color: Colors.white70, fontWeight: FontWeight.w500),
+                          style: GoogleFonts.outfit(
+                            fontSize: 10,
+                            color: Colors.white70,
+                            fontWeight: FontWeight.w500,
+                          ),
                           overflow: TextOverflow.ellipsis,
                           maxLines: 1,
                         ),
@@ -1470,7 +1815,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
           Expanded(
             child: ListView.builder(
               controller: _scrollCtrl,
-              padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceM),
+              padding: const EdgeInsets.symmetric(
+                vertical: AppConstants.spaceM,
+              ),
               itemCount: _messages.length + (_isTyping ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == _messages.length && _isTyping) {
@@ -1480,7 +1827,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               },
             ),
           ),
-          _buildQuickReplies(),
+
           _buildInputBar(),
         ],
       ),
@@ -1495,14 +1842,30 @@ class _PlannerScreenState extends State<PlannerScreen> {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: isDark
-              ? [AppTheme.secondaryGreen.withValues(alpha: 0.08), AppTheme.primaryBlue.withValues(alpha: 0.04)]
-              : [AppTheme.secondaryGreen.withValues(alpha: 0.15), AppTheme.primaryBlue.withValues(alpha: 0.08)],
+              ? [
+                  AppTheme.secondaryGreen.withValues(alpha: 0.08),
+                  AppTheme.primaryBlue.withValues(alpha: 0.04),
+                ]
+              : [
+                  AppTheme.secondaryGreen.withValues(alpha: 0.15),
+                  AppTheme.primaryBlue.withValues(alpha: 0.08),
+                ],
         ),
-        border: Border(bottom: BorderSide(color: isDark ? AppTheme.secondaryGreen.withValues(alpha: 0.15) : AppTheme.secondaryGreen.withValues(alpha: 0.3))),
+        border: Border(
+          bottom: BorderSide(
+            color: isDark
+                ? AppTheme.secondaryGreen.withValues(alpha: 0.15)
+                : AppTheme.secondaryGreen.withValues(alpha: 0.3),
+          ),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(Icons.place_rounded, color: AppTheme.secondaryGreen, size: 18),
+          const Icon(
+            Icons.place_rounded,
+            color: AppTheme.secondaryGreen,
+            size: 18,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Column(
@@ -1511,11 +1874,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 Text(
                   dest.name,
                   style: GoogleFonts.outfit(
-                      fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                    color: isDark ? Colors.white : AppTheme.primaryBlue,
+                  ),
                 ),
                 Text(
                   dest.location,
-                  style: GoogleFonts.outfit(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
                 ),
               ],
             ),
@@ -1528,7 +1899,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ),
             child: Text(
               dest.category,
-              style: GoogleFonts.outfit(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+              style: GoogleFonts.outfit(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -1540,13 +1915,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (message.isUser) {
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppConstants.spaceM,
+          vertical: 8,
+        ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.end,
           children: [
             Flexible(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: const BoxDecoration(
                   color: AppTheme.primaryBlue,
                   borderRadius: BorderRadius.only(
@@ -1567,7 +1948,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConstants.spaceM,
+        vertical: 8,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1575,7 +1959,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
             backgroundColor: isDark
                 ? AppTheme.secondaryGreen.withValues(alpha: 0.2)
                 : AppTheme.secondaryGreen.withValues(alpha: 0.12),
-            child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.primaryBlue, size: 20),
+            child: const ImageIcon(
+              AssetImage('assets/icons/ai_planner.png'),
+              color: AppTheme.primaryBlue,
+              size: 20,
+            ),
           ),
           const SizedBox(width: AppConstants.spaceM),
           Expanded(
@@ -1583,7 +1971,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: const BorderRadius.only(
@@ -1591,10 +1982,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       topRight: Radius.circular(20),
                       bottomRight: Radius.circular(20),
                     ),
-                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.06),
+                    ),
                     boxShadow: [
                       BoxShadow(
-                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.03),
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.03),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1603,7 +2000,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   child: Text(
                     message.text,
                     style: GoogleFonts.outfit(
-                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight, fontSize: 14, height: 1.5),
+                      color: isDark
+                          ? AppTheme.textPrimaryDark
+                          : AppTheme.textPrimaryLight,
+                      fontSize: 14,
+                      height: 1.5,
+                    ),
                   ),
                 ),
                 if (message.generatedTrip != null) ...[
@@ -1618,7 +2020,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   const SizedBox(height: AppConstants.spaceM),
                   _buildConfirmationCard(_activeDest!),
                 ],
-                if (message.recommendations != null && message.recommendations!.isNotEmpty) ...[
+                if (message.recommendations != null &&
+                    message.recommendations!.isNotEmpty) ...[
                   _buildRecommendations(message.recommendations!),
                 ],
               ],
@@ -1673,12 +2076,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     borderRadius: BorderRadius.circular(16),
                     boxShadow: [
                       BoxShadow(
-                        color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.04),
+                        color: isDark
+                            ? Colors.black.withValues(alpha: 0.1)
+                            : Colors.black.withValues(alpha: 0.04),
                         blurRadius: 6,
                         offset: const Offset(0, 2),
                       ),
                     ],
-                    border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05)),
+                    border: Border.all(
+                      color: isDark
+                          ? Colors.white.withValues(alpha: 0.08)
+                          : Colors.black.withValues(alpha: 0.05),
+                    ),
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
@@ -1693,16 +2102,25 @@ class _PlannerScreenState extends State<PlannerScreen> {
                               Image.network(
                                 dest.imageUrl,
                                 fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                                  child: const Icon(Icons.place_rounded, color: AppTheme.primaryBlue),
-                                ),
+                                errorBuilder: (context, error, stackTrace) =>
+                                    Container(
+                                      color: AppTheme.primaryBlue.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      child: const Icon(
+                                        Icons.place_rounded,
+                                        color: AppTheme.primaryBlue,
+                                      ),
+                                    ),
                               ),
                               Positioned(
                                 top: 6,
                                 right: 6,
                                 child: Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                    vertical: 2,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.black.withValues(alpha: 0.6),
                                     borderRadius: BorderRadius.circular(6),
@@ -1710,7 +2128,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const Icon(Icons.star_rounded, color: Colors.amber, size: 10),
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: Colors.amber,
+                                        size: 10,
+                                      ),
                                       const SizedBox(width: 2),
                                       Text(
                                         dest.rating.toStringAsFixed(1),
@@ -1740,13 +2162,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                 style: GoogleFonts.outfit(
                                   fontSize: 11,
                                   fontWeight: FontWeight.bold,
-                                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                  color: isDark
+                                      ? AppTheme.textPrimaryDark
+                                      : AppTheme.textPrimaryLight,
                                 ),
                               ),
                               const SizedBox(height: 2),
                               Row(
                                 children: [
-                                  const Icon(Icons.location_on_rounded, color: Colors.grey, size: 10),
+                                  const Icon(
+                                    Icons.location_on_rounded,
+                                    color: Colors.grey,
+                                    size: 10,
+                                  ),
                                   const SizedBox(width: 2),
                                   Expanded(
                                     child: Text(
@@ -1755,7 +2183,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                       overflow: TextOverflow.ellipsis,
                                       style: GoogleFonts.outfit(
                                         fontSize: 9,
-                                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                        color: isDark
+                                            ? AppTheme.textSecondaryDark
+                                            : AppTheme.textSecondaryLight,
                                       ),
                                     ),
                                   ),
@@ -1781,13 +2211,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                       _activeDest = dest;
                                       _isDestinationMode = true;
                                       _currentStep = 10;
-                                      
-                                      
-                                      _messages.add(_ChatMessage(
-                                        text: "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
-                                        isUser: false,
-                                        timestamp: DateTime.now(),
-                                      ));
+
+                                      _messages.add(
+                                        _ChatMessage(
+                                          text:
+                                              "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+                                          isUser: false,
+                                          timestamp: DateTime.now(),
+                                        ),
+                                      );
                                     });
                                     _scrollToBottom();
                                   },
@@ -1826,7 +2258,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         boxShadow: AppConstants.premiumShadow,
-        border: Border.all(color: AppTheme.secondaryGreen.withValues(alpha: 0.2)),
+        border: Border.all(
+          color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
@@ -1843,41 +2277,54 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   Image.network(
                     trip.imageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Container(color: AppTheme.primaryBlue),
+                    errorBuilder: (context, error, stackTrace) =>
+                        Container(color: AppTheme.primaryBlue),
                   ),
                   Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Colors.transparent, Colors.black.withValues(alpha: 0.7)],
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withValues(alpha: 0.7),
+                        ],
                       ),
                     ),
                   ),
                   Positioned(
-                    bottom: 12, left: 12, right: 12,
+                    bottom: 12,
+                    left: 12,
+                    right: 12,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
                           children: [
-                            _chip('${trip.itinerary.length} Day${trip.itinerary.length > 1 ? "s" : ""}',
-                                AppTheme.secondaryGreen),
+                            _chip(
+                              '${trip.itinerary.length} Day${trip.itinerary.length > 1 ? "s" : ""}',
+                              AppTheme.secondaryGreen,
+                            ),
                             const SizedBox(width: 6),
                             if (_selectedBudgetCategory.isNotEmpty)
-                              _chip(_selectedBudgetCategory,
-                                  _selectedBudgetCategory == 'Low Budget'
-                                      ? Colors.green[700]!
-                                      : _selectedBudgetCategory == 'High Budget'
-                                          ? Colors.red[700]!
-                                          : Colors.amber[700]!),
+                              _chip(
+                                _selectedBudgetCategory,
+                                _selectedBudgetCategory == 'Low Budget'
+                                    ? Colors.green[700]!
+                                    : _selectedBudgetCategory == 'High Budget'
+                                    ? Colors.red[700]!
+                                    : Colors.amber[700]!,
+                              ),
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
                           trip.title,
                           style: GoogleFonts.outfit(
-                              color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15),
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
                         ),
                       ],
                     ),
@@ -1890,13 +2337,28 @@ class _PlannerScreenState extends State<PlannerScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _infoRow(Icons.location_on_rounded, trip.destinationName, isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                  _infoRow(
+                    Icons.location_on_rounded,
+                    trip.destinationName,
+                    isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
                   const SizedBox(height: 6),
-                  _infoRow(Icons.calendar_today_rounded, trip.dateRange, isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                  _infoRow(
+                    Icons.calendar_today_rounded,
+                    trip.dateRange,
+                    isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
                   const SizedBox(height: 6),
-                  _infoRow(Icons.payments_rounded,
-                      'Est. Total: ₱${trip.budget.toStringAsFixed(0)}', AppTheme.secondaryGreen,
-                      bold: true),
+                  _infoRow(
+                    Icons.payments_rounded,
+                    'Est. Total: ₱${trip.budget.toStringAsFixed(0)}',
+                    AppTheme.secondaryGreen,
+                    bold: true,
+                  ),
                   const SizedBox(height: AppConstants.spaceM),
                   Row(
                     children: [
@@ -1906,13 +2368,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.secondaryGreen,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                                icon: const Icon(Icons.dashboard_customize_rounded, size: 16),
-                                label: Text('Manage Trip',
-                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                                icon: const Icon(
+                                  Icons.dashboard_customize_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'Manage Trip',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 onPressed: () {
                                   Navigator.pushNamed(
                                     context,
@@ -1925,13 +2398,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primaryBlue,
                                   foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 10,
+                                  ),
                                   shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(10)),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
                                 ),
-                                icon: const Icon(Icons.visibility_rounded, size: 16),
-                                label: Text('View Details',
-                                    style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                                icon: const Icon(
+                                  Icons.visibility_rounded,
+                                  size: 16,
+                                ),
+                                label: Text(
+                                  'View Details',
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                                 onPressed: () {
                                   Navigator.pushNamed(
                                     context,
@@ -1946,7 +2430,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                           ? Container(
                               padding: const EdgeInsets.all(10),
                               decoration: BoxDecoration(
-                                color: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                                color: AppTheme.secondaryGreen.withValues(
+                                  alpha: 0.12,
+                                ),
                                 borderRadius: BorderRadius.circular(10),
                               ),
                               child: const Icon(
@@ -1957,42 +2443,58 @@ class _PlannerScreenState extends State<PlannerScreen> {
                             )
                           : IconButton(
                               style: IconButton.styleFrom(
-                                backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                                backgroundColor: AppTheme.secondaryGreen
+                                    .withValues(alpha: 0.12),
                                 foregroundColor: AppTheme.secondaryGreen,
                                 padding: const EdgeInsets.all(10),
                                 shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(10)),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
                               ),
-                              icon: const Icon(Icons.bookmark_add_rounded, size: 20),
+                              icon: const Icon(
+                                Icons.bookmark_add_rounded,
+                                size: 20,
+                              ),
                               tooltip: 'Save to My Trips',
                               onPressed: () async {
                                 final provider = context.read<TripProvider>();
-                                
+
                                 // Show a persistent loading indicator dialog
                                 showDialog(
                                   context: context,
                                   barrierDismissible: false,
                                   builder: (_) => const Center(
-                                    child: CircularProgressIndicator(color: AppTheme.primaryBlue),
+                                    child: CircularProgressIndicator(
+                                      color: AppTheme.primaryBlue,
+                                    ),
                                   ),
                                 );
 
                                 final success = await provider.addNewTrip(trip);
-                                
+
                                 if (context.mounted) {
-                                  Navigator.pop(context); // Dismiss loading dialog
-                                  
+                                  Navigator.pop(
+                                    context,
+                                  ); // Dismiss loading dialog
+
                                   if (success) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('Trip saved successfully! 🎉'),
-                                        backgroundColor: AppTheme.secondaryGreen,
+                                        content: Text(
+                                          'Trip saved successfully! 🎉',
+                                        ),
+                                        backgroundColor:
+                                            AppTheme.secondaryGreen,
                                       ),
                                     );
+                                    _resetChatWithSuccessMessage();
                                   } else {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(provider.errorMessage ?? 'Failed to save itinerary. Please try again.'),
+                                        content: Text(
+                                          provider.errorMessage ??
+                                              'Failed to save itinerary. Please try again.',
+                                        ),
                                         backgroundColor: Colors.redAccent,
                                       ),
                                     );
@@ -2014,13 +2516,27 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Widget _chip(String label, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(99)),
-      child: Text(label,
-          style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(99),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
     );
   }
 
-  Widget _infoRow(IconData icon, String text, Color color, {bool bold = false}) {
+  Widget _infoRow(
+    IconData icon,
+    String text,
+    Color color, {
+    bool bold = false,
+  }) {
     return Row(
       children: [
         Icon(icon, size: 14, color: color),
@@ -2029,9 +2545,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
           child: Text(
             text,
             style: TextStyle(
-                fontSize: 12,
-                color: color,
-                fontWeight: bold ? FontWeight.bold : FontWeight.normal),
+              fontSize: 12,
+              color: color,
+              fontWeight: bold ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
         ),
       ],
@@ -2041,13 +2558,20 @@ class _PlannerScreenState extends State<PlannerScreen> {
   Widget _buildTypingIndicator() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppConstants.spaceM,
+        vertical: 8,
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           CircleAvatar(
             backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
-            child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.primaryBlue, size: 20),
+            child: const ImageIcon(
+              AssetImage('assets/icons/ai_planner.png'),
+              color: AppTheme.primaryBlue,
+              size: 20,
+            ),
           ),
           const SizedBox(width: AppConstants.spaceM),
           Container(
@@ -2059,7 +2583,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
                 topRight: Radius.circular(20),
                 bottomRight: Radius.circular(20),
               ),
-              border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.06)),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.06),
+              ),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -2079,31 +2607,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   Widget _buildDot(int index) => _TypingDot(delayMs: index * 150);
 
-  Widget _buildQuickReplies() {
-    if (_messages.length > 1) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 8),
-        child: Row(
-          children: [
-            ActionChip(
-              backgroundColor: AppTheme.secondaryGreen,
-              label: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.refresh_rounded, color: Colors.white, size: 16),
-                  const SizedBox(width: 6),
-                  Text('Plan Another Trip',
-                      style: GoogleFonts.outfit(color: Colors.white, fontWeight: FontWeight.bold)),
-                ],
-              ),
-              onPressed: _resetChat,
-            ),
-          ],
-        ),
-      );
-    }
-    return const SizedBox.shrink();
-  }
 
   Widget _buildInputBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -2113,7 +2616,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
         color: Theme.of(context).cardColor,
         boxShadow: [
           BoxShadow(
-            color: isDark ? Colors.black.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.04),
+            color: isDark
+                ? Colors.black.withValues(alpha: 0.1)
+                : Colors.black.withValues(alpha: 0.04),
             blurRadius: 10,
             offset: const Offset(0, -3),
           ),
@@ -2126,9 +2631,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: isDark ? Colors.white.withValues(alpha: 0.05) : Colors.grey.withValues(alpha: 0.06),
+                  color: isDark
+                      ? Colors.white.withValues(alpha: 0.05)
+                      : Colors.grey.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black12.withValues(alpha: 0.08)),
+                  border: Border.all(
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : Colors.black12.withValues(alpha: 0.08),
+                  ),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: TextField(
@@ -2137,7 +2648,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   decoration: InputDecoration(
                     hintText: 'Type your message...',
                     border: InputBorder.none,
-                    hintStyle: TextStyle(color: isDark ? Colors.white60 : Colors.grey, fontSize: 14),
+                    hintStyle: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.grey,
+                      fontSize: 14,
+                    ),
                   ),
                   style: GoogleFonts.outfit(fontSize: 14),
                 ),
@@ -2148,8 +2662,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
               onTap: () => _handleSendMessage(_messageCtrl.text),
               child: Container(
                 padding: const EdgeInsets.all(12),
-                decoration: const BoxDecoration(color: AppTheme.primaryBlue, shape: BoxShape.circle),
-                child: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryBlue,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.send_rounded,
+                  color: Colors.white,
+                  size: 20,
+                ),
               ),
             ),
           ],
@@ -2158,13 +2679,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  List<String> _getIncludedActivitiesForCategory(Destination dest, String category) {
+  List<String> _getIncludedActivitiesForCategory(
+    Destination dest,
+    String category,
+  ) {
     final prices = dest.extra.activityPrices;
     if (prices.isEmpty) return ['Self-guided sightseeing'];
-    
+
     final sortedKeys = prices.keys.toList()
-      ..sort((a, b) => _parsePrice(prices[a]!).compareTo(_parsePrice(prices[b]!)));
-      
+      ..sort(
+        (a, b) => _parsePrice(prices[a]!).compareTo(_parsePrice(prices[b]!)),
+      );
+
     if (category == 'Low Budget') {
       return [sortedKeys.first];
     } else if (category == 'High Budget') {
@@ -2179,7 +2705,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final types = dest.extra.accommodationTypes;
     if (types.isEmpty) {
       final overnight = dest.extra.overnightFee;
-      return overnight.toLowerCase().contains('not applicable') ? 'No overnight stay planned' : 'Standard Lodging ($overnight)';
+      return overnight.toLowerCase().contains('not applicable')
+          ? 'No overnight stay planned'
+          : 'Standard Lodging ($overnight)';
     }
     if (category == 'Low Budget') {
       final first = types.first;
@@ -2199,7 +2727,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     if (opt == null) return 'Local commuting';
     final vehicle = opt['vehicle'] ?? 'Public Transit';
     final price = opt['price'] ?? 'Free';
-    final route = (opt['from'] != null && opt['to'] != null) ? "${opt['from']} ➔ ${opt['to']}" : "";
+    final route = (opt['from'] != null && opt['to'] != null)
+        ? "${opt['from']} ➔ ${opt['to']}"
+        : "";
     return "$vehicle${route.isNotEmpty ? ' ($route)' : ''} — $price";
   }
 
@@ -2220,7 +2750,12 @@ class _PlannerScreenState extends State<PlannerScreen> {
         ? AppTheme.primaryBlue.withValues(alpha: 0.35)
         : AppTheme.primaryBlue.withValues(alpha: 0.25);
 
-    Widget summaryRow(IconData icon, String label, String value, Color iconColor) {
+    Widget summaryRow(
+      IconData icon,
+      String label,
+      String value,
+      Color iconColor,
+    ) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 5),
         child: Row(
@@ -2237,17 +2772,23 @@ class _PlannerScreenState extends State<PlannerScreen> {
             Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label,
-                    style: GoogleFonts.outfit(
-                      fontSize: 10,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                    )),
-                Text(value,
-                    style: GoogleFonts.outfit(
-                      fontSize: 13,
-                      fontWeight: FontWeight.bold,
-                      color: isDark ? Colors.white : AppTheme.primaryBlue,
-                    )),
+                Text(
+                  label,
+                  style: GoogleFonts.outfit(
+                    fontSize: 10,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
+                ),
+                Text(
+                  value,
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: isDark ? Colors.white : AppTheme.primaryBlue,
+                  ),
+                ),
               ],
             ),
           ],
@@ -2279,7 +2820,11 @@ class _PlannerScreenState extends State<PlannerScreen> {
         children: [
           Row(
             children: [
-              const Icon(Icons.checklist_rounded, size: 16, color: AppTheme.primaryBlue),
+              const Icon(
+                Icons.checklist_rounded,
+                size: 16,
+                color: AppTheme.primaryBlue,
+              ),
               const SizedBox(width: 6),
               Text(
                 'Confirm your plan details',
@@ -2294,9 +2839,24 @@ class _PlannerScreenState extends State<PlannerScreen> {
           const SizedBox(height: 10),
           Divider(color: borderColor, height: 1),
           const SizedBox(height: 10),
-          summaryRow(Icons.calendar_today_rounded, 'Travel Date', _selectedDate.isNotEmpty ? _selectedDate : 'Not set', Colors.blue),
-          summaryRow(Icons.schedule_rounded, 'Duration', durationLabel, Colors.teal),
-          summaryRow(Icons.place_rounded, 'Destination', dest.name, AppTheme.secondaryGreen),
+          summaryRow(
+            Icons.calendar_today_rounded,
+            'Travel Date',
+            _selectedDate.isNotEmpty ? _selectedDate : 'Not set',
+            Colors.blue,
+          ),
+          summaryRow(
+            Icons.schedule_rounded,
+            'Duration',
+            durationLabel,
+            Colors.teal,
+          ),
+          summaryRow(
+            Icons.place_rounded,
+            'Destination',
+            dest.name,
+            AppTheme.secondaryGreen,
+          ),
           const SizedBox(height: 12),
           Row(
             children: [
@@ -2306,12 +2866,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     backgroundColor: AppTheme.secondaryGreen,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                     elevation: 0,
                   ),
                   icon: const Icon(Icons.check_circle_rounded, size: 16),
-                  label: Text('Looks right!',
-                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: Text(
+                    'Looks right!',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   onPressed: () => _handleSendMessage('confirm'),
                 ),
               ),
@@ -2319,24 +2886,38 @@ class _PlannerScreenState extends State<PlannerScreen> {
               Expanded(
                 child: OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: isDark ? Colors.white : AppTheme.primaryBlue,
+                    foregroundColor: isDark
+                        ? Colors.white
+                        : AppTheme.primaryBlue,
                     side: BorderSide(color: borderColor, width: 1.5),
                     padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                   icon: const Icon(Icons.edit_rounded, size: 16),
-                  label: Text('Fix this',
-                      style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: Text(
+                    'Fix this',
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                   onPressed: () {
-                    setState(() { _currentStep = 116; });
+                    setState(() {
+                      _currentStep = 116;
+                    });
                     // Prompt user to type correction
                     setState(() {
                       _isTyping = false;
-                      _messages.add(_ChatMessage(
-                        text: "Sure! What would you like to change — the travel date, the duration, or both? Just type your correction. 📝",
-                        isUser: false,
-                        timestamp: DateTime.now(),
-                      ));
+                      _messages.add(
+                        _ChatMessage(
+                          text:
+                              "Sure! What would you like to change — the travel date, the duration, or both? Just type your correction. 📝",
+                          isUser: false,
+                          timestamp: DateTime.now(),
+                        ),
+                      );
                     });
                     _scrollToBottom();
                   },
@@ -2353,7 +2934,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final categories = ['Low Budget', 'Balanced Budget', 'High Budget'];
-    
+
     return Container(
       margin: const EdgeInsets.only(top: 10),
       child: Column(
@@ -2362,23 +2943,26 @@ class _PlannerScreenState extends State<PlannerScreen> {
           final isGroup = _selectedTravelType.toLowerCase().contains('group');
           final numTravelers = isGroup ? _numTravelers : 1;
           final totalCost = lowCost * numTravelers;
-          
+
           Color badgeColor = Colors.green[700]!;
           if (cat == 'Balanced Budget') badgeColor = Colors.amber[700]!;
           if (cat == 'High Budget') badgeColor = Colors.red[700]!;
-          
+
           return Container(
             margin: const EdgeInsets.only(bottom: 12),
             decoration: BoxDecoration(
               color: Theme.of(context).cardColor,
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: badgeColor.withValues(alpha: 0.3), width: 1.5),
+              border: Border.all(
+                color: badgeColor.withValues(alpha: 0.3),
+                width: 1.5,
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.04),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
-                )
+                ),
               ],
             ),
             child: Column(
@@ -2389,11 +2973,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   child: Row(
                     children: [
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: badgeColor.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: badgeColor.withValues(alpha: 0.3)),
+                          border: Border.all(
+                            color: badgeColor.withValues(alpha: 0.3),
+                          ),
                         ),
                         child: Text(
                           cat,
@@ -2413,7 +3002,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                             style: GoogleFonts.outfit(
                               fontSize: 13,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppTheme.primaryBlue,
                             ),
                           ),
                           if (isGroup)
@@ -2421,7 +3012,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                               'Total: ₱${_formatCurrency(totalCost)}',
                               style: GoogleFonts.outfit(
                                 fontSize: 10,
-                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                color: isDark
+                                    ? AppTheme.textSecondaryDark
+                                    : AppTheme.textSecondaryLight,
                               ),
                             ),
                         ],
@@ -2429,20 +3022,32 @@ class _PlannerScreenState extends State<PlannerScreen> {
                     ],
                   ),
                 ),
-                Divider(color: Theme.of(context).dividerColor.withValues(alpha: 0.15), height: 1),
+                Divider(
+                  color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                  height: 1,
+                ),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   child: Row(
                     children: [
                       Expanded(
                         child: TextButton.icon(
-                          icon: Icon(Icons.info_outline_rounded, size: 14, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                          icon: Icon(
+                            Icons.info_outline_rounded,
+                            size: 14,
+                            color: isDark ? Colors.white : AppTheme.primaryBlue,
+                          ),
                           label: Text(
                             'View Details',
                             style: GoogleFonts.outfit(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppTheme.primaryBlue,
                             ),
                           ),
                           onPressed: () => _showBudgetDetailsSheet(dest, cat),
@@ -2455,7 +3060,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                             backgroundColor: badgeColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
                             elevation: 0,
                           ),
                           onPressed: () {
@@ -2483,22 +3090,32 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   void _showBudgetDetailsSheet(Destination dest, String category) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     final double accommCost = _getAccommodationCost(dest, category);
     final String accommDetail = _getAccommodationDetails(dest, category);
-    
+
     final double transCost = _getTransportCost(dest, category);
     final String transDetail = _getTransportDetails(dest, category);
-    
-    final double mealsCost = (category == 'Low Budget' ? 150.0 : category == 'High Budget' ? 600.0 : 300.0) * 3 * _selectedDays;
+
+    final double mealsCost =
+        (category == 'Low Budget'
+            ? 150.0
+            : category == 'High Budget'
+            ? 600.0
+            : 300.0) *
+        3 *
+        _selectedDays;
     final String mealsDetail = _getMealDetails(dest, category);
-    
+
     final double actCost = _getActivitiesCost(dest, category);
-    final List<String> actDetails = _getIncludedActivitiesForCategory(dest, category);
-    
+    final List<String> actDetails = _getIncludedActivitiesForCategory(
+      dest,
+      category,
+    );
+
     final double envFee = _parsePrice(dest.extra.environmentalFee);
     final double entFee = _parsePrice(dest.entranceFee);
-    
+
     Color themeColor = Colors.green[700]!;
     if (category == 'Balanced Budget') themeColor = Colors.amber[700]!;
     if (category == 'High Budget') themeColor = Colors.red[700]!;
@@ -2515,7 +3132,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
               padding: const EdgeInsets.all(AppConstants.spaceL),
               decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2551,7 +3170,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                               'Complete breakdown of budget & inclusions',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                color: isDark
+                                    ? AppTheme.textSecondaryDark
+                                    : AppTheme.textSecondaryLight,
                               ),
                             ),
                           ],
@@ -2623,7 +3244,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: themeColor,
                         foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         elevation: 0,
                       ),
                       onPressed: () {
@@ -2632,7 +3255,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
                       },
                       child: Text(
                         'Select $category',
-                        style: GoogleFonts.outfit(fontSize: 15, fontWeight: FontWeight.bold),
+                        style: GoogleFonts.outfit(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
@@ -2645,15 +3271,25 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
-  Widget _buildDetailRow(IconData icon, String title, String details, String costText, Color color) {
+  Widget _buildDetailRow(
+    IconData icon,
+    String title,
+    String details,
+    String costText,
+    Color color,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white.withValues(alpha: 0.02) : color.withValues(alpha: 0.04),
+        color: isDark
+            ? Colors.white.withValues(alpha: 0.02)
+            : color.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? Colors.white12 : color.withValues(alpha: 0.12)),
+        border: Border.all(
+          color: isDark ? Colors.white12 : color.withValues(alpha: 0.12),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2677,7 +3313,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
                   details,
                   style: TextStyle(
                     fontSize: 12,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
                     height: 1.4,
                   ),
                 ),
@@ -2721,19 +3359,24 @@ class _ChatMessage {
     this.isConfirmationPrompt = false,
   }) : text = isUser ? text : _cleanMarkdown(text);
 
-
   static String _cleanMarkdown(String rawText) {
     String cleaned = rawText;
 
     // 1. Replace headers: lines starting with one or more '#' followed by spaces
-    cleaned = cleaned.replaceAllMapped(RegExp(r'^#+\s*(.*)$', multiLine: true), (match) {
-      return match.group(1) ?? '';
-    });
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'^#+\s*(.*)$', multiLine: true),
+      (match) {
+        return match.group(1) ?? '';
+      },
+    );
 
     // 2. Convert list item asterisks or hyphens to a nice bullet point
-    cleaned = cleaned.replaceAllMapped(RegExp(r'^\s*[\*\-]\s+', multiLine: true), (match) {
-      return '• ';
-    });
+    cleaned = cleaned.replaceAllMapped(
+      RegExp(r'^\s*[\*\-]\s+', multiLine: true),
+      (match) {
+        return '• ';
+      },
+    );
 
     // 3. Remove bold / italic symbols: '**', '*', '__', '_'
     cleaned = cleaned.replaceAll('**', '');
@@ -2757,13 +3400,17 @@ class _TypingDot extends StatefulWidget {
   State<_TypingDot> createState() => _TypingDotState();
 }
 
-class _TypingDotState extends State<_TypingDot> with SingleTickerProviderStateMixin {
+class _TypingDotState extends State<_TypingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _animCtrl;
 
   @override
   void initState() {
     super.initState();
-    _animCtrl = AnimationController(vsync: this, duration: const Duration(milliseconds: 600));
+    _animCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
     Future.delayed(Duration(milliseconds: widget.delayMs), () {
       if (mounted) {
         _animCtrl.repeat(reverse: true);
@@ -2786,8 +3433,12 @@ class _TypingDotState extends State<_TypingDot> with SingleTickerProviderStateMi
         child: Opacity(
           opacity: 0.3 + 0.7 * _animCtrl.value,
           child: Container(
-            width: 6, height: 6,
-            decoration: const BoxDecoration(color: AppTheme.primaryBlue, shape: BoxShape.circle),
+            width: 6,
+            height: 6,
+            decoration: const BoxDecoration(
+              color: AppTheme.primaryBlue,
+              shape: BoxShape.circle,
+            ),
           ),
         ),
       ),

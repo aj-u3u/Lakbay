@@ -69,6 +69,48 @@ class AppTheme {
         type: BottomNavigationBarType.fixed,
         elevation: 8,
       ),
+      dividerColor: Color(0xFFDDE8E8),
+      dividerTheme: DividerThemeData(color: Color(0xFFDDE8E8), thickness: 1),
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: Color(0xFFF0F6F6),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Color(0xFFCFDFDF)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: Color(0xFFCFDFDF)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.all(Radius.circular(12)),
+          borderSide: BorderSide(color: primaryBlue, width: 1.5),
+        ),
+        hintStyle: TextStyle(color: textSecondaryLight, fontSize: 14),
+        labelStyle: TextStyle(color: textSecondaryLight),
+        prefixIconColor: primaryBlue,
+        suffixIconColor: textSecondaryLight,
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: Color(0xFFEEF5F5),
+        selectedColor: primaryBlue,
+        labelStyle: TextStyle(color: textPrimaryLight, fontSize: 13),
+        secondaryLabelStyle: TextStyle(color: Colors.white, fontSize: 13),
+        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        shape: StadiumBorder(),
+        side: BorderSide(color: Color(0xFFCFDFDF)),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(foregroundColor: primaryBlue),
+      ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: primaryBlue,
+          side: BorderSide(color: primaryBlue),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+        ),
+      ),
     );
   }
 

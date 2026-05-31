@@ -370,17 +370,11 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
         automaticallyImplyLeading: false,
         title: Text('My Trips', style: GoogleFonts.outfit(
           fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.primaryBlue)),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_circle_rounded, color: AppTheme.secondaryGreen, size: 28),
-            onPressed: () => _showCreateTripOptions(context),
-          ),
-        ],
         bottom: TabBar(
           controller: _tabCtrl,
           indicatorColor: AppTheme.primaryBlue,
           labelColor: AppTheme.primaryBlue,
-          unselectedLabelColor: AppTheme.textSecondaryLight,
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
           labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: const [
             Tab(text: 'Upcoming'),
@@ -432,6 +426,14 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           ),
         ],
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showCreateTripOptions(context),
+        backgroundColor: AppTheme.secondaryGreen,
+        foregroundColor: Colors.white,
+        shape: const CircleBorder(),
+        elevation: 4,
+        child: const Icon(Icons.add, size: 28),
+      ),
     );
   }
 
@@ -453,8 +455,53 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           Text(title, style: GoogleFonts.outfit(
             fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue.withOpacity(0.5))),
           const SizedBox(height: AppConstants.spaceS),
-          Text(subtitle, style: const TextStyle(color: AppTheme.textSecondaryLight, fontSize: 13)),
+          Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55), fontSize: 13)),
         ],
+      ),
+    );
+  }
+}
+
+enum TripStatus { upcoming, active, completed }
+
+class PulsingDot extends StatefulWidget {
+  const PulsingDot({super.key});
+
+  @override
+  State<PulsingDot> createState() => _PulsingDotState();
+}
+
+class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _animation;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      duration: const Duration(seconds: 1),
+      vsync: this,
+    )..repeat(reverse: true);
+    _animation = Tween<double>(begin: 0.4, end: 1.0).animate(_controller);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FadeTransition(
+      opacity: _animation,
+      child: Container(
+        width: 6,
+        height: 6,
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+        ),
       ),
     );
   }
@@ -464,8 +511,180 @@ class _TripCard extends StatelessWidget {
   final Trip trip;
   const _TripCard({required this.trip});
 
+  TripStatus _getTripStatus(Trip trip) {
+    if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
+      return TripStatus.upcoming;
+    }
+    try {
+      final parts = trip.dateRange.split(RegExp(r'\s*[-–]\s*'));
+      if (parts.isEmpty) return TripStatus.upcoming;
+      
+      final startDateStr = parts[0].trim();
+      final endDateStr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
+      
+      final months = {
+        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+      };
+      
+      DateTime? parseDate(String dateStr) {
+        final cleanStr = dateStr.toLowerCase().replaceAll(',', '');
+        final strParts = cleanStr.split(RegExp(r'\s+'));
+        if (strParts.length >= 3) {
+          final month = months[strParts[0].substring(0, 3)] ?? 1;
+          final day = int.tryParse(strParts[1]) ?? 1;
+          final year = int.tryParse(strParts[2]) ?? DateTime.now().year;
+          return DateTime(year, month, day);
+        }
+        return null;
+      }
+      
+      final startDate = parseDate(startDateStr);
+      final endDate = parseDate(endDateStr);
+      
+      if (startDate != null && endDate != null) {
+        final now = DateTime.now();
+        final todayMidnight = DateTime(now.year, now.month, now.day);
+        final endMidnight = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+        final startMidnight = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
+        
+        if (todayMidnight.isAfter(endMidnight)) {
+          return TripStatus.completed;
+        } else if (todayMidnight.isBefore(startMidnight)) {
+          return TripStatus.upcoming;
+        } else {
+          return TripStatus.active;
+        }
+      }
+    } catch (_) {}
+    return TripStatus.upcoming;
+  }
+
+  Widget _buildStatusChip(TripStatus status) {
+    switch (status) {
+      case TripStatus.active:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: AppTheme.secondaryGreen, // Coral
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              PulsingDot(),
+              SizedBox(width: 5),
+              Text(
+                'Active',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        );
+      case TripStatus.completed:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.15),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            'Completed',
+            style: GoogleFonts.outfit(
+              color: Colors.white70,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+      case TripStatus.upcoming:
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
+          ),
+          child: const Text(
+            'Upcoming',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        );
+    }
+  }
+
+  Widget _buildTravelTypePill(bool isGroup) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            isGroup ? Icons.people_alt_rounded : Icons.person_rounded,
+            size: 10,
+            color: Colors.white70,
+          ),
+          const SizedBox(width: 4),
+          Text(
+            isGroup ? 'Group' : 'Solo',
+            style: GoogleFonts.outfit(
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCircle({
+    String? imageAsset,
+    IconData? icon,
+    required VoidCallback onTap,
+  }) {
+    return ClipOval(
+      child: Material(
+        color: Colors.white.withValues(alpha: 0.18),
+        child: InkWell(
+          onTap: onTap,
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: Center(
+              child: imageAsset != null
+                  ? ImageIcon(
+                      AssetImage(imageAsset),
+                      size: 15,
+                      color: Colors.white,
+                    )
+                  : Icon(
+                      icon,
+                      size: 15,
+                      color: Colors.white,
+                    ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final status = _getTripStatus(trip);
+
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(
@@ -476,132 +695,136 @@ class _TripCard extends StatelessWidget {
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
+        height: 220,
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
           borderRadius: BorderRadius.circular(AppConstants.radiusXL),
           boxShadow: AppConstants.cardShadow,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-              child: SizedBox(
-                height: 140,
-                width: double.infinity,
-                child: Image.network(trip.imageUrl, fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(color: AppTheme.primaryBlue.withOpacity(0.15))),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // Background image
+              Image.network(
+                trip.imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (context, error, stackTrace) => Container(
+                  color: Colors.grey[900],
+                  child: const Center(
+                    child: Icon(
+                      Icons.landscape_rounded,
+                      color: Colors.white30,
+                      size: 40,
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(AppConstants.spaceM),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(trip.title, style: const TextStyle(
-                          fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: trip.isGroup
-                              ? AppTheme.secondaryGreen.withOpacity(0.1)
-                              : AppTheme.primaryBlue.withOpacity(0.1),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: trip.isGroup
-                                ? AppTheme.secondaryGreen.withOpacity(0.3)
-                                : AppTheme.primaryBlue.withOpacity(0.3),
-                          ),
-                        ),
-                        child: Text(
-                          trip.isGroup ? 'Group' : 'Solo',
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            color: trip.isGroup
-                                ? AppTheme.secondaryGreen
-                                : AppTheme.primaryBlue,
-                          ),
-                        ),
-                      ),
+              // Gradient overlay
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.black.withValues(alpha: 0.1),
+                      Colors.black.withValues(alpha: 0.4),
+                      Colors.black.withValues(alpha: 0.85),
                     ],
+                    stops: const [0.0, 0.5, 1.0],
                   ),
-                  const SizedBox(height: 4),
-                  Row(children: [
-                    const Icon(Icons.location_on_rounded, size: 13, color: AppTheme.textSecondaryLight),
-                    const SizedBox(width: 3),
-                    Text(trip.destinationName,
-                      style: const TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
-                  ]),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Row(
-                    children: [
-                      _chip(Icons.calendar_today_rounded, trip.dateRange),
-                      const Spacer(),
-                      _chip(Icons.payments_rounded, '₱${trip.budget.toStringAsFixed(0)}'),
-                    ],
-                  ),
-                  const Divider(height: AppConstants.spaceL),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Expanded(
-                        child: TextButton.icon(
-                          icon: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), size: 16, color: AppTheme.secondaryGreen),
-                          label: const Text('Consult AI', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen)),
-                          onPressed: () {
-                            context.read<TripProvider>().discussTripWithAI(trip);
-                            context.read<NavProvider>().setIndex(1); // switch tab to AI Planner
-                          },
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            backgroundColor: AppTheme.secondaryGreen.withOpacity(0.08),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: AppConstants.spaceS),
-                      Expanded(
-                        child: TextButton.icon(
-                          icon: const Icon(Icons.dashboard_customize_rounded, size: 16, color: AppTheme.primaryBlue),
-                          label: const Text('Manage', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
-                          onPressed: () {
-                            Navigator.pushNamed(
-                              context,
-                              AppRoutes.groupDashboard,
-                              arguments: trip,
-                            );
-                          },
-                          style: TextButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 8),
-                            backgroundColor: AppTheme.primaryBlue.withOpacity(0.08),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                ),
               ),
-            ),
-          ],
+              // Content overlay
+              Padding(
+                padding: const EdgeInsets.all(AppConstants.spaceL),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text(
+                      trip.title,
+                      style: GoogleFonts.outfit(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withValues(alpha: 0.4),
+                            offset: const Offset(0, 1),
+                            blurRadius: 4,
+                          ),
+                        ],
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const Icon(
+                          Icons.calendar_today_rounded,
+                          size: 11,
+                          color: Colors.white70,
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            '${trip.dateRange}  ·  ₱${trip.budget.toStringAsFixed(0)}',
+                            style: GoogleFonts.outfit(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w500,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        // Left side chips
+                        Row(
+                          children: [
+                            _buildStatusChip(status),
+                            const SizedBox(width: 8),
+                            _buildTravelTypePill(trip.isGroup),
+                          ],
+                        ),
+                        // Right side actions
+                        Row(
+                          children: [
+                            _buildActionCircle(
+                              imageAsset: 'assets/icons/ai_planner.png',
+                              onTap: () {
+                                context.read<TripProvider>().discussTripWithAI(trip);
+                                context.read<NavProvider>().setIndex(1);
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            _buildActionCircle(
+                              icon: Icons.arrow_forward_rounded,
+                              onTap: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.groupDashboard,
+                                  arguments: trip,
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
-    );
-  }
-
-  Widget _chip(IconData icon, String label) {
-    return Row(
-      children: [
-        Icon(icon, size: 12, color: AppTheme.secondaryGreen),
-        const SizedBox(width: 4),
-        Text(label, style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
-      ],
     );
   }
 }

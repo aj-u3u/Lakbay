@@ -14,6 +14,9 @@ class TripProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _errorMessage;
   Destination? _activePlanDestination;
+  // TODO: persist bookmarks to Neon DB (bookmarks table)
+  final List<int> _bookmarkedDestinationIds = [];
+
 
   // Active planning draft state
   PlannerDraft? _activeDraft;
@@ -88,6 +91,22 @@ class TripProvider extends ChangeNotifier {
 
   void setActivePlanDestination(Destination? dest) {
     _activePlanDestination = dest;
+    notifyListeners();
+  }
+
+  List<int> get bookmarkedDestinationIds => _bookmarkedDestinationIds;
+
+  bool isBookmarked(int id) {
+    return _bookmarkedDestinationIds.contains(id);
+  }
+
+  void toggleBookmark(int id) {
+    if (_bookmarkedDestinationIds.contains(id)) {
+      _bookmarkedDestinationIds.remove(id);
+    } else {
+      _bookmarkedDestinationIds.add(id);
+      _apiService.recordInteraction(id, 'save');
+    }
     notifyListeners();
   }
 
