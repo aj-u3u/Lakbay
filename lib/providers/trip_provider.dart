@@ -675,6 +675,29 @@ class TripProvider extends ChangeNotifier {
     }
   }
 
+  // Delete a trip from database and update local state
+  Future<bool> deleteTrip(String tripId) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final success = await _apiService.deleteTrip(tripId);
+      if (success) {
+        _userTrips.removeWhere((t) => t.id == tripId);
+        notifyListeners();
+        return true;
+      }
+      _errorMessage = _apiService.lastError ?? 'Failed to delete trip.';
+      return false;
+    } catch (e) {
+      _errorMessage = 'Failed to delete trip.';
+      return false;
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Update an existing trip in the provider
   void updateTrip(Trip updatedTrip) {
     final index = _userTrips.indexWhere((t) => t.id == updatedTrip.id);

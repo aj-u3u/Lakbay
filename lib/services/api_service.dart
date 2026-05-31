@@ -434,4 +434,41 @@ class ApiService {
     }
     return false;
   }
+
+  // Delete trip from backend
+  Future<bool> deleteTrip(String tripId) async {
+    try {
+      lastError = null;
+      final headers = <String, String>{};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final response = await http.delete(
+        Uri.parse('$baseUrl/trips/$tripId'),
+        headers: headers,
+      ).timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        if (kDebugMode) {
+          print('Trip successfully deleted from database: $tripId');
+        }
+        return true;
+      } else {
+        try {
+          final errBody = json.decode(response.body);
+          lastError = errBody['detail'] ?? 'Failed to delete trip (Status ${response.statusCode})';
+        } catch (_) {
+          lastError = 'Failed to delete trip (Status ${response.statusCode})';
+        }
+      }
+    } catch (e) {
+      lastError = 'Failed to delete trip. Please try again.';
+      if (kDebugMode) {
+        print('Error deleting trip: $e');
+      }
+    }
+    return false;
+  }
 }
+

@@ -1,12 +1,50 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/trip.dart';
 import '../../models/destination.dart';
 import '../../providers/trip_provider.dart';
+
+
+class TransitHub {
+  final String name;
+  final LatLng coordinates;
+  final String city;
+
+  TransitHub({required this.name, required this.coordinates, required this.city});
+}
+
+final List<TransitHub> majorTransitHubs = [
+  TransitHub(
+    name: 'Davao Overland Transport Terminal (Ecoland)',
+    coordinates: const LatLng(7.0528, 125.5962),
+    city: 'Davao City',
+  ),
+  TransitHub(
+    name: 'Panabo Public Terminal',
+    coordinates: const LatLng(7.3079, 125.6811),
+    city: 'Panabo',
+  ),
+  TransitHub(
+    name: 'Tagum City Integrated Terminal',
+    coordinates: const LatLng(7.4475, 125.8016),
+    city: 'Tagum',
+  ),
+  TransitHub(
+    name: 'Digos Overland Transport Terminal',
+    coordinates: const LatLng(6.7554, 125.3524),
+    city: 'Digos',
+  ),
+];
+
 
 class GroupDashboardScreen extends StatefulWidget {
   final Trip? trip;
@@ -34,9 +72,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   // Real logged expenses state
   late List<Map<String, dynamic>> _loggedExpenses;
 
+  // Route & Location State
+  Position? _userPosition;
+  final MapController _mapController = MapController();
+  String _commuterStartPoint = 'Current Location';
+
   @override
   void initState() {
     super.initState();
+    _requestLocation();
     final trip = widget.trip;
     if (trip != null && trip.members.isNotEmpty) {
       // Real members from saved trip data
@@ -87,6 +131,994 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   void dispose() {
     _notesController.dispose();
     super.dispose();
+  }
+
+  Future<void> _requestLocation() async {
+    if (!mounted) return;
+
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        throw 'Location services are disabled.';
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          throw 'Location permission was denied.';
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        throw 'Location permission is permanently denied.';
+      }
+
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          timeLimit: Duration(seconds: 4),
+        ),
+      );
+
+      if (mounted) {
+        setState(() {
+          _userPosition = pos;
+        });
+      }
+    } catch (e) {
+      debugPrint('GPS query error: $e');
+    }
+  }
+
+  String _deriveBudgetStyle(Trip trip) {
+    final titleLower = trip.title.toLowerCase();
+    if (titleLower.contains('low budget') || titleLower.contains('low-budget') || titleLower.contains('cheap')) {
+      return 'Low Budget';
+    } else if (titleLower.contains('balanced budget') || titleLower.contains('balanced-budget') || titleLower.contains('balanced')) {
+      return 'Balanced Budget';
+    } else if (titleLower.contains('high budget') || titleLower.contains('high-budget') || titleLower.contains('premium') || titleLower.contains('luxury')) {
+      return 'High Budget';
+    } else {
+      final perPerson = trip.budget / (trip.numTravelers > 0 ? trip.numTravelers : 1);
+      if (perPerson <= 1500.0) {
+        return 'Low Budget';
+      } else if (perPerson <= 5000.0) {
+        return 'Balanced Budget';
+      } else {
+        return 'High Budget';
+      }
+    }
+  }
+
+  double _parsePrice(String text) {
+    final cleanText = text.replaceAll(RegExp(r'[^\d\.-]'), '');
+    if (cleanText.isEmpty) return 0.0;
+    if (cleanText.contains('-')) {
+      final parts = cleanText.split('-');
+      final p1 = double.tryParse(parts[0]) ?? 0.0;
+      final p2 = double.tryParse(parts[1]) ?? 0.0;
+      return (p1 + p2) / 2;
+    }
+    return double.tryParse(cleanText) ?? 0.0;
+  }
+
+
+
+  Map<String, String>? _getBudgetAccommodation(Destination dest, String budgetStyle) {
+    final accommTypes = dest.extra.accommodationTypes;
+    if (accommTypes.isEmpty) return null;
+    if (budgetStyle == 'Low Budget') {
+      return accommTypes.first;
+    } else if (budgetStyle == 'High Budget') {
+      return accommTypes.last;
+    } else {
+      return accommTypes[accommTypes.length ~/ 2];
+    }
+  }
+
+  Map<String, String>? _getBudgetTransport(Destination dest, String budgetStyle) {
+    final transOptions = dest.extra.transportOptions;
+    if (transOptions.isEmpty) return null;
+
+    final sortedTrans = List<Map<String, String>>.from(transOptions)
+      ..sort((a, b) {
+        return _parsePrice(a['price'] ?? '0').compareTo(_parsePrice(b['price'] ?? '0'));
+      });
+
+    if (budgetStyle == 'Low Budget') {
+      return sortedTrans.first;
+    } else if (budgetStyle == 'High Budget') {
+      return sortedTrans.last;
+    } else {
+      return sortedTrans[sortedTrans.length ~/ 2];
+    }
+  }
+
+  Map<String, dynamic> _calculateFirstMile(Position userPos) {
+    TransitHub? nearestHub;
+    double minDistanceInMeters = double.infinity;
+
+    for (final hub in majorTransitHubs) {
+      final double dist = Geolocator.distanceBetween(
+        userPos.latitude,
+        userPos.longitude,
+        hub.coordinates.latitude,
+        hub.coordinates.longitude,
+      );
+      if (dist < minDistanceInMeters) {
+        minDistanceInMeters = dist;
+        nearestHub = hub;
+      }
+    }
+
+    final double distanceInKm = minDistanceInMeters / 1000.0;
+    String vehicle = 'Jeepney';
+    double estimatedCost = 15.0;
+    String duration = '5 mins';
+
+    if (distanceInKm < 1.0) {
+      vehicle = 'Walking';
+      estimatedCost = 0.0;
+      duration = '${(distanceInKm * 12).toStringAsFixed(0)} mins';
+    } else if (distanceInKm >= 1.0 && distanceInKm <= 4.0) {
+      vehicle = 'Local Tricycle / Pedicab';
+      estimatedCost = 25.0;
+      duration = '8 - 10 mins';
+    } else if (distanceInKm > 4.0 && distanceInKm <= 12.0) {
+      vehicle = 'Jeepney / Commuter Multicab';
+      estimatedCost = 45.0;
+      duration = '15 - 25 mins';
+    } else {
+      vehicle = 'Local Taxi / Grab Car';
+      estimatedCost = 150.0 + (distanceInKm * 15.0);
+      duration = '${(distanceInKm * 2.2).toStringAsFixed(0)} mins';
+    }
+
+    return {
+      'nearestHub': nearestHub ?? majorTransitHubs.first,
+      'distance': distanceInKm,
+      'vehicle': vehicle,
+      'cost': estimatedCost,
+      'duration': duration,
+    };
+  }
+
+  List<Map<String, String>> _getCommuterSteps(Destination dest, String startPoint, String budgetStyle, Position? userPos) {
+    if (startPoint == 'Current Location') {
+      if (userPos == null) {
+        return _getCommuterSteps(dest, 'Davao City', budgetStyle, null);
+      }
+      final firstMile = _calculateFirstMile(userPos);
+      final hub = firstMile['nearestHub'] as TransitHub;
+      final baseSteps = _getCommuterSteps(dest, hub.city, budgetStyle, null);
+      
+      final List<Map<String, String>> customSteps = [
+        {
+          'step': '1. Your Location to ' + hub.name,
+          'type': firstMile['vehicle'] + " (" + firstMile['distance'].toStringAsFixed(1) + " km)",
+          'cost': '₱' + firstMile['cost'].toStringAsFixed(0),
+          'duration': firstMile['duration'],
+        }
+      ];
+
+      for (int i = 0; i < baseSteps.length; i++) {
+        final originalStep = baseSteps[i];
+        final cleanStepName = originalStep['step']!.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+        customSteps.add({
+          'step': '${i + 2}. $cleanStepName',
+          'type': originalStep['type'] ?? '',
+          'cost': originalStep['cost'] ?? '',
+          'duration': originalStep['duration'] ?? '',
+        });
+      }
+      return customSteps;
+    }
+
+    final lowerName = dest.name.toLowerCase();
+    final lowerLoc = dest.location.toLowerCase();
+    final isSamal = lowerName.contains('samal') || lowerLoc.contains('samal') || lowerName.contains('pearl farm') || lowerName.contains('hagimit');
+    final isEden = lowerName.contains('eden');
+    final isMati = lowerName.contains('dahican') || lowerLoc.contains('mati');
+    final isMalagos = lowerName.contains('malagos') || lowerName.contains('eagle') || lowerLoc.contains('calinan');
+
+    if (isSamal) {
+      if (startPoint == 'Panabo') {
+        return [
+          {
+            'step': '1. Panabo Terminal to Sasa Wharf',
+            'type': 'Public Bus (commuter)',
+            'cost': '₱90',
+            'duration': '45 mins',
+          },
+          {
+            'step': '2. Sasa Wharf to Samal (Babak Port)',
+            'type': 'Barge / Ferry',
+            'cost': '₱20',
+            'duration': '15 mins',
+          },
+          {
+            'step': '3. Babak Port to ' + dest.name,
+            'type': 'Tricycle / Habal-Habal',
+            'cost': '₱80',
+            'duration': '15 mins',
+          },
+          {
+            'step': '4. Environmental Fee',
+            'type': 'Environmental Fee (Included)',
+            'cost': dest.extra.environmentalFee.isNotEmpty ? dest.extra.environmentalFee : '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      } else {
+        return [
+          {
+            'step': '1. Davao City Center to Sasa Wharf',
+            'type': 'Jeepney / Cab',
+            'cost': '₱30',
+            'duration': '25 mins',
+          },
+          {
+            'step': '2. Sasa Wharf to Samal (Babak Port)',
+            'type': 'Barge / Ferry',
+            'cost': '₱20',
+            'duration': '15 mins',
+          },
+          {
+            'step': '3. Babak Port to ' + dest.name,
+            'type': 'Tricycle / Habal-Habal',
+            'cost': '₱80',
+            'duration': '15 mins',
+          },
+          {
+            'step': '4. Environmental Fee',
+            'type': 'Environmental Fee (Included)',
+            'cost': dest.extra.environmentalFee.isNotEmpty ? dest.extra.environmentalFee : '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      }
+    } else if (isEden) {
+      if (startPoint == 'Panabo') {
+        return [
+          {
+            'step': '1. Panabo to Davao City proper',
+            'type': 'Bus / Jeepney',
+            'cost': '₱70',
+            'duration': '50 mins',
+          },
+          {
+            'step': '2. Davao Proper to Toril Mercury Drug',
+            'type': 'Jeepney',
+            'cost': '₱40',
+            'duration': '35 mins',
+          },
+          {
+            'step': '3. Toril to ' + dest.name,
+            'type': 'Habal-Habal (Motorcycle)',
+            'cost': '₱120',
+            'duration': '20 mins',
+          },
+          {
+            'step': '4. Environmental Fee',
+            'type': 'Resort Entry Fee',
+            'cost': '₱50',
+            'duration': 'Instant',
+          }
+        ];
+      } else {
+        return [
+          {
+            'step': '1. Davao Center to Toril Mercury Drug',
+            'type': 'Jeepney / Commuter',
+            'cost': '₱40',
+            'duration': '30 mins',
+          },
+          {
+            'step': '2. Toril to ' + dest.name,
+            'type': 'Habal-Habal (Motorcycle)',
+            'cost': '₱120',
+            'duration': '20 mins',
+          },
+          {
+            'step': '3. Environmental Fee',
+            'type': 'Resort Entry Fee',
+            'cost': '₱50',
+            'duration': 'Instant',
+          }
+        ];
+      }
+    } else if (isMati) {
+      if (startPoint == 'Panabo') {
+        return [
+          {
+            'step': '1. Panabo to Mati Town Proper',
+            'type': 'Shared Passenger Van',
+            'cost': '₱400',
+            'duration': '4.5 hours',
+          },
+          {
+            'step': '2. Mati Terminal to ' + dest.name,
+            'type': 'Local Commuter Tricycle',
+            'cost': '₱75',
+            'duration': '15 mins',
+          },
+          {
+            'step': '3. Environmental Entry Fee',
+            'type': 'Dahican local tourist fee',
+            'cost': '₱50',
+            'duration': 'Instant',
+          }
+        ];
+      } else {
+        return [
+          {
+            'step': '1. Davao City Center to Mati Terminal',
+            'type': 'Public Bus (Non-Stop)',
+            'cost': '₱400',
+            'duration': '4 - 5 hours',
+          },
+          {
+            'step': '2. Mati Terminal to ' + dest.name,
+            'type': 'Local Tricycle',
+            'cost': '₱75',
+            'duration': '15 mins',
+          },
+          {
+            'step': '3. Environmental Fee',
+            'type': 'Tourist environmental entry fee',
+            'cost': '₱50',
+            'duration': 'Instant',
+          }
+        ];
+      }
+    } else if (isMalagos) {
+      if (startPoint == 'Panabo') {
+        return [
+          {
+            'step': '1. Panabo to Calinan Terminal',
+            'type': 'Public Van / Jeepney',
+            'cost': '₱150',
+            'duration': '1.5 hours',
+          },
+          {
+            'step': '2. Calinan to ' + dest.name,
+            'type': 'Habal-Habal / Tricycle',
+            'cost': '₱40',
+            'duration': '10 mins',
+          },
+          {
+            'step': '3. Local Environmental Fee',
+            'type': 'Calinan community fee',
+            'cost': '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      } else {
+        return [
+          {
+            'step': '1. Davao proper to Calinan Terminal',
+            'type': 'Public Jeepney',
+            'cost': '₱60',
+            'duration': '1 hour',
+          },
+          {
+            'step': '2. Calinan to ' + dest.name,
+            'type': 'Habal-Habal / Tricycle',
+            'cost': '₱40',
+            'duration': '10 mins',
+          },
+          {
+            'step': '3. Local Environmental Fee',
+            'type': 'Calinan community fee',
+            'cost': '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      }
+    } else {
+      if (startPoint == 'Panabo') {
+        return [
+          {
+            'step': '1. Panabo to City Terminal',
+            'type': 'Public Bus',
+            'cost': '₱80',
+            'duration': '1 hour',
+          },
+          {
+            'step': '2. Terminal to ' + dest.name,
+            'type': 'Jeepney / Habal-Habal',
+            'cost': '₱50',
+            'duration': '20 mins',
+          },
+          {
+            'step': '3. Environmental Fee',
+            'type': 'Local community fee',
+            'cost': '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      } else {
+        return [
+          {
+            'step': '1. Davao City Center to ' + dest.name,
+            'type': 'Public Jeepney',
+            'cost': '₱40',
+            'duration': '35 mins',
+          },
+          {
+            'step': '2. Local Hub to Entry Gate',
+            'type': 'Tricycle',
+            'cost': '₱30',
+            'duration': '10 mins',
+          },
+          {
+            'step': '3. Environmental Fee',
+            'type': 'Local community fee',
+            'cost': '₱30',
+            'duration': 'Instant',
+          }
+        ];
+      }
+    }
+  }
+
+
+
+
+
+  Widget _buildCommuterRouteCard(Destination dest, String budgetStyle) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final steps = _getCommuterSteps(dest, _commuterStartPoint, budgetStyle, _userPosition);
+    double totalCost = 0.0;
+    for (final step in steps) {
+      final priceText = step['cost'] ?? '0';
+      if (priceText.toLowerCase().contains('included') || priceText.toLowerCase().contains('free')) {
+        continue;
+      }
+      totalCost += _parsePrice(priceText);
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
+        boxShadow: AppConstants.premiumShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: double.infinity,
+            child: Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.commute_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Commuter Route Guide',
+                      style: GoogleFonts.outfit(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      ),
+                    ),
+                  ],
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.1) : AppTheme.primaryBlue.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _commuterStartPoint,
+                      dropdownColor: Theme.of(context).cardColor,
+                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                      style: GoogleFonts.outfit(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      ),
+                      items: ['Current Location', 'Panabo', 'Davao City'].map((String val) {
+                        return DropdownMenuItem<String>(
+                          value: val,
+                          child: Text(
+                            val == 'Current Location' ? '📍 Current Location' : val,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.primaryBlue,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (newVal) {
+                        if (newVal != null) {
+                          setState(() {
+                            _commuterStartPoint = newVal;
+                          });
+                          if (newVal == 'Current Location' && _userPosition == null) {
+                            _requestLocation();
+                          }
+                        }
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          Text(
+            'Dynamic step-by-step commuter routing, including barge connections and fees.',
+            style: GoogleFonts.outfit(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+          ),
+          const SizedBox(height: AppConstants.spaceL),
+          ...List.generate(steps.length, (index) {
+            final step = steps[index];
+            final isLast = index == steps.length - 1;
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: 20,
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondaryGreen.withValues(alpha: 0.15),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Center(
+                        child: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            color: AppTheme.secondaryGreen,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2,
+                        height: 36,
+                        color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: AppConstants.spaceM),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          step['step'] ?? '',
+                          style: GoogleFonts.outfit(
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : AppTheme.primaryBlue,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                '${step["type"] ?? ""} • ${step["duration"] ?? ""}',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              step['cost'] ?? '',
+                              style: GoogleFonts.outfit(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.secondaryGreen),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }),
+          Divider(color: Theme.of(context).dividerColor, height: 1),
+          const SizedBox(height: AppConstants.spaceM),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: isDark ? Colors.white.withValues(alpha: 0.05) : AppTheme.secondaryGreen.withValues(alpha: 0.06),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    'Estimated Commuter Cost:',
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                    style: GoogleFonts.outfit(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: isDark ? Colors.white : AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '₱' + totalCost.toStringAsFixed(0) + ' / pax',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.secondaryGreen,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRouteAndTransportationSection(Trip activeTrip, Destination dest) {
+    final budgetStyle = _deriveBudgetStyle(activeTrip);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    final accommOpt = _getBudgetAccommodation(dest, budgetStyle);
+    final transOpt = _getBudgetTransport(dest, budgetStyle);
+
+    LatLng startLocation;
+    String startName;
+    if (_commuterStartPoint == 'Panabo') {
+      startLocation = const LatLng(7.3079, 125.6811);
+      startName = 'Panabo Terminal';
+    } else if (_commuterStartPoint == 'Current Location' && _userPosition != null) {
+      startLocation = LatLng(_userPosition!.latitude, _userPosition!.longitude);
+      startName = 'Your Location';
+    } else {
+      startLocation = const LatLng(7.0706, 125.6092);
+      startName = _commuterStartPoint == 'Current Location' ? 'Davao City Center (GPS Loading...)' : 'Davao City Center';
+    }
+
+    final lowerSearch = activeTrip.destinationName.toLowerCase();
+    final isSamal = lowerSearch.contains('samal') || dest.location.toLowerCase().contains('samal') || dest.name.toLowerCase().contains('pearl farm') || dest.name.toLowerCase().contains('hagimit');
+
+    final List<LatLng> routePoints = [startLocation];
+    if (isSamal) {
+      routePoints.add(const LatLng(7.1017, 125.6601));
+      routePoints.add(const LatLng(7.1189, 125.6822));
+    }
+    routePoints.add(LatLng(dest.latitude, dest.longitude));
+
+    final Color budgetBadgeColor = budgetStyle == 'Low Budget'
+        ? Colors.green[700]!
+        : budgetStyle == 'High Budget'
+            ? Colors.red[700]!
+            : Colors.amber[700]!;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: AppConstants.spaceXL),
+          Text(
+            'Route Optimization',
+            style: GoogleFonts.outfit(
+                fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'AI optimized paths calculated for your journey.',
+            style: GoogleFonts.outfit(fontSize: 12, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          Container(
+            height: 280,
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+              border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+              boxShadow: AppConstants.premiumShadow,
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: Stack(
+              children: [
+                FlutterMap(
+                  mapController: _mapController,
+                  options: MapOptions(
+                    initialCenter: LatLng(dest.latitude, dest.longitude),
+                    initialZoom: 11.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.lakbay.plus',
+                    ),
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: routePoints,
+                          color: AppTheme.primaryBlue,
+                          strokeWidth: 4,
+                        ),
+                      ],
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: startLocation,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(
+                            Icons.my_location_rounded,
+                            color: AppTheme.secondaryGreen,
+                            size: 28,
+                          ),
+                        ),
+                        if (isSamal) ...[
+                          Marker(
+                            point: const LatLng(7.1017, 125.6601),
+                            width: 32,
+                            height: 32,
+                            child: Container(
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black26,
+                                    blurRadius: 3,
+                                    offset: Offset(0, 1),
+                                  )
+                                ],
+                              ),
+                              child: const Center(
+                                child: Icon(
+                                  Icons.directions_boat_rounded,
+                                  color: AppTheme.primaryBlue,
+                                  size: 18,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                        Marker(
+                          point: LatLng(dest.latitude, dest.longitude),
+                          width: 45,
+                          height: 45,
+                          child: const Icon(
+                            Icons.location_on_rounded,
+                            color: Colors.redAccent,
+                            size: 38,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: 10,
+                  left: 10,
+                  right: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor.withValues(alpha: 0.95),
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.navigation_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 16),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Optimized Route: $startName ➔ ' + dest.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: GoogleFonts.outfit(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  right: 10,
+                  bottom: 10,
+                  child: FloatingActionButton.small(
+                    heroTag: 'recenter_dashboard_map',
+                    backgroundColor: Theme.of(context).cardColor,
+                    foregroundColor: Theme.of(context).colorScheme.primary,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    onPressed: () {
+                      _mapController.move(LatLng(dest.latitude, dest.longitude), 11.5);
+                    },
+                    child: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: AppConstants.spaceXL),
+          Text(
+            'Budget-Matched Bookings',
+            style: GoogleFonts.outfit(
+                fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(AppConstants.spaceM),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                    boxShadow: AppConstants.premiumShadow,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.hotel_rounded, color: budgetBadgeColor, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Lodging',
+                            style: GoogleFonts.outfit(
+                                fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        accommOpt != null ? accommOpt['type'] ?? 'Standard Room' : 'Standard Lodging',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                            fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                      const Spacer(),
+                      Text(
+                        accommOpt != null ? accommOpt['price'] ?? 'Free' : 'Included in trip',
+                        style: GoogleFonts.outfit(
+                            fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppConstants.spaceM),
+              Expanded(
+                child: Container(
+                  height: 140,
+                  padding: const EdgeInsets.all(AppConstants.spaceM),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).cardColor,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                    boxShadow: AppConstants.premiumShadow,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.directions_bus_rounded, color: budgetBadgeColor, size: 18),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Transport',
+                            style: GoogleFonts.outfit(
+                                fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        transOpt != null ? transOpt['vehicle'] ?? 'Public Transit' : 'Local Commute',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(
+                            fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        transOpt != null
+                            ? 'Route: ' + (transOpt['from'] ?? '') + ' ➔ ' + (transOpt['to'] ?? '')
+                            : 'City Center ➔ Destination',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                      ),
+                      const Spacer(),
+                      if (activeTrip.isGroup && activeTrip.numTravelers > 1) ...[
+                        Text(
+                          transOpt != null ? (transOpt['price'] ?? 'Free') + '/pax' : 'Free/pax',
+                          style: GoogleFonts.outfit(
+                              fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                        ),
+                        Builder(builder: (ctx) {
+                          final perPax = _parsePrice(transOpt?['price'] ?? '0');
+                          final total = perPax * activeTrip.numTravelers;
+                          return Text(
+                            'Total: ₱' + total.toStringAsFixed(0) + ' for ' + activeTrip.numTravelers.toString() + ' pax',
+                            style: GoogleFonts.outfit(
+                                fontSize: 9, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                          );
+                        }),
+                      ] else
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                transOpt != null ? transOpt['price'] ?? 'Free' : 'Free',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: GoogleFonts.outfit(
+                                    fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Flexible(
+                              child: Text(
+                                transOpt != null ? transOpt['duration'] ?? '1 hr' : '1 hr',
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                                style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          _buildCommuterRouteCard(dest, budgetStyle),
+        ],
+      ),
+    );
   }
 
   Trip _getTrip(BuildContext context) {
@@ -701,7 +1733,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 ],
               ),
               TextButton.icon(
-                onPressed: () => _simulateAddPhoto(activeTrip),
+                onPressed: () => _addPhotoFromGallery(activeTrip),
                 icon: const Icon(Icons.add_a_photo_rounded, size: 16),
                 label: Text(
                   'Add Photo',
@@ -741,26 +1773,35 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               itemCount: photoUrls.length,
               itemBuilder: (context, index) {
                 final url = photoUrls[index];
-                // Lookup caption matching this image URL if available for UI completeness
                 final mem = activeTrip.memories.firstWhere(
                   (m) => m['image'] == url,
                   orElse: () => <String, dynamic>{},
                 );
                 final caption = mem['caption'] as String? ?? '';
+                final isLocal = !url.startsWith('http');
 
                 return ClipRRect(
                   borderRadius: BorderRadius.circular(8),
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
-                        url,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
-                          color: Colors.grey[800],
-                          child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
-                        ),
-                      ),
+                      isLocal
+                          ? Image.file(
+                              File(url),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                color: Colors.grey[900],
+                                child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
+                              ),
+                            )
+                          : Image.network(
+                              url,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
+                                color: Colors.grey[900],
+                                child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
+                              ),
+                            ),
                       if (caption.isNotEmpty)
                         Positioned(
                           bottom: 0,
@@ -787,73 +1828,158 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  void _simulateAddPhoto(Trip trip) {
-    final textCtrl = TextEditingController();
-    showDialog(
+  Future<void> _addPhotoFromGallery(Trip trip) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (pickedFile == null) return;
+
+    final file = File(pickedFile.path);
+    final result = await _showAddPhotoDialog(file, trip.destinationName);
+    if (result == null) return;
+
+    final caption = result['caption'] ?? '';
+    final location = result['location'] ?? '';
+
+    final newMem = {
+      'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
+      'user': 'You',
+      'avatar': '',
+      'time': 'Just now',
+      'caption': caption,
+      'image': file.path,
+      'likes': '0',
+      'comments': '0',
+      'location': location.isNotEmpty ? location : trip.destinationName,
+    };
+
+    final updated = trip.copyWith(
+      memories: [...trip.memories, newMem],
+    );
+    Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Memory photo uploaded and synced! 📸'),
+        backgroundColor: AppTheme.secondaryGreen,
+      ),
+    );
+  }
+
+  Future<Map<String, String>?> _showAddPhotoDialog(File imageFile, String defaultLocation) async {
+    final captionCtrl = TextEditingController();
+    final locationCtrl = TextEditingController(text: defaultLocation.split(',').first);
+
+    return showModalBottomSheet<Map<String, String>>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: Text('Upload Photo', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.add_a_photo_rounded, size: 48, color: AppTheme.accentTeal),
-              const SizedBox(height: 16),
-              const Text(
-                'Attach an image from your library to save it in your trip scrapbook.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: textCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Caption',
-                  hintText: 'e.g. Swimming in Pearl Farm 🌊',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final isDark = Theme.of(ctx).brightness == Brightness.dark;
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.cardColorDark : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
             ),
-            ElevatedButton(
-              onPressed: () {
-                final caption = textCtrl.text.trim();
-                if (caption.isEmpty) return;
-
-                // Simulate adding a photo with a nice random travel photo URL
-                // TODO: persist photo memories to Neon DB (photos/memories table)
-                final newMem = {
-                  'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
-                  'user': 'You',
-                  'avatar': '',
-                  'time': 'Just now',
-                  'caption': caption,
-                  'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-                  'likes': '0',
-                  'comments': '0',
-                  'location': trip.destinationName,
-                };
-
-                final updated = trip.copyWith(
-                  memories: [...trip.memories, newMem],
-                );
-                Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
-                
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Memory photo uploaded and synced! 📸'),
-                    backgroundColor: AppTheme.secondaryGreen,
+            padding: const EdgeInsets.all(AppConstants.spaceL),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: AppConstants.spaceL),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
                   ),
-                );
-              },
-              child: const Text('Upload'),
+                ),
+                Text(
+                  'Add Photo Memory',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  child: Image.file(
+                    imageFile,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                TextField(
+                  controller: captionCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Caption (optional)',
+                    prefixIcon: const Icon(Icons.edit_note_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: AppConstants.spaceS),
+                TextField(
+                  controller: locationCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Location Tag (optional)',
+                    prefixIcon: const Icon(Icons.location_on_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceL),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                          ),
+                        ),
+                        child: Text('Cancel', style: GoogleFonts.outfit()),
+                      ),
+                    ),
+                    const SizedBox(width: AppConstants.spaceM),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, {
+                          'caption': captionCtrl.text.trim(),
+                          'location': locationCtrl.text.trim(),
+                        }),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                          ),
+                        ),
+                        child: Text(
+                          'Upload',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
@@ -1099,6 +2225,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             ),
             const SizedBox(height: AppConstants.spaceS),
             _buildItinerarySection(activeTrip),
+
+            _buildRouteAndTransportationSection(activeTrip, matchedDest),
 
             // Active Expense Tracker & Logger
             const SizedBox(height: AppConstants.spaceL),

@@ -511,6 +511,66 @@ class _TripCard extends StatelessWidget {
   final Trip trip;
   const _TripCard({required this.trip});
 
+  void _confirmDelete(BuildContext context, Trip trip) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Delete Trip',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              color: Colors.redAccent,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${trip.title}"? This will permanently erase the itinerary, tasks, and memories associated with it.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                final provider = Provider.of<TripProvider>(context, listen: false);
+                final success = await provider.deleteTrip(trip.id);
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Trip deleted successfully.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(provider.errorMessage ?? 'Failed to delete trip.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   TripStatus _getTripStatus(Trip trip) {
     if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
       return TripStatus.upcoming;
@@ -796,6 +856,11 @@ class _TripCard extends StatelessWidget {
                         // Right side actions
                         Row(
                           children: [
+                            _buildActionCircle(
+                              icon: Icons.delete_outline_rounded,
+                              onTap: () => _confirmDelete(context, trip),
+                            ),
+                            const SizedBox(width: 8),
                             _buildActionCircle(
                               imageAsset: 'assets/icons/ai_planner.png',
                               onTap: () {

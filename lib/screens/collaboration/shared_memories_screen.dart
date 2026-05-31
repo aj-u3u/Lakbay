@@ -1,10 +1,13 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/trip.dart';
 import '../../providers/trip_provider.dart';
+
 
 class SharedMemoriesScreen extends StatefulWidget {
   final Trip? trip;
@@ -34,129 +37,156 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
   }
 
-  void _showAddMemorySheet(BuildContext context, Trip activeTrip) {
-    final captionController = TextEditingController();
-    final locationController = TextEditingController(text: activeTrip.destinationName.split(',').first);
+  Future<void> _showAddMemorySheet(BuildContext context, Trip activeTrip) async {
+    final picker = ImagePicker();
+    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    if (pickedFile == null) return;
 
-    showModalBottomSheet(
+    final file = File(pickedFile.path);
+    final result = await _showAddPhotoDialog(file, activeTrip.destinationName);
+    if (result == null) return;
+
+    final caption = result['caption'] ?? '';
+    final location = result['location'] ?? '';
+
+    final newMemory = {
+      'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
+      'user': 'Arjane',
+      'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
+      'time': 'Just now',
+      'caption': caption,
+      'image': file.path,
+      'likes': '0',
+      'comments': '0',
+      'location': location.isNotEmpty ? location : activeTrip.destinationName.split(',').first,
+    };
+
+    final updatedMemories = List<Map<String, dynamic>>.from(activeTrip.memories);
+    updatedMemories.insert(0, newMemory);
+
+    final updatedTrip = activeTrip.copyWith(memories: updatedMemories);
+    Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Memory uploaded successfully! 🌅📸'), backgroundColor: AppTheme.secondaryGreen),
+    );
+  }
+
+  Future<Map<String, String>?> _showAddPhotoDialog(File imageFile, String defaultLocation) async {
+    final captionCtrl = TextEditingController();
+    final locationCtrl = TextEditingController(text: defaultLocation.split(',').first);
+
+    return showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Container(
-              padding: EdgeInsets.only(
-                left: 24, right: 24, top: 20,
-                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
-              ),
-              decoration: BoxDecoration(
-                color: Theme.of(ctx).colorScheme.surface,
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(24),
-                  topRight: Radius.circular(24),
+        return Padding(
+          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          child: Container(
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.cardColorDark : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            padding: const EdgeInsets.all(AppConstants.spaceL),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 36,
+                    height: 4,
+                    margin: const EdgeInsets.only(bottom: AppConstants.spaceL),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade300,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
                 ),
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 50, height: 5,
-                      decoration: BoxDecoration(
-                        color: isDark ? Colors.grey[800] : Colors.grey[300],
-                        borderRadius: BorderRadius.circular(10),
+                Text(
+                  'Add Photo Memory',
+                  style: GoogleFonts.outfit(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                  child: Image.file(
+                    imageFile,
+                    height: 160,
+                    width: double.infinity,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                TextField(
+                  controller: captionCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Caption (optional)',
+                    prefixIcon: const Icon(Icons.edit_note_rounded),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                  ),
+                  maxLines: 2,
+                ),
+                const SizedBox(height: AppConstants.spaceS),
+                TextField(
+                  controller: locationCtrl,
+                  decoration: InputDecoration(
+                    labelText: 'Location Tag (optional)',
+                    prefixIcon: const Icon(Icons.location_on_outlined),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceL),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                          ),
+                        ),
+                        child: Text('Cancel', style: GoogleFonts.outfit()),
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Upload Travel Memory',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryBlue),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: captionController,
-                    maxLines: 3,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    const SizedBox(width: AppConstants.spaceM),
+                    Expanded(
+                      flex: 2,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, {
+                          'caption': captionCtrl.text.trim(),
+                          'location': locationCtrl.text.trim(),
+                        }),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryBlue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                          ),
+                        ),
+                        child: Text(
+                          'Upload',
+                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ),
-                    decoration: const InputDecoration(
-                      labelText: 'Caption',
-                      hintText: 'Share details of this amazing moment...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: locationController,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
-                    ),
-                    decoration: const InputDecoration(
-                      labelText: 'Location Tag',
-                      hintText: 'e.g. Pearl Farm Beach Resort',
-                      prefixIcon: Icon(Icons.pin_drop_rounded, color: Colors.redAccent),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Save Button
-                  ElevatedButton.icon(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.secondaryGreen,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                    ),
-                    onPressed: () {
-                      if (captionController.text.trim().isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a caption.'), backgroundColor: Colors.red),
-                        );
-                        return;
-                      }
-
-                      // Pick a randomized stock image
-                      final randomImage = _stockImages[
-                        (captionController.text.length + locationController.text.length) % _stockImages.length
-                      ];
-
-                      final newMemory = {
-                        'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
-                        'user': 'Arjane',
-                        'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
-                        'time': 'Just now',
-                        'caption': captionController.text.trim(),
-                        'image': randomImage,
-                        'likes': '0',
-                        'comments': '0',
-                        'location': locationController.text.trim(),
-                      };
-
-                      final updatedMemories = List<Map<String, dynamic>>.from(activeTrip.memories);
-                      updatedMemories.insert(0, newMemory);
-
-                      final updatedTrip = activeTrip.copyWith(memories: updatedMemories);
-                      Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
-
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Memory uploaded successfully! 🌅📸'), backgroundColor: AppTheme.secondaryGreen),
-                      );
-                    },
-                    icon: const Icon(Icons.add_photo_alternate_rounded),
-                    label: Text('Upload Memory', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
-                  ),
-                ],
-              ),
-            );
-          },
+                  ],
+                ),
+              ],
+            ),
+          ),
         );
       },
     );
@@ -291,11 +321,27 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                       // Post image
                       ClipRRect(
                         borderRadius: BorderRadius.zero,
-                        child: Image.network(post['image']!, width: double.infinity, height: 220, fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Container(
-                            height: 220,
-                            color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                          )),
+                        child: !post['image']!.startsWith('http')
+                            ? Image.file(
+                                File(post['image']!),
+                                width: double.infinity,
+                                height: 220,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  height: 220,
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                ),
+                              )
+                            : Image.network(
+                                post['image']!,
+                                width: double.infinity,
+                                height: 220,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  height: 220,
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                ),
+                              ),
                       ),
                       // Caption and actions
                       Padding(
