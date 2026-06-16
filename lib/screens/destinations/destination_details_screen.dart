@@ -69,6 +69,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   String? _locationError;
   final MapController _mapController = MapController();
   double? _distanceToDestination;
+  List<LatLng> _roadGeometryPoints = [];
 
   @override
   void initState() {
@@ -276,9 +277,64 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         dest.longitude,
       );
 
+      // Fetch OSRM street road geometry
+      List<Map<String, dynamic>> destinationsList = [];
+      final isSamal = dest.name.toLowerCase().contains('samal') || 
+                      dest.location.toLowerCase().contains('samal') ||
+                      dest.name.toLowerCase().contains('pearl farm') ||
+                      dest.name.toLowerCase().contains('hagimit');
+      
+      if (isSamal) {
+        destinationsList.add({
+          "destination_id": -1,
+          "name": "Sasa Wharf",
+          "lat": 7.1017,
+          "lng": 125.6601
+        });
+        destinationsList.add({
+          "destination_id": -2,
+          "name": "Babak Port",
+          "lat": 7.1189,
+          "lng": 125.6822
+        });
+      }
+      
+      destinationsList.add({
+        "destination_id": dest.id,
+        "name": dest.name,
+        "lat": dest.latitude,
+        "lng": dest.longitude
+      });
+
+      List<LatLng> roadPoints = [];
+      try {
+        final response = await ApiService().optimizeRoute(
+          destinations: destinationsList,
+          startLat: position.latitude,
+          startLng: position.longitude,
+          startName: 'Your Location',
+          returnToStart: false,
+        );
+
+        if (response != null && response['geometry'] != null) {
+          final geometry = response['geometry'];
+          if (geometry['coordinates'] != null) {
+            final List<dynamic> coords = geometry['coordinates'];
+            roadPoints = coords.map((c) {
+              final double lng = (c[0] as num).toDouble();
+              final double lat = (c[1] as num).toDouble();
+              return LatLng(lat, lng);
+            }).toList();
+          }
+        }
+      } catch (e) {
+        debugPrint('Error fetching road route on details screen: $e');
+      }
+
       setState(() {
         _userPosition = position;
         _distanceToDestination = distance / 1000; // in km
+        _roadGeometryPoints = roadPoints;
         _loadingLocation = false;
       });
 
@@ -1065,16 +1121,18 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                     PolylineLayer(
                                       polylines: [
                                         Polyline(
-                                          points: [
-                                            LatLng(
-                                              _userPosition!.latitude,
-                                              _userPosition!.longitude,
-                                            ),
-                                            LatLng(
-                                              dest.latitude,
-                                              dest.longitude,
-                                            ),
-                                          ],
+                                          points: _roadGeometryPoints.isNotEmpty
+                                              ? _roadGeometryPoints
+                                              : [
+                                                  LatLng(
+                                                    _userPosition!.latitude,
+                                                    _userPosition!.longitude,
+                                                  ),
+                                                  LatLng(
+                                                    dest.latitude,
+                                                    dest.longitude,
+                                                  ),
+                                                ],
                                           color: AppTheme.primaryBlue,
                                           strokeWidth: 4,
                                         ),

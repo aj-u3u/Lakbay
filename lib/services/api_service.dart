@@ -33,8 +33,11 @@ class ApiService {
 
   ApiService._internal();
 
-  // Always points to the Render cloud backend (never localhost).
-  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
+  // Points to local backend in debug mode, and Render cloud in release mode.
+  // Note: If you are testing on an Android Emulator, change localhost (127.0.0.1) to '10.0.2.2'.
+  static String baseUrl = kDebugMode
+      ? 'http://127.0.0.1:8000'
+      : 'https://lakbay-finalv2backend.onrender.com';
 
   String? token;
   String? lastError;
@@ -433,6 +436,45 @@ class ApiService {
       }
     }
     return false;
+  }
+
+  // Fetch optimized route details including real road geometry
+  Future<Map<String, dynamic>?> optimizeRoute({
+    required List<Map<String, dynamic>> destinations,
+    double? startLat,
+    double? startLng,
+    String? startName,
+    bool returnToStart = false,
+  }) async {
+    try {
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = {
+        'destinations': destinations,
+        if (startLat != null) 'start_lat': startLat,
+        if (startLng != null) 'start_lng': startLng,
+        if (startName != null) 'start_name': startName,
+        'return_to_start': returnToStart,
+      };
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/trips/optimize-route'),
+        headers: headers,
+        body: json.encode(body),
+      ).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error optimizing route: $e');
+      }
+    }
+    return null;
   }
 
   // Delete trip from backend
