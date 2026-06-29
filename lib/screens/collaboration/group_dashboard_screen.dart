@@ -294,7 +294,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       
       final List<Map<String, String>> customSteps = [
         {
-          'step': '1. Your Location to ' + hub.name,
+          'step': '1. Your Location to ${hub.name}',
           'type': firstMile['vehicle'] + " (" + firstMile['distance'].toStringAsFixed(1) + " km)",
           'cost': '₱' + firstMile['cost'].toStringAsFixed(0),
           'duration': firstMile['duration'],
@@ -337,7 +337,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '15 mins',
           },
           {
-            'step': '3. Babak Port to ' + dest.name,
+            'step': '3. Babak Port to ${dest.name}',
             'type': 'Tricycle / Habal-Habal',
             'cost': '₱80',
             'duration': '15 mins',
@@ -364,7 +364,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '15 mins',
           },
           {
-            'step': '3. Babak Port to ' + dest.name,
+            'step': '3. Babak Port to ${dest.name}',
             'type': 'Tricycle / Habal-Habal',
             'cost': '₱80',
             'duration': '15 mins',
@@ -393,7 +393,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '35 mins',
           },
           {
-            'step': '3. Toril to ' + dest.name,
+            'step': '3. Toril to ${dest.name}',
             'type': 'Habal-Habal (Motorcycle)',
             'cost': '₱120',
             'duration': '20 mins',
@@ -414,7 +414,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '30 mins',
           },
           {
-            'step': '2. Toril to ' + dest.name,
+            'step': '2. Toril to ${dest.name}',
             'type': 'Habal-Habal (Motorcycle)',
             'cost': '₱120',
             'duration': '20 mins',
@@ -437,7 +437,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '4.5 hours',
           },
           {
-            'step': '2. Mati Terminal to ' + dest.name,
+            'step': '2. Mati Terminal to ${dest.name}',
             'type': 'Local Commuter Tricycle',
             'cost': '₱75',
             'duration': '15 mins',
@@ -458,7 +458,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '4 - 5 hours',
           },
           {
-            'step': '2. Mati Terminal to ' + dest.name,
+            'step': '2. Mati Terminal to ${dest.name}',
             'type': 'Local Tricycle',
             'cost': '₱75',
             'duration': '15 mins',
@@ -481,7 +481,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '1.5 hours',
           },
           {
-            'step': '2. Calinan to ' + dest.name,
+            'step': '2. Calinan to ${dest.name}',
             'type': 'Habal-Habal / Tricycle',
             'cost': '₱40',
             'duration': '10 mins',
@@ -502,7 +502,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '1 hour',
           },
           {
-            'step': '2. Calinan to ' + dest.name,
+            'step': '2. Calinan to ${dest.name}',
             'type': 'Habal-Habal / Tricycle',
             'cost': '₱40',
             'duration': '10 mins',
@@ -525,7 +525,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'duration': '1 hour',
           },
           {
-            'step': '2. Terminal to ' + dest.name,
+            'step': '2. Terminal to ${dest.name}',
             'type': 'Jeepney / Habal-Habal',
             'cost': '₱50',
             'duration': '20 mins',
@@ -540,7 +540,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       } else {
         return [
           {
-            'step': '1. Davao City Center to ' + dest.name,
+            'step': '1. Davao City Center to ${dest.name}',
             'type': 'Public Jeepney',
             'cost': '₱40',
             'duration': '35 mins',
@@ -769,7 +769,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  '₱' + totalCost.toStringAsFixed(0) + ' / pax',
+                  '₱${totalCost.toStringAsFixed(0)} / pax',
                   style: GoogleFonts.outfit(
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
@@ -944,7 +944,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Optimized Route: $startName ➔ ' + dest.name,
+                            'Optimized Route: $startName ➔ ${dest.name}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: GoogleFonts.outfit(
@@ -1062,7 +1062,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       const SizedBox(height: 2),
                       Text(
                         transOpt != null
-                            ? 'Route: ' + (transOpt['from'] ?? '') + ' ➔ ' + (transOpt['to'] ?? '')
+                            ? 'Route: ${transOpt['from'] ?? ''} ➔ ${transOpt['to'] ?? ''}'
                             : 'City Center ➔ Destination',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1071,7 +1071,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       const Spacer(),
                       if (activeTrip.isGroup && activeTrip.numTravelers > 1) ...[
                         Text(
-                          transOpt != null ? (transOpt['price'] ?? 'Free') + '/pax' : 'Free/pax',
+                          transOpt != null ? '${transOpt['price'] ?? 'Free'}/pax' : 'Free/pax',
                           style: GoogleFonts.outfit(
                               fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
                         ),
@@ -1079,7 +1079,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           final perPax = _parsePrice(transOpt?['price'] ?? '0');
                           final total = perPax * activeTrip.numTravelers;
                           return Text(
-                            'Total: ₱' + total.toStringAsFixed(0) + ' for ' + activeTrip.numTravelers.toString() + ' pax',
+                            'Total: ₱${total.toStringAsFixed(0)} for ${activeTrip.numTravelers} pax',
                             style: GoogleFonts.outfit(
                                 fontSize: 9, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
                           );
@@ -2200,7 +2200,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             onPressed: () => _showEditTripDetailsDialog(context, activeTrip),
             tooltip: 'Edit Trip Details',
           ),
-
+          IconButton(
+            icon: const Icon(Icons.delete_outline_rounded, size: 26, color: Colors.redAccent),
+            onPressed: () => _confirmDeleteTrip(context, activeTrip),
+            tooltip: 'Delete Trip',
+          ),
           const SizedBox(width: 8),
         ],
       ),
@@ -3053,6 +3057,71 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  void _confirmDeleteTrip(BuildContext context, Trip trip) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Delete Trip',
+            style: GoogleFonts.outfit(
+              fontWeight: FontWeight.bold,
+              color: Colors.redAccent,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to delete "${trip.title}"? This will permanently erase the itinerary, tasks, and memories associated with it.',
+            style: const TextStyle(fontSize: 13),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext); // Close dialog
+                final provider = Provider.of<TripProvider>(context, listen: false);
+                final success = await provider.deleteTrip(trip.id);
+                if (success) {
+                  if (context.mounted) {
+                    Navigator.pop(context); // Pop back to trips screen
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Trip deleted successfully.'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(provider.errorMessage ?? 'Failed to delete trip.'),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                  }
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
     );
   }
 

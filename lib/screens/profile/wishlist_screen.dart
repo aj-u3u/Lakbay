@@ -193,7 +193,7 @@ class WishlistScreen extends StatelessWidget {
                               SizedBox(
                                 width: 110,
                                 height: 110,
-                                child: Image.network(
+                                child: Destination.loadImage(
                                   dest.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(

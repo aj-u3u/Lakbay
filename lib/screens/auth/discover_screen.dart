@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/routes/app_routes.dart';
 import '../../core/constants/app_constants.dart';
 import '../../widgets/buttons/custom_button.dart';
+import '../../models/destination.dart';
 
 /// The Get Started / landing page shown after the splash screen.
 ///
@@ -122,13 +123,9 @@ class _DiscoverScreenState extends State<DiscoverScreen>
               controller: _pageController,
               itemCount: _slides.length,
               onPageChanged: _onPageChanged,
-              itemBuilder: (_, i) => Image.network(
+              itemBuilder: (_, i) => Destination.loadImage(
                 _slides[i]['image']!,
                 fit: BoxFit.cover,
-                height: double.infinity,
-                width: double.infinity,
-                // Preload next image to avoid blank flash
-                cacheWidth: size.width.toInt(),
                 errorBuilder: (_, _, _) => Container(
                   decoration: const BoxDecoration(
                     gradient: LinearGradient(

@@ -308,7 +308,7 @@ class _QuickPreviewScreenState extends State<QuickPreviewScreen>
           fit: StackFit.expand,
           children: [
             // Background Image
-            Image.network(
+            Destination.loadImage(
               _featured.imageUrl,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Container(
@@ -572,7 +572,7 @@ class _QuickPreviewScreenState extends State<QuickPreviewScreen>
             fit: StackFit.expand,
             children: [
               // Background Image
-              Image.network(
+              Destination.loadImage(
                 imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (_, _, _) => Container(

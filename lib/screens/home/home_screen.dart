@@ -858,7 +858,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Hero Image
               Positioned.fill(
-                child: Image.network(
+                child: Destination.loadImage(
                   dest.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
@@ -1216,7 +1216,7 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               // Hero Image
               Positioned.fill(
-                child: Image.network(
+                child: Destination.loadImage(
                   dest.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
@@ -1593,7 +1593,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Stack(
             children: [
               Positioned.fill(
-                child: Image.network(
+                child: Destination.loadImage(
                   image,
                   fit: BoxFit.cover,
                   errorBuilder: (ctx, err, stackTrace) {
@@ -2199,7 +2199,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: SizedBox(
                   width: 56,
                   height: 56,
-                  child: Image.network(
+                  child: Destination.loadImage(
                     draft.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(

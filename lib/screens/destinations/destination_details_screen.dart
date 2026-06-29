@@ -385,7 +385,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
               background: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
+                  Destination.loadImage(
                     dest.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
@@ -1776,7 +1776,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               child: SizedBox(
                                 width: 50,
                                 height: 50,
-                                child: Image.network(
+                                child: Destination.loadImage(
                                   trip.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => Container(

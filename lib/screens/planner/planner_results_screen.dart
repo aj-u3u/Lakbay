@@ -847,7 +847,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                   background: Stack(
                     fit: StackFit.expand,
                     children: [
-                      Image.network(
+                      Destination.loadImage(
                         dest.imageUrl,
                         fit: BoxFit.cover,
                         errorBuilder: (ctx, err, stack) => Container(color: AppTheme.primaryBlue),

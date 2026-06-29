@@ -35,11 +35,11 @@ class DestinationCard extends StatelessWidget {
             children: [
               // Hero Image
               Positioned.fill(
-                child: Image.network(
+                child: Destination.loadImage(
                   destination.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
-                    color: AppTheme.primaryBlue.withOpacity(0.15),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.15),
                     child: const Icon(Icons.landscape, size: 60, color: AppTheme.primaryBlue),
                   ),
                 ),

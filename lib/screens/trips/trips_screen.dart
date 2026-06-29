@@ -8,6 +8,7 @@ import '../../providers/trip_provider.dart';
 import '../../providers/nav_provider.dart';
 import '../../models/trip.dart';
 import '../../widgets/loaders/loading_indicator.dart';
+import '../../models/destination.dart';
 
 class TripsScreen extends StatefulWidget {
   const TripsScreen({super.key});
@@ -766,7 +767,7 @@ class _TripCard extends StatelessWidget {
             fit: StackFit.expand,
             children: [
               // Background image
-              Image.network(
+              Destination.loadImage(
                 trip.imageUrl,
                 fit: BoxFit.cover,
                 errorBuilder: (context, error, stackTrace) => Container(
@@ -1272,7 +1273,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.network(item['url']!, fit: BoxFit.cover),
+                              Destination.loadImage(item['url']!, fit: BoxFit.cover),
                               Container(color: Colors.black26),
                               Center(
                                 child: Text(

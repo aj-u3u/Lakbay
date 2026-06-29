@@ -2099,7 +2099,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Image.network(
+                              Destination.loadImage(
                                 dest.imageUrl,
                                 fit: BoxFit.cover,
                                 errorBuilder: (context, error, stackTrace) =>
@@ -2274,7 +2274,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  Image.network(
+                  Destination.loadImage(
                     trip.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) =>

@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Destination {
   final int id;
   final String name;
@@ -97,7 +99,7 @@ class Destination {
       district: 'Davao City',
       location: 'Calinan, Davao City',
       category: 'Culture/Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?w=800&q=80',
+      imageUrl: 'assets/destinations/malagos_garden.jpg',
       entranceFee: '₱350 - ₱550',
       operatingHours: '8:00 AM - 5:00 PM (Approximate Mock Operating Hours)',
       activities: ['Butterfly Watching', 'Bird Feeding', 'Chocolate Making', 'Swimming', 'Horseback Riding'],
@@ -117,7 +119,7 @@ class Destination {
       district: 'Davao City',
       location: 'Shrine Hills, Matina, Davao City',
       category: 'Urban/Culture',
-      imageUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=800&q=80',
+      imageUrl: 'assets/destinations/jacks_ridge.jpg',
       entranceFee: 'Free admission',
       operatingHours: '10:00 AM - 11:00 PM (Approximate Mock Operating Hours)',
       activities: ['Sightseeing', 'Swimming Pool Use', 'Dining', 'Photography'],
@@ -137,7 +139,7 @@ class Destination {
       district: 'Davao City',
       location: 'Downtown, Davao City',
       category: 'Urban/Nature',
-      imageUrl: 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
+      imageUrl: 'assets/destinations/peoples_park.jpg',
       entranceFee: 'Free',
       operatingHours: '5:00 AM - 9:00 PM (Approximate Mock Operating Hours)',
       activities: ['Jogging', 'Strolling', 'Photography', 'Children\'s Playground'],
@@ -157,7 +159,7 @@ class Destination {
       district: 'Davao City',
       location: 'Roxas Avenue, Davao City',
       category: 'Urban/Food',
-      imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80',
+      imageUrl: 'assets/destinations/roxas_night_market.jpg',
       entranceFee: 'Free',
       operatingHours: '6:00 PM - 12:00 AM (Approximate Mock Operating Hours)',
       activities: ['Street Food Tasting', 'Massage Services', 'Thrift Shopping'],
@@ -177,7 +179,7 @@ class Destination {
       district: 'Davao del Norte',
       location: 'Samal Island, Davao del Norte',
       category: 'Beach/Luxury',
-      imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+      imageUrl: 'assets/destinations/pearl_farm.png',
       entranceFee: '₱3,500 Day Tour',
       operatingHours: '24 Hours (Approximate Mock Operating Hours)',
       activities: ['Diving', 'Spa Sessions', 'Snorkeling', 'Kayaking', 'Jet Skiing'],
@@ -197,7 +199,7 @@ class Destination {
       district: 'Davao del Norte',
       location: 'Babak District, Samal Island, Davao del Norte',
       category: 'Nature/Waterfalls',
-      imageUrl: 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
+      imageUrl: 'assets/destinations/hagimit_falls.jpg',
       entranceFee: '₱40 per person',
       operatingHours: '6:00 AM - 6:00 PM (Approximate Mock Operating Hours)',
       activities: ['Swimming', 'Waterfall Wading', 'Camping', 'Picnicking'],
@@ -217,7 +219,7 @@ class Destination {
       district: 'Davao Oriental',
       location: 'Mati, Davao Oriental',
       category: 'Beach/Surfing',
-      imageUrl: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
+      imageUrl: 'assets/destinations/dahican_beach.png',
       entranceFee: '₱20 per person',
       operatingHours: '24 Hours (Approximate Mock Operating Hours)',
       activities: ['Surfing', 'Skimboarding', 'Sea Turtle Spotting', 'Camping', 'Swimming'],
@@ -237,7 +239,7 @@ class Destination {
       district: 'Davao del Sur',
       location: 'Kapatagan, Digos City, Davao del Sur',
       category: 'Nature/Mountain',
-      imageUrl: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
+      imageUrl: 'assets/destinations/mount_apo.png',
       entranceFee: '₱2,000 Permit Fee',
       operatingHours: '24 Hours (Approximate Mock Operating Hours)',
       activities: ['Highland Mountain Trekking', 'Alpine Camping', 'Wildlife Sightseeing'],
@@ -500,6 +502,25 @@ class Destination {
           ],
         );
     }
+  }
+
+  static Widget loadImage(
+    String url, {
+    BoxFit fit = BoxFit.cover,
+    Widget Function(BuildContext, Object, StackTrace?)? errorBuilder,
+  }) {
+    if (url.startsWith('assets/')) {
+      return Image.asset(
+        url,
+        fit: fit,
+        errorBuilder: errorBuilder,
+      );
+    }
+    return Image.network(
+      url,
+      fit: fit,
+      errorBuilder: errorBuilder,
+    );
   }
 }
 
