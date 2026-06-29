@@ -11,6 +11,7 @@ import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/trip.dart';
 import '../../models/destination.dart';
+import '../../services/api_service.dart';
 import '../../providers/trip_provider.dart';
 
 
@@ -76,6 +77,91 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   Position? _userPosition;
   final MapController _mapController = MapController();
   String _commuterStartPoint = 'Current Location';
+  List<LatLng> _roadGeometryPoints = [];
+  bool _isLoadingRoute = false;
+  LatLng? _lastStartLoc;
+  int? _lastDestId;
+
+  Future<void> _fetchRoadRoute(LatLng startLocation, Destination dest) async {
+    if (_lastStartLoc == startLocation && _lastDestId == dest.id) {
+      return;
+    }
+    _lastStartLoc = startLocation;
+    _lastDestId = dest.id;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _isLoadingRoute = true;
+        });
+      }
+    });
+
+    try {
+      final isSamal = dest.name.toLowerCase().contains('samal') || 
+                      dest.location.toLowerCase().contains('samal') || 
+                      widget.trip?.destinationName.toLowerCase().contains('samal') == true;
+
+      List<Map<String, dynamic>> destinationsList = [];
+      if (isSamal) {
+        destinationsList.add({
+          "destination_id": -1,
+          "name": "Sasa Wharf",
+          "lat": 7.1017,
+          "lng": 125.6601
+        });
+        destinationsList.add({
+          "destination_id": -2,
+          "name": "Babak Port",
+          "lat": 7.1189,
+          "lng": 125.6822
+        });
+      }
+      destinationsList.add({
+        "destination_id": dest.id,
+        "name": dest.name,
+        "lat": dest.latitude,
+        "lng": dest.longitude
+      });
+
+      final response = await ApiService().optimizeRoute(
+        destinations: destinationsList,
+        startLat: startLocation.latitude,
+        startLng: startLocation.longitude,
+        startName: 'Start Point',
+        returnToStart: false,
+      );
+
+      if (response != null && response['geometry'] != null) {
+        final geometry = response['geometry'];
+        if (geometry['coordinates'] != null) {
+          final List<dynamic> coords = geometry['coordinates'];
+          final List<LatLng> points = coords.map((c) {
+            final double lng = (c[0] as num).toDouble();
+            final double lat = (c[1] as num).toDouble();
+            return LatLng(lat, lng);
+          }).toList();
+
+          if (mounted) {
+            setState(() {
+              _roadGeometryPoints = points;
+              _isLoadingRoute = false;
+            });
+          }
+          return;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching road route: $e');
+    }
+
+    if (mounted) {
+      setState(() {
+        _roadGeometryPoints = [];
+        _isLoadingRoute = false;
+      });
+    }
+  }
 
   @override
   void initState() {
@@ -804,6 +890,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       startName = _commuterStartPoint == 'Current Location' ? 'Davao City Center (GPS Loading...)' : 'Davao City Center';
     }
 
+    // Trigger OSRM road geometry fetching
+    _fetchRoadRoute(startLocation, dest);
+
     final lowerSearch = activeTrip.destinationName.toLowerCase();
     final isSamal = lowerSearch.contains('samal') || dest.location.toLowerCase().contains('samal') || dest.name.toLowerCase().contains('pearl farm') || dest.name.toLowerCase().contains('hagimit');
 
@@ -862,7 +951,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     PolylineLayer(
                       polylines: [
                         Polyline(
-                          points: routePoints,
+                          points: _roadGeometryPoints.isNotEmpty ? _roadGeometryPoints : routePoints,
                           color: AppTheme.primaryBlue,
                           strokeWidth: 4,
                         ),

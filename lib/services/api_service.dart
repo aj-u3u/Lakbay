@@ -33,8 +33,11 @@ class ApiService {
 
   ApiService._internal();
 
-  // Always points to the Render cloud backend (never localhost).
-  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
+  // Points to local backend in debug mode, and Render cloud in release mode.
+  // Note: If you are testing on an Android Emulator, change localhost (127.0.0.1) to '10.0.2.2'.
+  static String baseUrl = kDebugMode
+      ? 'http://127.0.0.1:8000'
+      : 'https://lakbay-finalv2backend.onrender.com';
 
   String? token;
   String? lastError;
@@ -48,11 +51,13 @@ class ApiService {
     try {
       lastError = null;
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/login'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({'email': email, 'password': password}),
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/login'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({'email': email, 'password': password}),
+          )
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final Map<String, dynamic> data = json.decode(response.body);
@@ -101,7 +106,8 @@ class ApiService {
       if (e.toString().contains('TimeoutException')) {
         lastError = 'Server is waking up. Please wait a moment and try again.';
       } else {
-        lastError = 'Cannot connect to server. Check your internet and try again.';
+        lastError =
+            'Cannot connect to server. Check your internet and try again.';
       }
 
       if (kDebugMode) {
@@ -113,24 +119,22 @@ class ApiService {
   }
 
   // Authentication: Register
-  Future<bool> registerUser(
-    String name,
-    String email,
-    String password,
-  ) async {
+  Future<bool> registerUser(String name, String email, String password) async {
     try {
       lastError = null;
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/auth/register'),
-        headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'full_name': name,
-          'email': email,
-          'password': password,
-          'confirm_password': password,
-        }),
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/auth/register'),
+            headers: {'Content-Type': 'application/json'},
+            body: json.encode({
+              'full_name': name,
+              'email': email,
+              'password': password,
+              'confirm_password': password,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 201) {
         return true;
@@ -180,7 +184,9 @@ class ApiService {
   // Retrieve Popular Destinations (System 1)
   Future<List<Destination>> fetchPopularDestinations({int limit = 10}) async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/destinations/popular?limit=$limit'));
+      final response = await http.get(
+        Uri.parse('$baseUrl/destinations/popular?limit=$limit'),
+      );
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -206,18 +212,22 @@ class ApiService {
     int limit = 5,
   }) async {
     try {
-      final Map<String, String> queryParams = {
-        'limit': limit.toString(),
-      };
-      if (category != null && category.isNotEmpty) queryParams['category'] = category;
+      final Map<String, String> queryParams = {'limit': limit.toString()};
+      if (category != null && category.isNotEmpty)
+        queryParams['category'] = category;
       if (vibe != null && vibe.isNotEmpty) queryParams['vibe'] = vibe;
       if (budget != null) queryParams['budget'] = budget.toString();
-      if (duration != null && duration.isNotEmpty) queryParams['duration'] = duration;
-      if (location != null && location.isNotEmpty) queryParams['location'] = location;
-      if (activities != null && activities.isNotEmpty) queryParams['activities'] = activities.join(',');
+      if (duration != null && duration.isNotEmpty)
+        queryParams['duration'] = duration;
+      if (location != null && location.isNotEmpty)
+        queryParams['location'] = location;
+      if (activities != null && activities.isNotEmpty)
+        queryParams['activities'] = activities.join(',');
 
-      final uri = Uri.parse('$baseUrl/destinations/recommended').replace(queryParameters: queryParams);
-      
+      final uri = Uri.parse(
+        '$baseUrl/destinations/recommended',
+      ).replace(queryParameters: queryParams);
+
       final headers = <String, String>{};
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
@@ -239,17 +249,18 @@ class ApiService {
   }
 
   // Record Destination Interaction (System 1 Write Path)
-  Future<bool> recordInteraction(int destinationId, String eventType, {double? rating}) async {
+  Future<bool> recordInteraction(
+    int destinationId,
+    String eventType, {
+    double? rating,
+  }) async {
     try {
       final headers = {'Content-Type': 'application/json'};
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final body = {
-        'event_type': eventType,
-        'rating': ?rating,
-      };
+      final body = {'event_type': eventType, 'rating': ?rating};
 
       final response = await http.post(
         Uri.parse('$baseUrl/destinations/$destinationId/interactions'),
@@ -266,7 +277,6 @@ class ApiService {
     }
   }
 
-
   // AI Chat
   Future<Map<String, dynamic>?> chatWithAI(String prompt) async {
     try {
@@ -276,11 +286,13 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/ai/chat'),
-        headers: headers,
-        body: json.encode({'prompt': prompt}),
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/ai/chat'),
+            headers: headers,
+            body: json.encode({'prompt': prompt}),
+          )
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         return json.decode(response.body) as Map<String, dynamic>;
@@ -303,17 +315,14 @@ class ApiService {
   // Fetch saved trips from PostgreSQL database
   Future<List<Trip>> fetchUserTrips() async {
     try {
-      final headers = {
-        'Content-Type': 'application/json',
-      };
+      final headers = {'Content-Type': 'application/json'};
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.get(
-        Uri.parse('$baseUrl/trips'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .get(Uri.parse('$baseUrl/trips'), headers: headers)
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
@@ -324,13 +333,17 @@ class ApiService {
           itineraryJson.forEach((dayStr, list) {
             final day = int.tryParse(dayStr) ?? 1;
             final List<dynamic> actList = list;
-            itinerary[day] = actList.map((act) => TripActivity(
-              time: act['time'] ?? '',
-              title: act['title'] ?? '',
-              description: act['description'] ?? '',
-              cost: act['cost'] ?? 'Free',
-              location: act['location'] ?? '',
-            )).toList();
+            itinerary[day] = actList
+                .map(
+                  (act) => TripActivity(
+                    time: act['time'] ?? '',
+                    title: act['title'] ?? '',
+                    description: act['description'] ?? '',
+                    cost: act['cost'] ?? 'Free',
+                    location: act['location'] ?? '',
+                  ),
+                )
+                .toList();
           });
 
           return Trip(
@@ -351,7 +364,9 @@ class ApiService {
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error fetching user trips from backend: $e. Falling back to mocks.');
+        print(
+          'Error fetching user trips from backend: $e. Falling back to mocks.',
+        );
       }
     }
     return Trip.mockTrips;
@@ -361,9 +376,7 @@ class ApiService {
   Future<bool> createTrip(Trip newTrip) async {
     try {
       lastError = null;
-      final headers = {
-        'Content-Type': 'application/json',
-      };
+      final headers = {'Content-Type': 'application/json'};
       if (token != null) {
         headers['Authorization'] = 'Bearer $token';
       }
@@ -371,13 +384,17 @@ class ApiService {
       // Convert itinerary map to JSON structure expected by backend
       final Map<String, dynamic> itineraryJson = {};
       newTrip.itinerary.forEach((day, list) {
-        itineraryJson[day.toString()] = list.map((act) => {
-          'time': act.time,
-          'title': act.title,
-          'description': act.description,
-          'cost': act.cost,
-          'location': act.location
-        }).toList();
+        itineraryJson[day.toString()] = list
+            .map(
+              (act) => {
+                'time': act.time,
+                'title': act.title,
+                'description': act.description,
+                'cost': act.cost,
+                'location': act.location,
+              },
+            )
+            .toList();
       });
 
       final body = {
@@ -390,19 +407,23 @@ class ApiService {
         'itinerary': itineraryJson,
         'isGroup': newTrip.isGroup,
         'numTravelers': newTrip.numTravelers,
-        'notes': newTrip.notes
+        'notes': newTrip.notes,
       };
 
-      final response = await http.post(
-        Uri.parse('$baseUrl/trips'),
-        headers: headers,
-        body: json.encode(body),
-      ).timeout(
-        const Duration(seconds: 60),
-        onTimeout: () {
-          throw Exception('Server is waking up — please wait a moment and try again.');
-        },
-      );
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/trips'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(
+            const Duration(seconds: 60),
+            onTimeout: () {
+              throw Exception(
+                'Server is waking up — please wait a moment and try again.',
+              );
+            },
+          );
 
       if (response.statusCode == 201) {
         if (kDebugMode) {
@@ -412,19 +433,27 @@ class ApiService {
       } else {
         try {
           final errBody = json.decode(response.body);
-          lastError = errBody['detail'] ?? 'Failed to save trip (Status ${response.statusCode})';
+          lastError =
+              errBody['detail'] ??
+              'Failed to save trip (Status ${response.statusCode})';
         } catch (_) {
           lastError = 'Failed to save trip (Status ${response.statusCode})';
         }
         if (kDebugMode) {
-          print('Failed to save trip. status: ${response.statusCode}, body: ${response.body}');
+          print(
+            'Failed to save trip. status: ${response.statusCode}, body: ${response.body}',
+          );
         }
       }
     } catch (e) {
-      if (e.toString().contains('timed out') || e.toString().contains('TimeoutException')) {
-        lastError = 'Connection timed out. Please check your internet and try again.';
-      } else if (e.toString().contains('SocketException') || e.toString().contains('Connection refused')) {
-        lastError = 'Cannot reach the server. Make sure the backend is running.';
+      if (e.toString().contains('timed out') ||
+          e.toString().contains('TimeoutException')) {
+        lastError =
+            'Connection timed out. Please check your internet and try again.';
+      } else if (e.toString().contains('SocketException') ||
+          e.toString().contains('Connection refused')) {
+        lastError =
+            'Cannot reach the server. Make sure the backend is running.';
       } else {
         lastError = 'Failed to save trip. Please try again.';
       }
@@ -433,6 +462,47 @@ class ApiService {
       }
     }
     return false;
+  }
+
+  // Fetch optimized route details including real road geometry
+  Future<Map<String, dynamic>?> optimizeRoute({
+    required List<Map<String, dynamic>> destinations,
+    double? startLat,
+    double? startLng,
+    String? startName,
+    bool returnToStart = false,
+  }) async {
+    try {
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = {
+        'destinations': destinations,
+        'start_lat': ?startLat,
+        'start_lng': ?startLng,
+        'start_name': ?startName,
+        'return_to_start': returnToStart,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/trips/optimize-route'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error optimizing route: $e');
+      }
+    }
+    return null;
   }
 
   // Delete trip from backend
@@ -444,10 +514,9 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final response = await http.delete(
-        Uri.parse('$baseUrl/trips/$tripId'),
-        headers: headers,
-      ).timeout(const Duration(seconds: 60));
+      final response = await http
+          .delete(Uri.parse('$baseUrl/trips/$tripId'), headers: headers)
+          .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
         if (kDebugMode) {
@@ -457,7 +526,9 @@ class ApiService {
       } else {
         try {
           final errBody = json.decode(response.body);
-          lastError = errBody['detail'] ?? 'Failed to delete trip (Status ${response.statusCode})';
+          lastError =
+              errBody['detail'] ??
+              'Failed to delete trip (Status ${response.statusCode})';
         } catch (_) {
           lastError = 'Failed to delete trip (Status ${response.statusCode})';
         }
@@ -471,4 +542,3 @@ class ApiService {
     return false;
   }
 }
-
