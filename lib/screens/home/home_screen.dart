@@ -316,8 +316,19 @@ class _HomeScreenState extends State<HomeScreen> {
                                             .split(' ')
                                             .first ??
                                         'Traveler';
+
+                                    final hour = DateTime.now().hour;
+                                    String greeting;
+                                    if (hour < 12) {
+                                      greeting = 'Good Morning';
+                                    } else if (hour < 17) {
+                                      greeting = 'Good Afternoon';
+                                    } else {
+                                      greeting = 'Good Evening';
+                                    }
+
                                     return Text(
-                                      'Good Morning, $firstName 👋',
+                                      '$greeting, $firstName 👋',
                                       style: GoogleFonts.outfit(
                                         fontSize: 13,
                                         color: Colors.white60,

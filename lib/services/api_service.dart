@@ -33,11 +33,8 @@ class ApiService {
 
   ApiService._internal();
 
-  // Points to local backend in debug mode, and Render cloud in release mode.
-  // Note: If you are testing on an Android Emulator, change localhost (127.0.0.1) to '10.0.2.2'.
-  static String baseUrl = kDebugMode
-      ? 'http://127.0.0.1:8000'
-      : 'https://lakbay-finalv2backend.onrender.com';
+  // Always points to the Render cloud backend.
+  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
 
   String? token;
   String? lastError;
