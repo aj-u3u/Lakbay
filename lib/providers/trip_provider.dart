@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/destination.dart';
+import '../models/grouped_destinations.dart';
 import '../models/trip.dart';
 import '../models/app_notification.dart';
 import '../models/planner_draft.dart';
@@ -10,6 +11,7 @@ class TripProvider extends ChangeNotifier {
 
   List<Trip> _userTrips = [];
   List<Destination> _destinations = [];
+  List<GroupedDestinations> _groupedDestinations = [];
   Trip? _latestGeneratedTrip;
   bool _isLoading = false;
   String? _errorMessage;
@@ -70,6 +72,7 @@ class TripProvider extends ChangeNotifier {
 
   List<Trip> get userTrips => _userTrips;
   List<Destination> get destinations => _destinations;
+  List<GroupedDestinations> get groupedDestinations => _groupedDestinations;
   Trip? get latestGeneratedTrip => _latestGeneratedTrip;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
@@ -118,6 +121,7 @@ class TripProvider extends ChangeNotifier {
 
     try {
       _destinations = await _apiService.fetchDestinations();
+      _groupedDestinations = await _apiService.fetchGroupedDestinations();
       _userTrips = await _apiService.fetchUserTrips();
     } catch (e) {
       _errorMessage = 'Failed to load travel data.';

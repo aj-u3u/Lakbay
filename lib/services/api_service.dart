@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import '../models/destination.dart';
+import '../models/grouped_destinations.dart';
 import '../models/trip.dart';
 import '../models/user_profile.dart';
 
@@ -245,6 +246,40 @@ class ApiService {
     return Destination.davaoDestinations.take(limit).toList();
   }
 
+  // Fetch Grouped Destinations by location (district)
+  Future<List<GroupedDestinations>> fetchGroupedDestinations() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/destinations/grouped-by-location'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => GroupedDestinations.fromJson(json)).toList();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching grouped destinations: $e');
+      }
+    }
+    // Fallback logic: group the local davaoDestinations by district in memory
+    final Map<String, List<Destination>> groups = {};
+    for (final dest in Destination.davaoDestinations) {
+      groups.putIfAbsent(dest.district, () => []).add(dest);
+    }
+    final List<GroupedDestinations> fallback = [];
+    groups.forEach((district, list) {
+      final totalCost = list.fold<double>(0, (sum, item) => sum + item.estimatedCost);
+      final totalRating = list.fold<double>(0, (sum, item) => sum + item.rating);
+      fallback.add(GroupedDestinations(
+        district: district,
+        count: list.length,
+        averageCost: list.isNotEmpty ? totalCost / list.length : 0.0,
+        averageRating: list.isNotEmpty ? totalRating / list.length : 0.0,
+        destinations: list,
+      ));
+    });
+    return fallback;
+  }
+
   // Record Destination Interaction (System 1 Write Path)
   Future<bool> recordInteraction(
     int destinationId,
@@ -257,7 +292,10 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
-      final body = {'event_type': eventType, 'rating': ?rating};
+      final body = {
+        'event_type': eventType,
+        'rating': rating,
+      };
 
       final response = await http.post(
         Uri.parse('$baseUrl/destinations/$destinationId/interactions'),
@@ -477,9 +515,9 @@ class ApiService {
 
       final body = {
         'destinations': destinations,
-        'start_lat': ?startLat,
-        'start_lng': ?startLng,
-        'start_name': ?startName,
+        'start_lat': startLat,
+        'start_lng': startLng,
+        'start_name': startName,
         'return_to_start': returnToStart,
       };
 

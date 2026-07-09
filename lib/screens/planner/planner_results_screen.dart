@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -56,6 +57,7 @@ class PlannerResultsScreen extends StatefulWidget {
 
 class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   Position? _userPosition;
+  StreamSubscription<Position>? _positionStreamSubscription;
   final MapController _mapController = MapController();
   String _commuterStartPoint = 'Current Location';
   List<LatLng> _roadGeometryPoints = [];
@@ -150,6 +152,12 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     _requestLocation();
   }
 
+  @override
+  void dispose() {
+    _positionStreamSubscription?.cancel();
+    super.dispose();
+  }
+
   Future<void> _requestLocation() async {
     if (!mounted) return;
 
@@ -182,6 +190,25 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
           _userPosition = pos;
         });
       }
+
+      _positionStreamSubscription?.cancel();
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen(
+        (Position position) {
+          if (mounted) {
+            setState(() {
+              _userPosition = position;
+            });
+          }
+        },
+        onError: (error) {
+          debugPrint("Real-time location stream error: $error");
+        },
+      );
     } catch (e) {
       debugPrint('GPS query error: $e');
     }

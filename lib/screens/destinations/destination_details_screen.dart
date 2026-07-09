@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -70,6 +71,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   final MapController _mapController = MapController();
   double? _distanceToDestination;
   List<LatLng> _roadGeometryPoints = [];
+  StreamSubscription<Position>? _positionStreamSubscription;
 
   @override
   void initState() {
@@ -77,6 +79,41 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     // Record lightweight view interaction immediately to update popularity metrics
     ApiService().recordInteraction(widget.destination.id, 'view');
     _checkPermissionAndGetLocation();
+  }
+
+  @override
+  void dispose() {
+    _positionStreamSubscription?.cancel();
+    super.dispose();
+  }
+
+  void _startLocationTracking() {
+    _positionStreamSubscription?.cancel();
+    const LocationSettings locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 10, // Updates when user moves at least 10 meters
+    );
+
+    _positionStreamSubscription = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) {
+      if (!mounted) return;
+
+      setState(() {
+        _userPosition = position;
+
+        // Dynamically update straight-line distance if geometry isn't changing
+        final dest = widget.destination;
+        _distanceToDestination = Geolocator.distanceBetween(
+          position.latitude,
+          position.longitude,
+          dest.latitude,
+          dest.longitude,
+        ) / 1000.0; // in km
+      });
+    }, onError: (error) {
+      debugPrint("Real-time location stream error: $error");
+    });
   }
 
   Future<void> _checkPermissionAndGetLocation() async {
@@ -346,6 +383,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
       _mapController.fitCamera(
         CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
       );
+
+      // Start continuous location tracking
+      _startLocationTracking();
     } catch (e) {
       if (!mounted) return;
       setState(() {

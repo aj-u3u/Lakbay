@@ -5,6 +5,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
 import '../../models/destination.dart';
+import '../../models/grouped_destinations.dart';
 import '../../providers/trip_provider.dart';
 import '../../widgets/cards/destination_card.dart';
 
@@ -22,6 +23,7 @@ class DestinationListScreen extends StatefulWidget {
 class _DestinationListScreenState extends State<DestinationListScreen> {
   late String _selectedFilter;
   final _filters = ['All', 'Nature', 'Beach', 'Mountain', 'Urban', 'Culture', 'Wildlife', 'Adventure'];
+  bool _isGroupedByRegion = false;
 
   @override
   void initState() {
@@ -70,6 +72,20 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
               icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _isGroupedByRegion ? Icons.grid_view_rounded : Icons.map_outlined,
+                  color: Colors.white,
+                ),
+                tooltip: _isGroupedByRegion ? 'Switch to Grid View' : 'Group by Province',
+                onPressed: () {
+                  setState(() {
+                    _isGroupedByRegion = !_isGroupedByRegion;
+                  });
+                },
+              ),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(
@@ -91,49 +107,142 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
           ),
 
           // Filter chips
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _FilterDelegate(
-              child: Container(
-                color: Theme.of(context).colorScheme.surface,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS),
-                  itemCount: _displayFilters.length,
-                  itemBuilder: (_, i) {
-                    final f = _displayFilters[i];
-                    final isSelected = f == _selectedFilter;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedFilter = f),
-                      child: AnimatedContainer(
-                        duration: AppConstants.animDurationFast,
-                        margin: const EdgeInsets.only(right: AppConstants.spaceS),
-                        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
-                          borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
-                          border: Border.all(
-                            color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withValues(alpha: 0.3),
+          if (!_isGroupedByRegion)
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _FilterDelegate(
+                child: Container(
+                  color: Theme.of(context).colorScheme.surface,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS),
+                    itemCount: _displayFilters.length,
+                    itemBuilder: (_, i) {
+                      final f = _displayFilters[i];
+                      final isSelected = f == _selectedFilter;
+                      return GestureDetector(
+                        onTap: () => setState(() => _selectedFilter = f),
+                        child: AnimatedContainer(
+                          duration: AppConstants.animDurationFast,
+                          margin: const EdgeInsets.only(right: AppConstants.spaceS),
+                          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
+                            borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                            border: Border.all(
+                              color: isSelected ? AppTheme.primaryBlue : AppTheme.textSecondaryLight.withValues(alpha: 0.3),
+                            ),
                           ),
+                          child: Text(f, style: TextStyle(
+                            color: isSelected ? Colors.white : AppTheme.textSecondaryLight,
+                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                            fontSize: 13,
+                          )),
                         ),
-                        child: Text(f, style: TextStyle(
-                          color: isSelected ? Colors.white : AppTheme.textSecondaryLight,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                          fontSize: 13,
-                        )),
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
-          ),
 
           // Loading state
           if (provider.isLoading)
             const SliverFillRemaining(
               child: Center(child: CircularProgressIndicator()),
+            )
+          // Grouped by Province/District
+          else if (_isGroupedByRegion)
+            SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final List<GroupedDestinations> groupedList = provider.groupedDestinations;
+                  if (groupedList.isEmpty) {
+                    return const Padding(
+                      padding: EdgeInsets.all(AppConstants.spaceXL),
+                      child: Center(child: Text('No grouped destinations available.')),
+                    );
+                  }
+                  final groupedItem = groupedList[index];
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(AppConstants.spaceM, AppConstants.spaceL, AppConstants.spaceM, AppConstants.spaceS),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  groupedItem.district,
+                                  style: GoogleFonts.outfit(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.onSurface,
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    '${groupedItem.count} spots',
+                                    style: GoogleFonts.outfit(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              'Avg Cost: ₱${groupedItem.averageCost.toStringAsFixed(0)} • Rating: ⭐ ${groupedItem.averageRating.toStringAsFixed(1)}',
+                              style: GoogleFonts.outfit(
+                                fontSize: 13,
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? AppTheme.textSecondaryDark
+                                    : AppTheme.textSecondaryLight,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(
+                        height: 240,
+                        child: ListView.builder(
+                          scrollDirection: Axis.horizontal,
+                          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                          itemCount: groupedItem.destinations.length,
+                          itemBuilder: (context, cardIndex) {
+                            final dest = groupedItem.destinations[cardIndex];
+                            return Padding(
+                              padding: const EdgeInsets.only(right: AppConstants.spaceM),
+                              child: DestinationCard(
+                                destination: dest,
+                                width: 170,
+                                height: 240,
+                                onTap: () => Navigator.pushNamed(
+                                  context,
+                                  AppRoutes.destinationDetail,
+                                  arguments: dest,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      )
+                    ],
+                  );
+                },
+                childCount: provider.groupedDestinations.length,
+              ),
             )
           // Destination grid
           else

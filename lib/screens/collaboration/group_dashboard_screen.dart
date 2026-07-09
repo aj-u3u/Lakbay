@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -75,6 +76,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   // Route & Location State
   Position? _userPosition;
+  StreamSubscription<Position>? _positionStreamSubscription;
   final MapController _mapController = MapController();
   String _commuterStartPoint = 'Current Location';
   List<LatLng> _roadGeometryPoints = [];
@@ -216,6 +218,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   @override
   void dispose() {
     _notesController.dispose();
+    _positionStreamSubscription?.cancel();
     super.dispose();
   }
 
@@ -251,6 +254,25 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           _userPosition = pos;
         });
       }
+
+      _positionStreamSubscription?.cancel();
+      _positionStreamSubscription = Geolocator.getPositionStream(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          distanceFilter: 10,
+        ),
+      ).listen(
+        (Position position) {
+          if (mounted) {
+            setState(() {
+              _userPosition = position;
+            });
+          }
+        },
+        onError: (error) {
+          debugPrint("Real-time location stream error: $error");
+        },
+      );
     } catch (e) {
       debugPrint('GPS query error: $e');
     }
