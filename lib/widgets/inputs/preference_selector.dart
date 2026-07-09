@@ -36,7 +36,7 @@ class PreferenceSelector extends StatelessWidget {
               color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
               borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
               border: Border.all(
-                color: isSelected ? AppTheme.primaryBlue : secondaryTextColor.withOpacity(0.4),
+                color: isSelected ? AppTheme.primaryBlue : secondaryTextColor.withValues(alpha: 0.4),
                 width: 1.5,
               ),
             ),
@@ -54,3 +54,4 @@ class PreferenceSelector extends StatelessWidget {
     );
   }
 }
+

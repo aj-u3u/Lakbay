@@ -79,7 +79,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   width: 40,
                   height: 5,
                   decoration: BoxDecoration(
-                    color: Colors.grey.withOpacity(0.3),
+                    color: Colors.grey.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
@@ -100,7 +100,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.edit_note_rounded, color: AppTheme.primaryBlue, size: 24),
@@ -137,7 +137,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: AppTheme.secondaryGreen.withOpacity(0.1),
+                    color: AppTheme.secondaryGreen.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.secondaryGreen, size: 24),
@@ -169,7 +169,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 leading: Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.1),
+                    color: Colors.amber.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.link_rounded, color: Colors.amber, size: 24),
@@ -235,7 +235,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   hintText: 'e.g. lakbay://trip/join?code=123',
                   labelStyle: const TextStyle(color: AppTheme.primaryBlue),
                   enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.3)),
+                    borderSide: BorderSide(color: AppTheme.primaryBlue.withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   focusedBorder: OutlineInputBorder(
@@ -315,18 +315,18 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppTheme.primaryBlue
-                        : (isDark ? Colors.grey.withOpacity(0.1) : Colors.grey.withOpacity(0.06)),
+                        : (isDark ? Colors.grey.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.06)),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
                           ? AppTheme.primaryBlue
-                          : (isDark ? Colors.grey.withOpacity(0.2) : Colors.grey.withOpacity(0.15)),
+                          : (isDark ? Colors.grey.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.15)),
                       width: 1,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withOpacity(0.3),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.3),
                               blurRadius: 6,
                               offset: const Offset(0, 3),
                             )
@@ -375,7 +375,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           controller: _tabCtrl,
           indicatorColor: AppTheme.primaryBlue,
           labelColor: AppTheme.primaryBlue,
-          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
           labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
           tabs: const [
             Tab(text: 'Upcoming'),
@@ -451,19 +451,19 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 64, color: AppTheme.primaryBlue.withOpacity(0.2)),
+          Icon(icon, size: 64, color: AppTheme.primaryBlue.withValues(alpha: 0.2)),
           const SizedBox(height: AppConstants.spaceM),
           Text(title, style: GoogleFonts.outfit(
-            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue.withOpacity(0.5))),
+            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue.withValues(alpha: 0.5))),
           const SizedBox(height: AppConstants.spaceS),
-          Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55), fontSize: 13)),
+          Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 13)),
         ],
       ),
     );
   }
 }
 
-enum TripStatus { upcoming, active, completed }
+enum TripStatus { upcoming, completed }
 
 class PulsingDot extends StatefulWidget {
   const PulsingDot({super.key});
@@ -607,14 +607,10 @@ class _TripCard extends StatelessWidget {
         final now = DateTime.now();
         final todayMidnight = DateTime(now.year, now.month, now.day);
         final endMidnight = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
-        final startMidnight = DateTime(startDate.year, startDate.month, startDate.day, 0, 0, 0);
-        
         if (todayMidnight.isAfter(endMidnight)) {
           return TripStatus.completed;
-        } else if (todayMidnight.isBefore(startMidnight)) {
-          return TripStatus.upcoming;
         } else {
-          return TripStatus.active;
+          return TripStatus.upcoming;
         }
       }
     } catch (_) {}
@@ -623,29 +619,6 @@ class _TripCard extends StatelessWidget {
 
   Widget _buildStatusChip(TripStatus status) {
     switch (status) {
-      case TripStatus.active:
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: AppTheme.secondaryGreen, // Coral
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              PulsingDot(),
-              SizedBox(width: 5),
-              Text(
-                'Active',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-        );
       case TripStatus.completed:
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -666,13 +639,14 @@ class _TripCard extends StatelessWidget {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
+            color: const Color(0xFFFBBC04).withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppTheme.primaryBlue, width: 1.5),
+            border: Border.all(color: const Color(0xFFFBBC04), width: 1.5),
           ),
-          child: const Text(
+          child: Text(
             'Upcoming',
-            style: TextStyle(
-              color: Colors.white,
+            style: GoogleFonts.outfit(
+              color: const Color(0xFFFBBC04),
               fontSize: 10,
               fontWeight: FontWeight.bold,
             ),
@@ -1124,7 +1098,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 15),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.withOpacity(0.5)),
+                          border: Border.all(color: Colors.grey.withValues(alpha: 0.5)),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -1201,7 +1175,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onSelected: (val) {
                         if (val) setState(() => _isGroup = false);
                       },
-                      selectedColor: AppTheme.primaryBlue.withOpacity(0.12),
+                      selectedColor: AppTheme.primaryBlue.withValues(alpha: 0.12),
                       checkmarkColor: AppTheme.primaryBlue,
                       labelStyle: TextStyle(
                         color: !_isGroup ? AppTheme.primaryBlue : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
@@ -1218,7 +1192,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onSelected: (val) {
                         if (val) setState(() => _isGroup = true);
                       },
-                      selectedColor: AppTheme.secondaryGreen.withOpacity(0.12),
+                      selectedColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
                       checkmarkColor: AppTheme.secondaryGreen,
                       labelStyle: TextStyle(
                         color: _isGroup ? AppTheme.secondaryGreen : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
@@ -1261,7 +1235,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: AppTheme.primaryBlue.withOpacity(0.3),
+                                    color: AppTheme.primaryBlue.withValues(alpha: 0.3),
                                     blurRadius: 4,
                                     spreadRadius: 1,
                                   )
@@ -1325,3 +1299,4 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
     );
   }
 }
+

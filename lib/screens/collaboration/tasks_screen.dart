@@ -135,7 +135,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                         ),
                         selected: isSelected,
                         selectedColor: AppTheme.primaryBlue,
-                        backgroundColor: isDark ? Colors.white10 : AppTheme.primaryBlue.withOpacity(0.05),
+                        backgroundColor: isDark ? Colors.white10 : AppTheme.primaryBlue.withValues(alpha: 0.05),
                         onSelected: (val) {
                           if (val) setSheetState(() => selectedCategory = cat);
                         },
@@ -393,3 +393,4 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     );
   }
 }
+

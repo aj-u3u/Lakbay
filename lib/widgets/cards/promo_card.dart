@@ -54,8 +54,8 @@ class PromoCard extends StatelessWidget {
                       begin: Alignment.centerRight,
                       end: Alignment.centerLeft,
                       colors: [
-                        Colors.black.withOpacity(0.02),
-                        AppTheme.primaryBlue.withOpacity(0.85),
+                        Colors.black.withValues(alpha: 0.02),
+                        AppTheme.primaryBlue.withValues(alpha: 0.85),
                       ],
                     ),
                   ),
@@ -131,3 +131,4 @@ class PromoCard extends StatelessWidget {
     );
   }
 }
+

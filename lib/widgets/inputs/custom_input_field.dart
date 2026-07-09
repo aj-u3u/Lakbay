@@ -64,7 +64,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
             decoration: InputDecoration(
               hintText: widget.hint,
               hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurface.withOpacity(0.4),
+                color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
               ),
               prefixIcon: widget.prefixIcon != null
                   ? Icon(
@@ -92,7 +92,7 @@ class _CustomInputFieldState extends State<CustomInputField> {
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(AppConstants.radiusL),
                 borderSide: BorderSide(
-                  color: theme.colorScheme.onSurface.withOpacity(0.12),
+                  color: theme.colorScheme.onSurface.withValues(alpha: 0.12),
                   width: 1.5,
                 ),
               ),
@@ -118,3 +118,4 @@ class _CustomInputFieldState extends State<CustomInputField> {
     );
   }
 }
+

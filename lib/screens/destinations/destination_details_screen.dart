@@ -72,6 +72,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   double? _distanceToDestination;
   List<LatLng> _roadGeometryPoints = [];
   StreamSubscription<Position>? _positionStreamSubscription;
+  List<Destination> _nearbyDestinations = [];
+  bool _loadingNearby = false;
 
   @override
   void initState() {
@@ -79,6 +81,34 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     // Record lightweight view interaction immediately to update popularity metrics
     ApiService().recordInteraction(widget.destination.id, 'view');
     _checkPermissionAndGetLocation();
+    _fetchNearbyPlaces();
+  }
+
+  Future<void> _fetchNearbyPlaces() async {
+    if (!mounted) return;
+    setState(() {
+      _loadingNearby = true;
+    });
+    try {
+      final list = await ApiService().fetchNearbyDestinations(
+        widget.destination.id,
+        radiusKm: 15.0,
+        limit: 6,
+        sameCategory: true,
+      );
+      if (mounted) {
+        setState(() {
+          _nearbyDestinations = list;
+          _loadingNearby = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _loadingNearby = false;
+        });
+      }
+    }
   }
 
   @override
@@ -823,11 +853,11 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                   border: Border.all(
                                     color: isDark
                                         ? Colors.white10
-                                        : Colors.grey.withOpacity(0.3),
+                                        : Colors.grey.withValues(alpha: 0.3),
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
+                                      color: Colors.black.withValues(alpha: 0.05),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -928,11 +958,11 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             border: Border.all(
                               color: isDark
                                   ? Colors.white12
-                                  : Colors.grey.withOpacity(0.3),
+                                  : Colors.grey.withValues(alpha: 0.3),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -943,7 +973,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(
@@ -1125,11 +1155,11 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       border: Border.all(
                         color: isDark
                             ? Colors.white10
-                            : Colors.grey.withOpacity(0.3),
+                            : Colors.grey.withValues(alpha: 0.3),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 6,
                           offset: const Offset(0, 3),
                         ),
@@ -1194,6 +1224,54 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                           size: 40,
                                         ),
                                       ),
+                                      // Nearby Place Markers
+                                      ..._nearbyDestinations.map((nearby) {
+                                        return Marker(
+                                          point: LatLng(
+                                            nearby.latitude,
+                                            nearby.longitude,
+                                          ),
+                                          width: 36,
+                                          height: 36,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              Navigator.push(
+                                                context,
+                                                MaterialPageRoute(
+                                                  builder: (context) =>
+                                                      DestinationDetailsScreen(
+                                                    destination: nearby,
+                                                  ),
+                                                ),
+                                              );
+                                            },
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.secondaryGreen,
+                                                shape: BoxShape.circle,
+                                                border: Border.all(
+                                                  color: Colors.white,
+                                                  width: 2,
+                                                ),
+                                                boxShadow: const [
+                                                  BoxShadow(
+                                                    color: Colors.black26,
+                                                    blurRadius: 4,
+                                                    offset: Offset(0, 2),
+                                                  ),
+                                                ],
+                                              ),
+                                              child: const Center(
+                                                child: Icon(
+                                                  Icons.place_rounded,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }),
                                       // User Location Marker
                                       if (_userPosition != null)
                                         Marker(
@@ -1268,8 +1346,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         Container(
                           padding: const EdgeInsets.all(AppConstants.spaceM),
                           color: isDark
-                              ? Colors.white.withOpacity(0.05)
-                              : Colors.grey.withOpacity(0.1),
+                              ? Colors.white.withValues(alpha: 0.05)
+                              : Colors.grey.withValues(alpha: 0.1),
                           child: Row(
                             children: [
                               Expanded(
@@ -1549,11 +1627,11 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             border: Border.all(
                               color: isDark
                                   ? Colors.white10
-                                  : Colors.grey.withOpacity(0.3),
+                                  : Colors.grey.withValues(alpha: 0.3),
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withOpacity(0.05),
+                                color: Colors.black.withValues(alpha: 0.05),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2),
                               ),
@@ -1564,7 +1642,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withOpacity(0.1),
+                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
@@ -1679,6 +1757,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         );
                       },
                     ),
+                    _buildNearbyCarousel(),
                   ],
                   const SizedBox(height: AppConstants.spaceXXL),
 
@@ -1722,14 +1801,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           color: Theme.of(context).colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 10,
               offset: const Offset(0, -4),
             ),
           ],
           border: Border(
             top: BorderSide(
-              color: isDark ? Colors.white10 : Colors.grey.withOpacity(0.2),
+              color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
               width: 0.5,
             ),
           ),
@@ -1769,7 +1848,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.grey[800]
-                            : Colors.grey.withOpacity(0.3),
+                            : Colors.grey.withValues(alpha: 0.3),
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
@@ -1801,7 +1880,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     leading: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppTheme.secondaryGreen.withOpacity(0.1),
+                        color: AppTheme.secondaryGreen.withValues(alpha: 0.1),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
@@ -1852,8 +1931,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             color: isDark
-                                ? AppTheme.textSecondaryDark.withOpacity(0.8)
-                                : Colors.grey.withOpacity(0.8),
+                                ? AppTheme.textSecondaryDark.withValues(alpha: 0.8)
+                                : Colors.grey.withValues(alpha: 0.8),
                           ),
                         ),
                       ),
@@ -2002,7 +2081,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   labelStyle: const TextStyle(color: AppTheme.primaryBlue),
                   enabledBorder: OutlineInputBorder(
                     borderSide: BorderSide(
-                      color: AppTheme.primaryBlue.withOpacity(0.3),
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.3),
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -2095,7 +2174,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         Container(
           padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            color: AppTheme.primaryBlue.withOpacity(0.1),
+            color: AppTheme.primaryBlue.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(icon, color: AppTheme.primaryBlue, size: 18),
@@ -2133,9 +2212,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
       child: Container(
         padding: const EdgeInsets.all(AppConstants.spaceM),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
+          color: color.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: color.withOpacity(0.2)),
+          border: Border.all(color: color.withValues(alpha: 0.2)),
         ),
         child: Column(
           children: [
@@ -2180,9 +2259,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     return Container(
       padding: const EdgeInsets.all(AppConstants.spaceM),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.08),
+        color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(AppConstants.radiusL),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2249,6 +2328,170 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildNearbyCarousel() {
+    if (_loadingNearby) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: AppConstants.spaceM),
+        child: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
+          ),
+        ),
+      );
+    }
+
+    if (_nearbyDestinations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: AppConstants.spaceXXL),
+        Text(
+          'Other Places Nearby',
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primaryBlue,
+              ),
+        ),
+        const SizedBox(height: AppConstants.spaceM),
+        SizedBox(
+          height: 190,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _nearbyDestinations.length,
+            itemBuilder: (context, index) {
+              final nearby = _nearbyDestinations[index];
+              return GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => DestinationDetailsScreen(
+                        destination: nearby,
+                      ),
+                    ),
+                  );
+                },
+                child: Container(
+                  width: 170,
+                  margin: const EdgeInsets.only(right: AppConstants.spaceM, bottom: 8),
+                  decoration: BoxDecoration(
+                    color: isDark ? Theme.of(context).cardColor : Colors.white,
+                    borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                    border: Border.all(
+                      color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.04),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Image
+                      Expanded(
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            Destination.loadImage(
+                              nearby.imageUrl,
+                              fit: BoxFit.cover,
+                            ),
+                            // Rating Badge
+                            Positioned(
+                              top: 6,
+                              right: 6,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.6),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.star, color: Color(0xFFFBBC04), size: 10),
+                                    const SizedBox(width: 2),
+                                    Text(
+                                      '${nearby.rating}',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Details
+                      Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              nearby.name,
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                                color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            const SizedBox(height: 2),
+                            Row(
+                              children: [
+                                const Icon(Icons.location_on, size: 10, color: AppTheme.primaryBlue),
+                                const SizedBox(width: 2),
+                                Expanded(
+                                  child: Text(
+                                    nearby.district,
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '₱${nearby.estimatedCost.toStringAsFixed(0)}',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 11,
+                                color: AppTheme.secondaryGreen,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -2322,4 +2565,5 @@ class _PulseHeartIconState extends State<PulseHeartIcon>
     );
   }
 }
+
 

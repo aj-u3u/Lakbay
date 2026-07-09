@@ -540,6 +540,62 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
 
+          // AI Mood Suggestions
+          SliverToBoxAdapter(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SizedBox(height: AppConstants.spaceL),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.spaceM,
+                  ),
+                  child: Text(
+                    'AI Mood Suggestions ✨',
+                    style: GoogleFonts.outfit(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.spaceM,
+                    vertical: 4,
+                  ),
+                  child: Text(
+                    'Tap a mood to start planning your perfect itinerary instantly',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: AppConstants.spaceS),
+                SizedBox(
+                  height: 52,
+                  child: ListView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppConstants.spaceM,
+                    ),
+                    children: [
+                      _buildMoodTile(context, 'Adventure', '🏔️', 'Suggest an adventure trip in Davao Region.'),
+                      _buildMoodTile(context, 'Relaxation', '🌿', 'Suggest a relaxation trip in Davao Region.'),
+                      _buildMoodTile(context, 'Family', '👨', 'Suggest a family trip in Davao Region.'),
+                      _buildMoodTile(context, 'Beach', '🌊', 'Suggest a beach trip in Davao Region.'),
+                      _buildMoodTile(context, 'Nature', '🌲', 'Suggest a nature trip in Davao Region.'),
+                      _buildMoodTile(context, 'Culture', '🏙️', 'Suggest a cultural trip in Davao Region.'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
           // Featured promo carousel
           SliverToBoxAdapter(
             child: Column(
@@ -838,8 +894,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedCard(BuildContext context, Destination dest) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
     // Extract a nice personalized tag from matchReasons
     String matchTag = "AI Pick";
     if (dest.matchReasons.isNotEmpty) {
@@ -873,7 +927,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   dest.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
-                    color: AppTheme.primaryBlue.withOpacity(0.15),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.15),
                     child: const Icon(
                       Icons.landscape,
                       size: 60,
@@ -890,9 +944,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.1),
-                        Colors.black.withOpacity(0.3),
-                        Colors.black.withOpacity(0.85),
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.3),
+                        Colors.black.withValues(alpha: 0.85),
                       ],
                       stops: const [0.2, 0.5, 1.0],
                     ),
@@ -916,7 +970,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: AppTheme.secondaryGreen.withOpacity(0.3),
+                          color: AppTheme.secondaryGreen.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -953,7 +1007,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.white.withValues(alpha: 0.9),
                     borderRadius: BorderRadius.circular(
                       AppConstants.radiusCircular,
                     ),
@@ -1032,7 +1086,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               vertical: 3,
                             ),
                             decoration: BoxDecoration(
-                              color: AppTheme.secondaryGreen.withOpacity(0.9),
+                              color: AppTheme.secondaryGreen.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(
@@ -1191,18 +1245,6 @@ class _HomeScreenState extends State<HomeScreen> {
     Destination dest,
     int index,
   ) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    // Choose rank background gradient and border color
-    List<Color> rankColors = [AppTheme.primaryBlue, AppTheme.accentTeal];
-    if (index == 0) {
-      rankColors = [const Color(0xFFFFD700), const Color(0xFFFFA500)]; // Gold
-    } else if (index == 1) {
-      rankColors = [const Color(0xFFC0C0C0), const Color(0xFF808080)]; // Silver
-    } else if (index == 2) {
-      rankColors = [const Color(0xFFCD7F32), const Color(0xFF8B4513)]; // Bronze
-    }
-
     final isTrending =
         dest.trendingStatus == 'high' || dest.trendingStatus == 'rising';
 
@@ -1231,7 +1273,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   dest.imageUrl,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Container(
-                    color: AppTheme.primaryBlue.withOpacity(0.15),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.15),
                     child: const Icon(
                       Icons.landscape,
                       size: 60,
@@ -1248,9 +1290,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withOpacity(0.1),
-                        Colors.black.withOpacity(0.3),
-                        Colors.black.withOpacity(0.85),
+                        Colors.black.withValues(alpha: 0.1),
+                        Colors.black.withValues(alpha: 0.3),
+                        Colors.black.withValues(alpha: 0.85),
                       ],
                       stops: const [0.2, 0.5, 1.0],
                     ),
@@ -1269,7 +1311,7 @@ class _HomeScreenState extends State<HomeScreen> {
               //       shape: BoxShape.circle,
               //       boxShadow: [
               //         BoxShadow(
-              //           color: rankColors.first.withOpacity(0.4),
+              //           color: rankColors.first.withValues(alpha: 0.4),
               //           blurRadius: 6,
               //           offset: const Offset(0, 3),
               //         ),
@@ -1303,7 +1345,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.redAccent.withOpacity(0.3),
+                          color: Colors.redAccent.withValues(alpha: 0.3),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -1341,7 +1383,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                       borderRadius: BorderRadius.circular(
                         AppConstants.radiusCircular,
                       ),
@@ -1421,7 +1463,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryBlue.withOpacity(0.85),
+                                color: AppTheme.primaryBlue.withValues(alpha: 0.85),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: Colors.white30,
@@ -1488,7 +1530,7 @@ class _HomeScreenState extends State<HomeScreen> {
       width: 220,
       margin: const EdgeInsets.only(right: AppConstants.spaceM),
       decoration: BoxDecoration(
-        color: isDark ? Colors.white10 : Colors.black.withOpacity(0.04),
+        color: isDark ? Colors.white10 : Colors.black.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
       ),
       child: Center(
@@ -1498,7 +1540,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
             valueColor: AlwaysStoppedAnimation<Color>(
-              AppTheme.primaryBlue.withOpacity(0.4),
+              AppTheme.primaryBlue.withValues(alpha: 0.4),
             ),
           ),
         ),
@@ -1809,7 +1851,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withOpacity(0.2),
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -2085,7 +2127,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.08),
+                        color: Colors.black.withValues(alpha: 0.08),
                         blurRadius: 16,
                         offset: const Offset(0, 8),
                       ),
@@ -2104,8 +2146,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         return ListTile(
                           leading: CircleAvatar(
                             backgroundColor: isDistrict
-                                ? AppTheme.primaryBlue.withOpacity(0.08)
-                                : AppTheme.secondaryGreen.withOpacity(0.08),
+                                ? AppTheme.primaryBlue.withValues(alpha: 0.08)
+                                : AppTheme.secondaryGreen.withValues(alpha: 0.08),
                             child: Icon(
                               isDistrict
                                   ? Icons.location_on_rounded
@@ -2191,12 +2233,12 @@ class _HomeScreenState extends State<HomeScreen> {
             color: isDark ? Theme.of(context).cardColor : Colors.white,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
-              color: AppTheme.secondaryGreen.withOpacity(0.15),
+              color: AppTheme.secondaryGreen.withValues(alpha: 0.15),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.04),
+                color: Colors.black.withValues(alpha: 0.04),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2214,7 +2256,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     draft.imageUrl,
                     fit: BoxFit.cover,
                     errorBuilder: (_, _, _) => Container(
-                      color: AppTheme.primaryBlue.withOpacity(0.1),
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                       child: const Icon(
                         Icons.place_rounded,
                         color: AppTheme.primaryBlue,
@@ -2285,4 +2327,54 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
     );
   }
+
+  Widget _buildMoodTile(
+    BuildContext context,
+    String label,
+    String emoji,
+    String prompt,
+  ) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return GestureDetector(
+      onTap: () {
+        context.read<TripProvider>().setActivePlanningMoodPrompt(prompt);
+        context.read<NavProvider>().setIndex(1);
+      },
+      child: Container(
+        margin: const EdgeInsets.only(right: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.05)
+              : AppTheme.primaryBlue.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? Colors.white10
+                : AppTheme.primaryBlue.withValues(alpha: 0.1),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              emoji,
+              style: const TextStyle(fontSize: 20),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              label,
+              style: GoogleFonts.outfit(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.primaryBlue,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+

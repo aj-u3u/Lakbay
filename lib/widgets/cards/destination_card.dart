@@ -53,8 +53,8 @@ class DestinationCard extends StatelessWidget {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        Colors.black.withOpacity(0.2),
-                        Colors.black.withOpacity(0.75),
+                        Colors.black.withValues(alpha: 0.2),
+                        Colors.black.withValues(alpha: 0.75),
                       ],
                       stops: const [0.3, 0.6, 1.0],
                     ),
@@ -155,3 +155,4 @@ class DestinationCard extends StatelessWidget {
     );
   }
 }
+

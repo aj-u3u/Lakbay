@@ -59,7 +59,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
             width: 72,
             height: 72,
             decoration: BoxDecoration(
-              color: AppTheme.primaryBlue.withOpacity(0.1),
+              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(20),
             ),
             child: const Icon(Icons.lock_reset_rounded, size: 36, color: AppTheme.primaryBlue),
@@ -105,7 +105,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           width: 100,
           height: 100,
           decoration: BoxDecoration(
-            color: AppTheme.secondaryGreen.withOpacity(0.12),
+            color: AppTheme.secondaryGreen.withValues(alpha: 0.12),
             shape: BoxShape.circle,
           ),
           child: const Icon(Icons.mark_email_read_rounded, size: 50, color: AppTheme.secondaryGreen),
@@ -130,3 +130,4 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     );
   }
 }
+

@@ -187,7 +187,7 @@ class _DestinationListScreenState extends State<DestinationListScreen> {
                                 Container(
                                   padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
-                                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
@@ -291,3 +291,4 @@ class _FilterDelegate extends SliverPersistentHeaderDelegate {
   @override
   Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) => child;
 }
+

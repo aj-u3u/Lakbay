@@ -507,6 +507,7 @@ class ApiService {
     String? startName,
     bool returnToStart = false,
   }) async {
+    Map<String, dynamic>? decodedResponse;
     try {
       final headers = {'Content-Type': 'application/json'};
       if (token != null) {
@@ -530,14 +531,68 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        return json.decode(response.body) as Map<String, dynamic>;
+        decodedResponse = json.decode(response.body) as Map<String, dynamic>;
+        if (decodedResponse['geometry'] != null) {
+          return decodedResponse;
+        }
       }
     } catch (e) {
       if (kDebugMode) {
-        print('Error optimizing route: $e');
+        print('Error optimizing route from backend: $e. Attempting direct OSRM fallback...');
       }
     }
-    return null;
+
+    // Client-side Fallback: Query public OSRM directly for road geometry
+    try {
+      final List<String> coordStrings = [];
+      if (startLng != null && startLat != null) {
+        coordStrings.add('$startLng,$startLat');
+      }
+
+      // Use optimized order if backend returned it, otherwise use input order
+      final List<dynamic> pathDests = (decodedResponse != null && decodedResponse['optimized_route'] != null)
+          ? decodedResponse['optimized_route']
+          : destinations;
+
+      for (var d in pathDests) {
+        final double? lat = (d['lat'] as num?)?.toDouble() ?? (d['latitude'] as num?)?.toDouble();
+        final double? lng = (d['lng'] as num?)?.toDouble() ?? (d['longitude'] as num?)?.toDouble();
+        if (lat != null && lng != null) {
+          coordStrings.add('$lng,$lat');
+        }
+      }
+
+      if (coordStrings.length >= 2) {
+        final coordsQuery = coordStrings.join(';');
+        final fallbackUrl = 'http://router.project-osrm.org/route/v1/driving/$coordsQuery?overview=full&geometries=geojson';
+        
+        final fallbackRes = await http
+            .get(Uri.parse(fallbackUrl))
+            .timeout(const Duration(seconds: 10));
+
+        if (fallbackRes.statusCode == 200) {
+          final decodedFallback = json.decode(fallbackRes.body);
+          if (decodedFallback['code'] == 'Ok' && 
+              decodedFallback['routes'] != null && 
+              decodedFallback['routes'].isNotEmpty) {
+            final routeData = decodedFallback['routes'][0];
+            
+            final Map<String, dynamic> result = decodedResponse ?? {
+              'optimized_route': destinations,
+              'total_distance_km': double.parse((routeData['distance'] / 1000).toStringAsFixed(2)),
+            };
+            result['geometry'] = routeData['geometry'];
+            return result;
+          }
+        }
+      }
+    } catch (fallbackError) {
+      if (kDebugMode) {
+        print('Client-side OSRM fallback failed: $fallbackError');
+      }
+    }
+
+    return decodedResponse;
   }
 
   // Delete trip from backend
@@ -575,5 +630,71 @@ class ApiService {
       }
     }
     return false;
+  }
+
+  // Fetch nearby destinations from PostgreSQL database
+  Future<List<Destination>> fetchNearbyDestinations(
+    int destinationId, {
+    double radiusKm = 15.0,
+    int limit = 5,
+    bool sameCategory = false,
+  }) async {
+    try {
+      final uri = Uri.parse(
+        '$baseUrl/destinations/$destinationId/nearby',
+      ).replace(queryParameters: {
+        'radius_km': radiusKm.toString(),
+        'limit': limit.toString(),
+        'same_category': sameCategory.toString(),
+      });
+
+      final response = await http.get(uri).timeout(const Duration(seconds: 15));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        return data.map((json) => Destination.fromJson(json)).toList();
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching nearby destinations from backend: $e');
+      }
+    }
+
+    // Local Fallback: search in local davaoDestinations by checking categories and coordinate distance
+    try {
+      final origin = Destination.davaoDestinations.firstWhere(
+        (d) => d.id == destinationId,
+        orElse: () => Destination.davaoDestinations.first,
+      );
+
+      final List<Destination> localList = List<Destination>.from(Destination.davaoDestinations)
+        ..removeWhere((d) => d.id == destinationId);
+
+      // Simple Euclidean distance squared for sorting
+      double getSquaredDistance(Destination a, Destination b) {
+        final double dx = a.longitude - b.longitude;
+        final double dy = a.latitude - b.latitude;
+        return dx * dx + dy * dy;
+      }
+
+      localList.sort((a, b) => getSquaredDistance(a, origin).compareTo(getSquaredDistance(b, origin)));
+
+      if (sameCategory) {
+        final keywords = origin.category.toLowerCase().replaceAll('/', ',').split(',').map((s) => s.trim()).toList();
+        final matched = localList.where((d) {
+          return keywords.any((kw) => d.category.toLowerCase().contains(kw));
+        }).toList();
+        if (matched.isNotEmpty) {
+          return matched.take(limit).toList();
+        }
+      }
+
+      return localList.take(limit).toList();
+    } catch (e) {
+      if (kDebugMode) {
+        print('Local fallback calculation failed: $e');
+      }
+    }
+    return [];
   }
 }

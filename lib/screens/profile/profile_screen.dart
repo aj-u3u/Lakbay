@@ -619,7 +619,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ...faqs.map((faq) => Card(
                         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
                         elevation: 0,
-                        color: AppTheme.primaryBlue.withOpacity(0.04),
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.04),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                         child: ExpansionTile(
                           title: Text(faq['q']!, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: AppTheme.primaryBlue)),
@@ -660,7 +660,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           hintText: 'Enter your inquiry here... Our support team replies within 24 hours!',
                           hintStyle: TextStyle(
                             fontSize: 12,
-                            color: isDark ? AppTheme.textSecondaryDark.withOpacity(0.7) : AppTheme.textSecondaryLight.withOpacity(0.7),
+                            color: isDark ? AppTheme.textSecondaryDark.withValues(alpha: 0.7) : AppTheme.textSecondaryLight.withValues(alpha: 0.7),
                           ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
@@ -753,7 +753,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryBlue.withOpacity(0.1),
+                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
                   child: const Icon(Icons.flight_takeoff_rounded, color: AppTheme.primaryBlue, size: 40),
@@ -1220,3 +1220,4 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(width: 1, height: 36, color: Colors.white24);
   }
 }
+

@@ -32,7 +32,7 @@ class MainNavigation extends StatelessWidget {
             decoration: BoxDecoration(
               boxShadow: [
                 BoxShadow(
-                  color: AppTheme.primaryBlue.withOpacity(0.08),
+                  color: AppTheme.primaryBlue.withValues(alpha: 0.08),
                   blurRadius: 20,
                   offset: const Offset(0, -5),
                 ),
@@ -75,3 +75,4 @@ class MainNavigation extends StatelessWidget {
     );
   }
 }
+

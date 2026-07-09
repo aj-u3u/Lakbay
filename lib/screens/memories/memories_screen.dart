@@ -255,7 +255,7 @@ class MemoriesScreen extends StatelessWidget {
                       'Your travel album is empty.',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withOpacity(0.55),
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
@@ -481,3 +481,4 @@ class MemoriesScreen extends StatelessWidget {
     );
   }
 }
+

@@ -24,7 +24,7 @@ class AppConstants {
   // Shadows
   static List<BoxShadow> get premiumShadow => [
         BoxShadow(
-          color: const Color(0xFF0A2540).withOpacity(0.06),
+          color: const Color(0xFF0A2540).withValues(alpha: 0.06),
           blurRadius: 16.0,
           offset: const Offset(0, 8),
         ),
@@ -32,7 +32,7 @@ class AppConstants {
 
   static List<BoxShadow> get cardShadow => [
         BoxShadow(
-          color: const Color(0xFF0F2942).withOpacity(0.08),
+          color: const Color(0xFF0F2942).withValues(alpha: 0.08),
           blurRadius: 12.0,
           offset: const Offset(0, 4),
         ),
@@ -42,3 +42,4 @@ class AppConstants {
   static const Duration animDurationFast = Duration(milliseconds: 200);
   static const Duration animDurationMedium = Duration(milliseconds: 400);
 }
+
