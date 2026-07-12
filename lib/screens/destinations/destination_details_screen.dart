@@ -2001,7 +2001,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                 time: '10:00 AM',
                                 title: 'Visit ${dest.name}',
                                 description:
-                                    'Explore and experience the beauty of ${dest.name}.',
+                                    'Explore and experience the beauty of ${dest.name}.'
+                                    '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}',
                                 cost: dest.entranceFee,
                                 location: dest.location,
                               );
@@ -2116,7 +2117,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                         time: '10:00 AM',
                         title: 'Visit ${dest.name}',
                         description:
-                            'First stop of our adventure at ${dest.name}!',
+                            'First stop of our adventure at ${dest.name}!'
+                            '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}',
                         cost: dest.entranceFee,
                         location: dest.location,
                       ),

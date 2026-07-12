@@ -35,7 +35,11 @@ class ApiService {
   ApiService._internal();
 
   // Always points to the Render cloud backend.
-  static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
+  // static String baseUrl = 'https://lakbay-finalv2backend.onrender.com';
+  
+  // Local development backend URLs:
+  static String baseUrl = 'http://127.0.0.1:8000'; // For iOS Simulator or Web
+  // static String baseUrl = 'http://10.0.2.2:8000';  // For Android Emulator
 
   String? token;
   String? lastError;
@@ -341,6 +345,59 @@ class ApiService {
     } catch (e) {
       if (kDebugMode) {
         print('Error calling AI chat endpoint: $e');
+      }
+    }
+
+    return null;
+  }
+
+  // AI Itinerary Generation
+  Future<Map<String, dynamic>?> generateAIItinerary({
+    required String destinationName,
+    required int numDays,
+    required double budget,
+    required int numAdults,
+    required int numChildren,
+    required String childAges,
+    required List<String> interests,
+  }) async {
+    try {
+      final headers = {'Content-Type': 'application/json'};
+
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      final body = {
+        'destination_name': destinationName,
+        'num_days': numDays,
+        'budget': budget,
+        'num_adults': numAdults,
+        'num_children': numChildren,
+        'child_ages': childAges,
+        'interests': interests,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/ai/generate-itinerary'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 60));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        if (kDebugMode) {
+          print(
+            'AI itinerary generation failed with status ${response.statusCode}: ${response.body}',
+          );
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error calling AI itinerary generation endpoint: $e');
       }
     }
 

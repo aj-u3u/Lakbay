@@ -1523,7 +1523,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
               : 'Full Day Exploration',
           description: day == 1
               ? 'Pay entrance fee (${dest.entranceFee}) and environmental fee (${extra.environmentalFee}). Collect maps and orient with the surroundings.'
-              : 'Enjoy a beautiful morning exploring the core sights of the destination.',
+                  '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}'
+              : 'Enjoy a beautiful morning exploring the core sights of the destination.'
+                  '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}',
           cost: day == 1 ? dest.entranceFee : 'Free',
           location: loc,
         ),

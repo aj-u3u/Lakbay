@@ -148,232 +148,57 @@ class TripProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Construct prompt matching backend travel search intent
-      final prompt = 'I want to travel to $district for $days days. My vibe is $vibe and my budget is ₱${budget.toStringAsFixed(0)}. Please plan this trip for me.';
-      
-      final responseMap = await _apiService.chatWithAI(prompt);
-      
+      final responseMap = await _apiService.generateAIItinerary(
+        destinationName: district,
+        numDays: days,
+        budget: budget,
+        numAdults: isGroup ? numTravelers : 1,
+        numChildren: 0,
+        childAges: '',
+        interests: [vibe],
+      );
+
       if (responseMap != null) {
-        _latestChatResponse = responseMap['chat_response'];
-        final List<dynamic> results = responseMap['results'] ?? [];
-        _latestRecommendations = results.map((r) => Destination.fromJson(r)).toList();
+        final String title = responseMap['title'] ?? '$vibe Adventure in $district';
+        final String destinationName = responseMap['destination'] ?? '$district, Davao Region';
         
-        final targetDestName = _latestRecommendations.isNotEmpty ? _latestRecommendations.first.name : district;
-        final targetImageUrl = _latestRecommendations.isNotEmpty ? _latestRecommendations.first.imageUrl : 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80';
-        
-        // Build day-to-day agenda dynamically using actual database recommendations!
+        // Find a matching image URL from local destinations list if possible
+        String targetImageUrl = 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80';
+        if (_destinations.isNotEmpty) {
+          try {
+            final match = _destinations.firstWhere(
+              (d) => d.district.toLowerCase().contains(district.toLowerCase()) || 
+                     d.name.toLowerCase().contains(district.toLowerCase()),
+              orElse: () => _destinations.first,
+            );
+            targetImageUrl = match.imageUrl;
+          } catch (_) {}
+        }
+
+        // Reconstruct itinerary map
+        final Map<String, dynamic> itineraryJson = responseMap['itinerary'] ?? {};
         final Map<int, List<TripActivity>> agenda = {};
         
-        double helperParsePrice(String text) {
-          final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
-          return double.tryParse(cleanText) ?? 0.0;
-        }
-
-        String formatCost(String baseCost, {bool isPerPerson = true}) {
-          if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
-            return 'Free';
-          }
-          if (!isGroup) return baseCost;
-          
-          final val = helperParsePrice(baseCost);
-          if (val == 0.0) return baseCost;
-
-          if (isPerPerson) {
-            final total = val * numTravelers;
-            return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
-          } else {
-            // Collective cost (e.g. cottage, taxi, double room split)
-            final split = val / numTravelers;
-            return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
-          }
-        }
-
-        if (_latestRecommendations.isNotEmpty) {
-          for (int day = 1; day <= days; day++) {
-            // Spread the days across recommendations
-            final dest = _latestRecommendations[(day - 1) % _latestRecommendations.length];
-            final extra = dest.extra;
-            final String loc = dest.name;
-            final List<TripActivity> dayPlan = [];
-
-            // Determine calculated budget style based on per-person budget
-            final perPerson = budget / (numTravelers > 0 ? numTravelers : 1);
-            String calculatedStyle = 'Balanced Budget';
-            if (perPerson <= 1500.0) {
-              calculatedStyle = 'Low Budget';
-            } else if (perPerson <= 5000.0) {
-              calculatedStyle = 'Balanced Budget';
-            } else {
-              calculatedStyle = 'High Budget';
-            }
-
-            // 1. Morning Transport (07:00 AM) matched to budget
-            Map<String, String>? transportOpt;
-            if (extra.transportOptions.isNotEmpty) {
-              final transOptions = extra.transportOptions;
-              final sortedTrans = List<Map<String, String>>.from(transOptions)
-                ..sort((a, b) => helperParsePrice(a['price'] ?? '0').compareTo(helperParsePrice(b['price'] ?? '0')));
-              if (calculatedStyle == 'Low Budget') {
-                transportOpt = sortedTrans.first;
-              } else if (calculatedStyle == 'High Budget') {
-                transportOpt = sortedTrans.last;
-              } else {
-                transportOpt = sortedTrans[sortedTrans.length ~/ 2];
-              }
-            }
-            final transPrice = transportOpt != null ? transportOpt['price'] ?? '₱150' : '₱150';
-
-            dayPlan.add(TripActivity(
-              time: '07:00 AM',
-              title: day == 1 ? 'Departure to ${dest.name}' : 'Morning Transit',
-              description: transportOpt != null
-                  ? 'Board ${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}. Est. Duration: ${transportOpt['duration'] ?? '1 hour'}.'
-                  : 'Travel to $loc via local transport.',
-              cost: formatCost(transPrice, isPerPerson: false),
-              location: 'En Route',
-            ));
-
-            // 2. Arrival & Registration (09:00 AM)
-            final envFeeStr = extra.environmentalFee.isNotEmpty ? extra.environmentalFee : '₱30';
-            dayPlan.add(TripActivity(
-              time: '09:00 AM',
-              title: 'Arrival & Registration at $loc',
-              description: '${dest.description} Environmental Fee: $envFeeStr.',
-              cost: formatCost(dest.entranceFee, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 3. Lunch Break (12:30 PM) matched to budget
-            final mealNotes = extra.mealInclusions.isNotEmpty 
-                ? extra.mealInclusions.first 
-                : 'Local food stalls and restaurants available.';
-            final mealPrice = calculatedStyle == 'Low Budget' ? '₱150' : calculatedStyle == 'High Budget' ? '₱600' : '₱300';
-            dayPlan.add(TripActivity(
-              time: '12:30 PM',
-              title: 'Lunch Break',
-              description: mealNotes,
-              cost: formatCost(mealPrice, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 4. Afternoon Activity (02:30 PM) matched to budget
-            final actName = dest.activities.isNotEmpty 
-                ? dest.activities[(day - 1) % dest.activities.length] 
-                : 'Sightseeing';
-            
-            String actPrice = 'Free';
-            if (extra.activityPrices.isNotEmpty) {
-              final prices = extra.activityPrices;
-              final matchingKey = prices.keys.firstWhere(
-                (k) => k.toLowerCase().contains(actName.toLowerCase()) || actName.toLowerCase().contains(k.toLowerCase()),
-                orElse: () => '',
-              );
-              if (matchingKey.isNotEmpty) {
-                actPrice = prices[matchingKey]!;
-              } else {
-                actPrice = calculatedStyle == 'Low Budget' ? 'Free' : calculatedStyle == 'High Budget' ? '₱400' : '₱200';
-              }
-            } else {
-              actPrice = calculatedStyle == 'Low Budget' ? 'Free' : calculatedStyle == 'High Budget' ? '₱400' : '₱200';
-            }
-
-            final noteStr = extra.travelNotes.isNotEmpty 
-                ? extra.travelNotes.first 
-                : 'Enjoy the majestic sights and take photos.';
-            dayPlan.add(TripActivity(
-              time: '02:30 PM',
-              title: actName,
-              description: 'Vibe: $vibe. $noteStr',
-              cost: formatCost(actPrice, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 5. Evening dinner / stay (06:00 PM) matched to budget
-            if (days > 1 && day < days) {
-              Map<String, String>? accomm;
-              if (extra.accommodationTypes.isNotEmpty) {
-                final accommTypes = extra.accommodationTypes;
-                if (calculatedStyle == 'Low Budget') {
-                  accomm = accommTypes.first;
-                } else if (calculatedStyle == 'High Budget') {
-                  accomm = accommTypes.last;
-                } else {
-                  accomm = accommTypes[accommTypes.length ~/ 2];
-                }
-              }
-              final accommName = accomm != null ? accomm['type'] ?? 'Standard Room' : 'Standard Room';
-              final accommPrice = accomm != null ? accomm['price'] ?? '₱1,200' : '₱1,200';
-              dayPlan.add(TripActivity(
-                time: '06:00 PM',
-                title: 'Check-in at $accommName',
-                description: 'Stay overnight near $loc. Get dinner and relax.',
-                cost: formatCost(accommPrice, isPerPerson: false),
-                location: loc,
-              ));
-            } else {
-              dayPlan.add(TripActivity(
-                time: '06:00 PM',
-                title: 'Evening Return',
-                description: 'Wrap up the journey. Travel back to city center.',
-                cost: 'Free',
-                location: 'Davao City',
-              ));
-            }
-
-            agenda[day] = dayPlan;
-          }
-        } else {
-          // Fallback if no database matches (e.g. for general areas)
-          for (int day = 1; day <= days; day++) {
-            agenda[day] = [
-              TripActivity(
-                time: '08:30 AM',
-                title: 'Explore $targetDestName',
-                description: 'Start with scenic morning trails and cultural guidance.',
-                cost: formatCost('₱150', isPerPerson: true),
-                location: targetDestName,
-              ),
-              TripActivity(
-                time: '12:30 PM',
-                title: 'Local Lunch Feast',
-                description: 'Try the fresh seafood grills and fruit varieties.',
-                cost: formatCost('₱250', isPerPerson: true),
-                location: 'Nearby Diner',
-              ),
-              TripActivity(
-                time: '03:00 PM',
-                title: 'Afternoon $vibe Spot',
-                description: 'Custom sightseeing matching your requested $vibe preference.',
-                cost: formatCost('₱150', isPerPerson: true),
-                location: targetDestName,
-              ),
-              TripActivity(
-                time: '07:00 PM',
-                title: 'Dinner & Relaxation',
-                description: 'Relax and unwind at local food districts and night spots.',
-                cost: formatCost('₱350', isPerPerson: true),
-                location: 'Food Street',
-              ),
-            ];
-          }
-        }
-
-
-        // Derive calculatedStyle again for the title
-        final perPerson = budget / (numTravelers > 0 ? numTravelers : 1);
-        String calculatedStyle = 'Balanced Budget';
-        if (perPerson <= 1500.0) {
-          calculatedStyle = 'Low Budget';
-        } else if (perPerson <= 5000.0) {
-          calculatedStyle = 'Balanced Budget';
-        } else {
-          calculatedStyle = 'High Budget';
-        }
+        itineraryJson.forEach((dayStr, list) {
+          final day = int.tryParse(dayStr) ?? 1;
+          final List<dynamic> actList = list;
+          agenda[day] = actList
+              .map(
+                (act) => TripActivity(
+                  time: act['time'] ?? '',
+                  title: act['title'] ?? '',
+                  description: act['description'] ?? '',
+                  cost: act['cost'] ?? 'Free',
+                  location: act['location'] ?? '',
+                ),
+              )
+              .toList();
+        });
 
         _latestGeneratedTrip = Trip(
           id: 'ai-trip-${DateTime.now().millisecondsSinceEpoch}',
-          title: '$calculatedStyle $vibe Adventure in $district',
-          destinationName: '$district, Davao Region',
+          title: title,
+          destinationName: destinationName,
           dateRange: 'Flexible Dates (AI Generated)',
           budget: budget,
           imageUrl: targetImageUrl,
@@ -440,179 +265,67 @@ class TripProvider extends ChangeNotifier {
           final bool isGroup = prefs['group_size'] != null && (prefs['group_size'] as num) > 1;
           final int numTravelers = (prefs['group_size'] as num?)?.toInt() ?? 1;
 
-          final targetDestName = _latestRecommendations.first.name;
-          final targetImageUrl = _latestRecommendations.first.imageUrl;
-          
-          final Map<int, List<TripActivity>> agenda = {};
-          
-          double helperParsePrice(String text) {
-            final cleanText = text.replaceAll(RegExp(r'[^\d]'), '');
-            return double.tryParse(cleanText) ?? 0.0;
-          }
-
-          String formatCost(String baseCost, {bool isPerPerson = true}) {
-            if (baseCost.toLowerCase().contains('free') || baseCost.toLowerCase().contains('included') || baseCost == '0') {
-              return 'Free';
-            }
-            if (!isGroup) return baseCost;
-            
-            final val = helperParsePrice(baseCost);
-            if (val == 0.0) return baseCost;
-
-            if (isPerPerson) {
-              final total = val * numTravelers;
-              return '₱${val.toStringAsFixed(0)} / pax (Total ₱${total.toStringAsFixed(0)})';
-            } else {
-              final split = val / numTravelers;
-              return '₱${split.toStringAsFixed(0)} / pax (Total ₱${val.toStringAsFixed(0)})';
-            }
-          }
-
-          // Determine calculated budget style based on per-person budget
-          final perPerson = budget / (numTravelers > 0 ? numTravelers : 1);
-          String calculatedStyle = 'Balanced Budget';
-          if (perPerson <= 1500.0) {
-            calculatedStyle = 'Low Budget';
-          } else if (perPerson <= 5000.0) {
-            calculatedStyle = 'Balanced Budget';
-          } else {
-            calculatedStyle = 'High Budget';
-          }
-
-          for (int day = 1; day <= days; day++) {
-            final dest = _latestRecommendations[(day - 1) % _latestRecommendations.length];
-            final extra = dest.extra;
-            final String loc = dest.name;
-            final List<TripActivity> dayPlan = [];
-
-            // 1. Morning Transport matched to budget
-            Map<String, String>? transportOpt;
-            if (extra.transportOptions.isNotEmpty) {
-              final transOptions = extra.transportOptions;
-              final sortedTrans = List<Map<String, String>>.from(transOptions)
-                ..sort((a, b) => helperParsePrice(a['price'] ?? '0').compareTo(helperParsePrice(b['price'] ?? '0')));
-              if (calculatedStyle == 'Low Budget') {
-                transportOpt = sortedTrans.first;
-              } else if (calculatedStyle == 'High Budget') {
-                transportOpt = sortedTrans.last;
-              } else {
-                transportOpt = sortedTrans[sortedTrans.length ~/ 2];
-              }
-            }
-            final transPrice = transportOpt != null ? transportOpt['price'] ?? '₱150' : '₱150';
-
-            dayPlan.add(TripActivity(
-              time: '07:00 AM',
-              title: day == 1 ? 'Departure to ${dest.name}' : 'Morning Transit',
-              description: transportOpt != null
-                  ? 'Board ${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}. Est. Duration: ${transportOpt['duration'] ?? '1 hour'}.'
-                  : 'Travel to $loc via local transport.',
-              cost: formatCost(transPrice, isPerPerson: false),
-              location: 'En Route',
-            ));
-
-            // 2. Arrival & Registration
-            final envFeeStr = extra.environmentalFee.isNotEmpty ? extra.environmentalFee : '₱30';
-            dayPlan.add(TripActivity(
-              time: '09:00 AM',
-              title: 'Arrival & Registration at $loc',
-              description: '${dest.description} Environmental Fee: $envFeeStr.',
-              cost: formatCost(dest.entranceFee, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 3. Lunch Break matched to budget
-            final mealNotes = extra.mealInclusions.isNotEmpty 
-                ? extra.mealInclusions.first 
-                : 'Local food stalls and restaurants available.';
-            final mealPrice = calculatedStyle == 'Low Budget' ? '₱150' : calculatedStyle == 'High Budget' ? '₱600' : '₱300';
-            dayPlan.add(TripActivity(
-              time: '12:30 PM',
-              title: 'Lunch Break',
-              description: mealNotes,
-              cost: formatCost(mealPrice, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 4. Afternoon Activity matched to budget
-            final actName = dest.activities.isNotEmpty 
-                ? dest.activities[(day - 1) % dest.activities.length] 
-                : 'Sightseeing';
-            
-            String actPrice = 'Free';
-            if (extra.activityPrices.isNotEmpty) {
-              final prices = extra.activityPrices;
-              final matchingKey = prices.keys.firstWhere(
-                (k) => k.toLowerCase().contains(actName.toLowerCase()) || actName.toLowerCase().contains(k.toLowerCase()),
-                orElse: () => '',
-              );
-              if (matchingKey.isNotEmpty) {
-                actPrice = prices[matchingKey]!;
-              } else {
-                actPrice = calculatedStyle == 'Low Budget' ? 'Free' : calculatedStyle == 'High Budget' ? '₱400' : '₱200';
-              }
-            } else {
-              actPrice = calculatedStyle == 'Low Budget' ? 'Free' : calculatedStyle == 'High Budget' ? '₱400' : '₱200';
-            }
-
-            final noteStr = extra.travelNotes.isNotEmpty 
-                ? extra.travelNotes.first 
-                : 'Enjoy the majestic sights and take photos.';
-            dayPlan.add(TripActivity(
-              time: '02:30 PM',
-              title: actName,
-              description: 'Vibe: $vibe. $noteStr',
-              cost: formatCost(actPrice, isPerPerson: true),
-              location: loc,
-            ));
-
-            // 5. Evening stay matched to budget
-            if (days > 1 && day < days) {
-              Map<String, String>? accomm;
-              if (extra.accommodationTypes.isNotEmpty) {
-                final accommTypes = extra.accommodationTypes;
-                if (calculatedStyle == 'Low Budget') {
-                  accomm = accommTypes.first;
-                } else if (calculatedStyle == 'High Budget') {
-                  accomm = accommTypes.last;
-                } else {
-                  accomm = accommTypes[accommTypes.length ~/ 2];
-                }
-              }
-              final accommName = accomm != null ? accomm['type'] ?? 'Standard Room' : 'Standard Room';
-              final accommPrice = accomm != null ? accomm['price'] ?? '₱1,200' : '₱1,200';
-              dayPlan.add(TripActivity(
-                time: '06:00 PM',
-                title: 'Check-in at $accommName',
-                description: 'Stay overnight near $loc. Get dinner and relax.',
-                cost: formatCost(accommPrice, isPerPerson: false),
-                location: loc,
-              ));
-            } else {
-              dayPlan.add(TripActivity(
-                time: '06:00 PM',
-                title: 'Evening Return',
-                description: 'Wrap up the journey. Travel back.',
-                cost: 'Free',
-                location: 'Davao Region',
-              ));
-            }
-
-            agenda[day] = dayPlan;
-          }
-
-          _latestGeneratedTrip = Trip(
-            id: 'ai-trip-${DateTime.now().millisecondsSinceEpoch}',
-            title: '$calculatedStyle $vibe Adventure in $district',
-            destinationName: '$district, Davao Region',
-            dateRange: 'Flexible Dates (AI Generated)',
+          final itineraryMap = await _apiService.generateAIItinerary(
+            destinationName: district,
+            numDays: days,
             budget: budget,
-            imageUrl: targetImageUrl,
-            itinerary: agenda,
-            isGroup: isGroup,
-            numTravelers: numTravelers,
-            members: isGroup ? Trip.seedMembers(numTravelers) : const [],
+            numAdults: isGroup ? numTravelers : 1,
+            numChildren: 0,
+            childAges: '',
+            interests: [vibe],
           );
+
+          if (itineraryMap != null) {
+            final String title = itineraryMap['title'] ?? '$vibe Adventure in $district';
+            final String destinationName = itineraryMap['destination'] ?? '$district, Davao Region';
+            
+            // Reconstruct itinerary map
+            final Map<String, dynamic> itineraryJson = itineraryMap['itinerary'] ?? {};
+            final Map<int, List<TripActivity>> agenda = {};
+            
+            itineraryJson.forEach((dayStr, list) {
+              final day = int.tryParse(dayStr) ?? 1;
+              final List<dynamic> actList = list;
+              agenda[day] = actList
+                  .map(
+                    (act) => TripActivity(
+                      time: act['time'] ?? '',
+                      title: act['title'] ?? '',
+                      description: act['description'] ?? '',
+                      cost: act['cost'] ?? 'Free',
+                      location: act['location'] ?? '',
+                    ),
+                  )
+                  .toList();
+            });
+
+            String targetImageUrl = 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80';
+            if (_destinations.isNotEmpty) {
+              try {
+                final match = _destinations.firstWhere(
+                  (d) => d.district.toLowerCase().contains(district.toLowerCase()) || 
+                         d.name.toLowerCase().contains(district.toLowerCase()),
+                  orElse: () => _destinations.first,
+                );
+                targetImageUrl = match.imageUrl;
+              } catch (_) {}
+            }
+
+            _latestGeneratedTrip = Trip(
+              id: 'ai-trip-${DateTime.now().millisecondsSinceEpoch}',
+              title: title,
+              destinationName: destinationName,
+              dateRange: 'Flexible Dates (AI Generated)',
+              budget: budget,
+              imageUrl: targetImageUrl,
+              itinerary: agenda,
+              isGroup: isGroup,
+              numTravelers: numTravelers,
+              members: isGroup ? Trip.seedMembers(numTravelers) : const [],
+            );
+          } else {
+            _latestGeneratedTrip = null;
+          }
         } else {
           _latestGeneratedTrip = null;
         }
