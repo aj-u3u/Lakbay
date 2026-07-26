@@ -41,5 +41,8 @@ class AppConstants {
   // Duration Constants
   static const Duration animDurationFast = Duration(milliseconds: 200);
   static const Duration animDurationMedium = Duration(milliseconds: 400);
+
+  // Mapbox Configuration
+  static const String mapboxAccessToken = 'YOUR_MAPBOX_ACCESS_TOKEN';
 }
 

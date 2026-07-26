@@ -967,7 +967,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      urlTemplate: AppConstants.mapboxAccessToken.isEmpty ||
+                              AppConstants.mapboxAccessToken == 'YOUR_MAPBOX_ACCESS_TOKEN'
+                          ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                          : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                       userAgentPackageName: 'com.lakbay.plus',
                     ),
                     PolylineLayer(

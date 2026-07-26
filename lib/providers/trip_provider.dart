@@ -4,6 +4,7 @@ import '../models/grouped_destinations.dart';
 import '../models/trip.dart';
 import '../models/app_notification.dart';
 import '../models/planner_draft.dart';
+import '../models/session_preferences.dart';
 import '../services/api_service.dart';
 
 class TripProvider extends ChangeNotifier {
@@ -19,6 +20,14 @@ class TripProvider extends ChangeNotifier {
   // TODO: persist bookmarks to Neon DB (bookmarks table)
   final List<int> _bookmarkedDestinationIds = [];
 
+  // Session Preferences for AI Conversation Context
+  final SessionPreferences _sessionPreferences = SessionPreferences();
+  SessionPreferences get sessionPreferences => _sessionPreferences;
+
+  void resetSessionPreferences() {
+    _sessionPreferences.reset();
+    notifyListeners();
+  }
 
   // Active planning draft state
   PlannerDraft? _activeDraft;
@@ -221,7 +230,10 @@ class TripProvider extends ChangeNotifier {
   }
 
   // Free-form conversation with AI Chatbot
-  Future<bool> sendFreeFormChat(String text) async {
+  Future<bool> sendFreeFormChat(
+    String text, {
+    List<Map<String, String>>? history,
+  }) async {
     _isLoading = true;
     _errorMessage = null;
     _latestChatResponse = null;
@@ -249,11 +261,19 @@ class TripProvider extends ChangeNotifier {
             'User follow-up message / request: $text';
       }
 
-      final responseMap = await _apiService.chatWithAI(enrichedPrompt);
+      final responseMap = await _apiService.chatWithAI(
+        enrichedPrompt,
+        history: history,
+      );
       if (responseMap != null) {
         _latestChatResponse = responseMap['chat_response'];
         final List<dynamic> results = responseMap['results'] ?? [];
         _latestRecommendations = results.map((r) => Destination.fromJson(r)).toList();
+
+        final prefs = responseMap['parsed_preferences'] ?? {};
+        if (prefs is Map<String, dynamic> && prefs.isNotEmpty) {
+          _sessionPreferences.updateFromMap(prefs);
+        }
 
         final mode = responseMap['mode'] as String?;
         if (mode == 'travel' && _latestRecommendations.isNotEmpty) {

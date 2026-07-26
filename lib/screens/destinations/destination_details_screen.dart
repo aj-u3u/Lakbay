@@ -151,7 +151,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
       final permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.whileInUse ||
           permission == LocationPermission.always) {
-        _requestLocationAndRoute();
+        _requestLocationAndRoute(fitMapCamera: false);
       }
     } catch (_) {}
   }
@@ -306,7 +306,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     return unified.entries.toList();
   }
 
-  Future<void> _requestLocationAndRoute() async {
+  Future<void> _requestLocationAndRoute({bool fitMapCamera = true}) async {
     setState(() {
       _loadingLocation = true;
       _locationError = null;
@@ -405,14 +405,16 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         _loadingLocation = false;
       });
 
-      // Fit map bounds to show both user location and destination
-      final bounds = LatLngBounds.fromPoints([
-        LatLng(position.latitude, position.longitude),
-        LatLng(dest.latitude, dest.longitude),
-      ]);
-      _mapController.fitCamera(
-        CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
-      );
+      if (fitMapCamera) {
+        // Fit map bounds to show both user location and destination
+        final bounds = LatLngBounds.fromPoints([
+          LatLng(position.latitude, position.longitude),
+          LatLng(dest.latitude, dest.longitude),
+        ]);
+        _mapController.fitCamera(
+          CameraFit.bounds(bounds: bounds, padding: const EdgeInsets.all(50)),
+        );
+      }
 
       // Start continuous location tracking
       _startLocationTracking();
@@ -1179,12 +1181,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                     dest.latitude,
                                     dest.longitude,
                                   ),
-                                  initialZoom: 13.0,
+                                  initialZoom: 16.5,
                                 ),
                                 children: [
                                   TileLayer(
-                                    urlTemplate:
-                                        'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                    urlTemplate: AppConstants.mapboxAccessToken.isEmpty ||
+                                            AppConstants.mapboxAccessToken == 'YOUR_MAPBOX_ACCESS_TOKEN'
+                                        ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                                        : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                                     userAgentPackageName: 'com.lakbay.plus',
                                   ),
                                   if (_userPosition != null)
@@ -1398,7 +1402,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                       ),
                                     )
                                   : TextButton.icon(
-                                      onPressed: _requestLocationAndRoute,
+                                      onPressed: () => _requestLocationAndRoute(fitMapCamera: true),
                                       icon: Icon(
                                         _userPosition == null
                                             ? Icons.directions_rounded

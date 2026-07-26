@@ -118,17 +118,50 @@ class _PlannerScreenState extends State<PlannerScreen> {
   void _initializeChat() {
     final provider = context.read<TripProvider>();
     final dest = provider.activePlanDestination;
+    final session = provider.sessionPreferences;
+
+    // Pre-populate shared preferences from session context
+    if (session.budget != null) {
+      _selectedBudget = session.budget!;
+      _extractedBudget = true;
+    }
+    if (session.numTravelers != null) {
+      _numTravelers = session.numTravelers!;
+      _selectedTravelType = _numTravelers > 1 ? 'Group' : 'Solo';
+      _extractedTravelType = true;
+    }
+    if (session.numDays != null) {
+      _selectedDays = session.numDays!;
+      _extractedDays = true;
+    }
+    if (session.vibe != null && session.vibe!.isNotEmpty) {
+      _selectedVibe = session.vibe!;
+    }
+    if (session.selectedDate != null && session.selectedDate!.isNotEmpty) {
+      _selectedDate = session.selectedDate!;
+    }
 
     if (dest != null) {
       _activeDest = dest;
       _isDestinationMode = true;
       _currentStep = 10;
+
+      final List<String> remembered = [];
+      if (_extractedDays) remembered.add("Duration: $_selectedDays day${_selectedDays > 1 ? 's' : ''}");
+      if (_extractedTravelType) remembered.add("Travelers: $_numTravelers (${_numTravelers > 1 ? 'Group' : 'Solo'})");
+      if (_extractedBudget) remembered.add("Budget: ₱${_selectedBudget.toStringAsFixed(0)}");
+
+      String welcomeText = "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.";
+      if (remembered.isNotEmpty) {
+        welcomeText += "\n\nI remembered your preferences from our conversation:\n• ${remembered.join('\n• ')}";
+      }
+      welcomeText += "\n\nFirst, when do you plan to travel?";
+
       setState(() {
         _messages.clear();
         _messages.add(
           _ChatMessage(
-            text:
-                "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.\n\nFirst, when are you planning to travel?",
+            text: welcomeText,
             isUser: false,
             timestamp: DateTime.now(),
           ),
@@ -284,7 +317,16 @@ class _PlannerScreenState extends State<PlannerScreen> {
       if (isFreeForm) {
         _extractPrefsFromPrompt(text);
         final provider = context.read<TripProvider>();
-        final success = await provider.sendFreeFormChat(text);
+
+        final historyPayload = _messages
+            .where((m) => m.text.isNotEmpty)
+            .map((m) => {
+                  'role': m.isUser ? 'user' : 'assistant',
+                  'content': m.text,
+                })
+            .toList();
+
+        final success = await provider.sendFreeFormChat(text, history: historyPayload);
 
         if (!mounted) return;
         setState(() {
@@ -335,15 +377,44 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
     switch (_currentStep) {
       case 0:
-        _selectedDistrict = text;
+        final matchedDistrict = _tryParseDistrict(text);
+        if (matchedDistrict == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't recognize a destination. Please choose a location in the Davao Region, such as 'Davao City', 'Samal Island', or 'Mati'.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+        _selectedDistrict = matchedDistrict;
         _currentStep = 1;
         aiResponse =
             "Great choice! $_selectedDistrict is beautiful. 🗺️\n\nHow many days are you planning to stay?";
         break;
       case 1:
-        final parsed =
-            int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 3;
+        final parsed = _tryParseDuration(text);
+        if (parsed == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't determine the duration of your stay. Please specify the number of days (e.g., 2, 3, or 5 days).",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
         _selectedDays = parsed;
+        _extractedDays = true;
         _currentStep = 2;
         aiResponse =
             "Got it! A $_selectedDays-day trip to $_selectedDistrict. 🌟\n\nWho will you be traveling with? Solo or with a Group?";
@@ -354,31 +425,92 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _currentStep = 3;
           aiResponse =
               "Awesome, a group trip! 👥 How many travelers will be joining?";
-        } else {
+        } else if (text.toLowerCase().contains('solo') || text.toLowerCase().contains('myself') || text.toLowerCase().contains('alone')) {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
+          _extractedTravelType = true;
           _currentStep = 5;
           aiResponse =
               "A solo adventure! 🎒 What is your estimated budget for this adventure?";
+        } else {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't determine your travel type. Please specify whether you are traveling Solo or with a Group.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
         }
         break;
       case 3:
-        final count = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 2;
+        final count = _tryParseTravelerCount(text);
+        if (count == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't determine the number of travelers. Please enter a number, such as 2, 4, or 6.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
         _numTravelers = count;
+        _extractedTravelType = true;
         _currentStep = 5;
         aiResponse =
             "Got it, $_numTravelers travelers! 👥 What is your estimated budget for this adventure?";
         break;
       case 5:
-        final clean =
-            double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
-        _selectedBudget = clean;
+        final clean = _tryParseBudget(text);
+        final hasCat = _containsBudgetCategoryKeyword(text);
+        if (clean == null && !hasCat) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't recognize your budget amount. Please enter a monetary amount (e.g., 5000, 10000) or budget tier (Low, Balanced, High).",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+        if (clean != null) {
+          _selectedBudget = clean;
+        }
+        _extractedBudget = true;
         _currentStep = 4;
         aiResponse =
             "Got it! A budget of ₱${_selectedBudget.toStringAsFixed(0)} is set. 💰\n\nWhat kind of travel vibe or theme do you prefer?";
         break;
       case 4:
-        _selectedVibe = text;
+        final matchedVibe = _tryParseVibe(text);
+        if (matchedVibe == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text: "I couldn't recognize a travel vibe. Please choose a theme such as 'Beach', 'Nature', 'Adventure', or 'Relaxing'.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+        _selectedVibe = matchedVibe;
         _currentStep = 6;
         aiResponse =
             "Wonderful! I am now generating your custom $_selectedVibe itinerary in $_selectedDistrict "
@@ -477,6 +609,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
     );
   }
 
+  DateTime _parseSmartDate(String input) =>
+      _tryParseSmartDate(input) ?? DateTime.now();
+
   bool _isPastDate(String input) {
     final text = input.toLowerCase().trim();
     if (text.contains('yesterday') ||
@@ -487,7 +622,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
       return true;
     }
 
-    final parsed = _parseSmartDate(input);
+    final parsed = _tryParseSmartDate(input);
+    if (parsed == null) return false;
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
     if (parsed.isBefore(todayMidnight)) {
@@ -497,9 +633,33 @@ class _PlannerScreenState extends State<PlannerScreen> {
     return false;
   }
 
-  DateTime _parseSmartDate(String input) {
+  DateTime? _tryParseSmartDate(String input) {
     final text = input.trim();
+    final textLower = text.toLowerCase();
     final today = DateTime.now();
+
+    if (textLower == 'today') {
+      return today;
+    } else if (textLower == 'tomorrow') {
+      return today.add(const Duration(days: 1));
+    } else if (textLower == 'this weekend') {
+      final daysUntilSat = (6 - today.weekday) % 7;
+      return today.add(Duration(days: daysUntilSat == 0 ? 7 : daysUntilSat));
+    } else if (textLower == 'next weekend') {
+      final daysUntilSat = (6 - today.weekday) % 7;
+      return today.add(Duration(days: daysUntilSat + 7));
+    } else if (textLower == 'next month') {
+      return DateTime(today.year, today.month + 1, 1);
+    }
+
+    // Relative "in X days" pattern
+    final inDaysMatch = RegExp(r'\bin\s+(\d+)\s*days?\b', caseSensitive: false).firstMatch(textLower);
+    if (inDaysMatch != null) {
+      final days = int.tryParse(inDaysMatch.group(1) ?? '');
+      if (days != null && days > 0) {
+        return today.add(Duration(days: days));
+      }
+    }
 
     // Check if input is a pure number (e.g. "2" or "15" or "31")
     final pureDayReg = RegExp(r'^(\d{1,2})$');
@@ -522,17 +682,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
           return candidate;
         } catch (_) {}
       }
-    }
-
-    final textLower = text.toLowerCase();
-    if (textLower == 'this weekend') {
-      final daysUntilSat = (6 - today.weekday) % 7;
-      return today.add(Duration(days: daysUntilSat == 0 ? 7 : daysUntilSat));
-    } else if (textLower == 'next weekend') {
-      final daysUntilSat = (6 - today.weekday) % 7;
-      return today.add(Duration(days: daysUntilSat + 7));
-    } else if (textLower == 'next month') {
-      return DateTime(today.year, today.month + 1, 1);
     }
 
     final parsed = DateTime.tryParse(text);
@@ -574,7 +723,121 @@ class _PlannerScreenState extends State<PlannerScreen> {
       return candidate;
     }
 
-    return today;
+    return null; // Return null if no valid date pattern matched!
+  }
+
+  int? _tryParseDuration(String input) {
+    final textLower = input.toLowerCase().trim();
+    if (textLower == 'weekend' || textLower == 'a weekend' || textLower == 'this weekend') {
+      return 2;
+    }
+    if (textLower == 'a week' || textLower == '1 week' || textLower == 'one week') {
+      return 7;
+    }
+    final daysMatch = RegExp(r'\b(\d+)\s*(?:day|days)\b').firstMatch(textLower);
+    if (daysMatch != null) {
+      final d = int.tryParse(daysMatch.group(1) ?? '');
+      if (d != null && d > 0 && d <= 30) return d;
+    }
+    final pureNumMatch = RegExp(r'^\s*(\d{1,2})\s*$').firstMatch(textLower);
+    if (pureNumMatch != null) {
+      final d = int.tryParse(pureNumMatch.group(1) ?? '');
+      if (d != null && d > 0 && d <= 30) return d;
+    }
+    return null;
+  }
+
+  int? _tryParseTravelerCount(String input) {
+    final textLower = input.toLowerCase().trim();
+    if (textLower.contains('solo') || textLower.contains('myself') || textLower.contains('alone') || textLower == '1') {
+      return 1;
+    }
+    if (textLower.contains('couple') || textLower.contains('two of us') || textLower.contains('both of us')) {
+      return 2;
+    }
+    final groupMatch = RegExp(
+      r'\b(?:group of|we are|family of|splitting with|split between)\s*(\d+)\b|\b(\d+)\s*(?:pax|people|persons|members|friends|head|guests|travelers|of us)\b',
+    ).firstMatch(textLower);
+    if (groupMatch != null) {
+      final countStr = groupMatch.group(1) ?? groupMatch.group(2);
+      final count = int.tryParse(countStr ?? '');
+      if (count != null && count > 0 && count <= 100) return count;
+    }
+    final pureNumMatch = RegExp(r'^\s*(\d{1,2})\s*$').firstMatch(textLower);
+    if (pureNumMatch != null) {
+      final count = int.tryParse(pureNumMatch.group(1) ?? '');
+      if (count != null && count > 0 && count <= 100) return count;
+    }
+    return null;
+  }
+
+  double? _tryParseBudget(String input) {
+    final textLower = input.toLowerCase().trim();
+    final budgetMatch = RegExp(r'\b(\d+[\d,]*)\s*(k)?\b').firstMatch(textLower);
+    if (budgetMatch != null) {
+      var valStr = budgetMatch.group(1)!.replaceAll(',', '');
+      var val = double.tryParse(valStr);
+      if (val != null) {
+        if (budgetMatch.group(2) == 'k') {
+          val *= 1000;
+        }
+        if (val >= 100 && val <= 1000000) return val;
+      }
+    }
+    return null;
+  }
+
+  bool _containsBudgetCategoryKeyword(String input) {
+    final textLower = input.toLowerCase();
+    const keywords = ['low', 'cheap', 'budget', 'affordable', 'balanced', 'moderate', 'high', 'luxury', 'premium'];
+    return keywords.any((k) => textLower.contains(k));
+  }
+
+  String? _tryParseDistrict(String input) {
+    final textLower = input.toLowerCase().trim();
+    const knownDistricts = [
+      'davao city', 'davao', 'samal', 'samal island', 'mati', 'toril',
+      'panabo', 'digos', 'kopiat', 'malagos', 'roxas', 'lake leonard',
+      'aliwagwag', 'hamiguitan', 'tagbibinta', 'davao del norte',
+      'davao del sur', 'davao oriental', 'davao de oro'
+    ];
+    for (final dist in knownDistricts) {
+      if (textLower.contains(dist)) {
+        if (dist.contains('samal')) return 'Samal Island';
+        if (dist.contains('mati')) return 'Mati';
+        if (dist.contains('toril')) return 'Toril';
+        if (dist.contains('panabo')) return 'Panabo';
+        if (dist.contains('digos')) return 'Digos';
+        return 'Davao City';
+      }
+    }
+    for (final d in _districts) {
+      if (textLower.contains(d.toLowerCase())) return d;
+    }
+    return null;
+  }
+
+  String? _tryParseVibe(String input) {
+    final textLower = input.toLowerCase().trim();
+    const vibesMap = {
+      'Beach': ['beach', 'beaches', 'island', 'resort', 'coastal', 'sea'],
+      'Nature': ['nature', 'mountain', 'hiking', 'park', 'falls', 'waterfall', 'green', 'forest'],
+      'Adventure': ['adventure', 'adventurous', 'trekking', 'climb', 'surfing', 'action'],
+      'Relaxing': ['relaxing', 'relax', 'quiet', 'peaceful', 'spa', 'chill', 'serene'],
+      'Culture': ['culture', 'cultural', 'heritage', 'museum', 'historical', 'history'],
+      'Food Trip': ['food', 'dining', 'culinary', 'restaurant', 'street food', 'eat', 'market'],
+      'Nightlife': ['nightlife', 'night', 'bar', 'party', 'evening'],
+    };
+    for (final entry in vibesMap.entries) {
+      if (textLower.contains(entry.key.toLowerCase())) return entry.key;
+      for (final alias in entry.value) {
+        if (textLower.contains(alias)) return entry.key;
+      }
+    }
+    for (final v in _vibes) {
+      if (textLower.contains(v.toLowerCase())) return v;
+    }
+    return null;
   }
 
   int _monthNumber(String shortMonth) {
@@ -687,6 +950,19 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _selectedBudgetCategory = 'High Budget';
       _extractedBudget = true;
     }
+
+    try {
+      final provider = context.read<TripProvider>();
+      final session = provider.sessionPreferences;
+      if (_extractedDays) session.numDays = _selectedDays;
+      if (_extractedTravelType) {
+        session.numTravelers = _numTravelers;
+        session.travelType = _selectedTravelType;
+      }
+      if (_extractedBudget) session.budget = _selectedBudget;
+      if (_selectedVibe.isNotEmpty) session.vibe = _selectedVibe;
+      if (_selectedDate.isNotEmpty) session.selectedDate = _selectedDate;
+    } catch (_) {}
   }
 
   // =========================================================================
@@ -875,7 +1151,23 @@ class _PlannerScreenState extends State<PlannerScreen> {
           return;
         }
 
-        final parsedDate = _parseSmartDate(text);
+        final parsedDate = _tryParseSmartDate(text);
+        if (parsedDate == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't recognize a travel date. Please provide a valid date, such as \"August 15, 2026\", \"next weekend\", or \"tomorrow\".",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+
         _selectedDate = _formatDate(parsedDate);
         _extractPrefsFromPrompt(text);
 
@@ -898,8 +1190,22 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       // Step 11 — user picks duration
       case 11:
-        final parsed =
-            int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 1;
+        final parsed = _tryParseDuration(text);
+        if (parsed == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't determine the duration of your stay. Please specify the number of days (e.g., 2, 3, or 5 days).",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
         _selectedDays = parsed;
         _extractedDays = true;
         _extractPrefsFromPrompt(text);
@@ -963,28 +1269,59 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       // Step 12 — user picks travel type
       case 12:
-        _selectedTravelType = text;
-        _extractedTravelType = true;
         _extractPrefsFromPrompt(text);
 
         if (text.toLowerCase().contains('group')) {
+          _selectedTravelType = 'Group';
+          _extractedTravelType = true;
           _currentStep = 125;
           aiResponse =
               "Awesome, a group trip! 👥 How many travelers will be joining?";
-        } else {
+        } else if (text.toLowerCase().contains('solo') || text.toLowerCase().contains('myself') || text.toLowerCase().contains('alone')) {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
+          _extractedTravelType = true;
 
           _currentStep = 128;
           aiResponse =
               "A solo adventure! 🎒 What is your estimated budget for this trip?";
+        } else {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't determine your travel type. Please specify whether you are traveling Solo or with a Group.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
         }
         break;
 
       // Step 12.5 — user picks traveler count
       case 125:
-        final count = int.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 2;
+        final count = _tryParseTravelerCount(text);
+        if (count == null) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't determine the number of travelers. Please enter a number, such as 2, 4, or 6.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
         _numTravelers = count;
+        _extractedTravelType = true;
         _extractPrefsFromPrompt(text);
 
         _currentStep = 128;
@@ -994,9 +1331,27 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
       // Step 128 — user sets their estimated budget
       case 128:
-        final clean =
-            double.tryParse(text.replaceAll(RegExp(r'[^0-9]'), '')) ?? 5000;
-        _selectedBudget = clean;
+        final clean = _tryParseBudget(text);
+        final hasCat = _containsBudgetCategoryKeyword(text);
+        if (clean == null && !hasCat) {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't recognize your budget amount. Please enter a monetary amount (e.g., 5000, 10000) or budget category (Low, Balanced, High).",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
+        }
+        if (clean != null) {
+          _selectedBudget = clean;
+        }
+        _extractedBudget = true;
         _currentStep = 13;
         final prompt = _buildSuggestedBudgetPrompt(dest);
         setState(() {
@@ -1016,13 +1371,31 @@ class _PlannerScreenState extends State<PlannerScreen> {
       // Step 13 — user picks budget category
       case 13:
         final cleanInput = text.toLowerCase();
-        if (cleanInput.contains('low')) {
+        if (cleanInput.contains('low') || cleanInput.contains('cheap')) {
           _selectedBudgetCategory = 'Low Budget';
         } else if (cleanInput.contains('high') ||
-            cleanInput.contains('premium')) {
+            cleanInput.contains('premium') ||
+            cleanInput.contains('luxury')) {
           _selectedBudgetCategory = 'High Budget';
-        } else {
+        } else if (cleanInput.contains('balanced') ||
+            cleanInput.contains('moderate') ||
+            cleanInput.contains('comfort') ||
+            cleanInput.contains('medium')) {
           _selectedBudgetCategory = 'Balanced Budget';
+        } else {
+          setState(() {
+            _isTyping = false;
+            _messages.add(
+              _ChatMessage(
+                text:
+                    "I couldn't determine your budget category preference. Please specify Low Budget, Balanced Budget, or High Budget.",
+                isUser: false,
+                timestamp: DateTime.now(),
+              ),
+            );
+          });
+          _scrollToBottom();
+          return;
         }
         _extractedBudget = true;
         await _generateAndShowDestinationPlan(dest);

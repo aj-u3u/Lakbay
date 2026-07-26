@@ -64,6 +64,37 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   bool _isLoadingRoute = false;
   LatLng? _lastStartLoc;
   int? _lastDestId;
+  bool _isLoadingFeedback = false;
+  Map<String, dynamic>? _feedbackData;
+
+  Future<void> _loadItineraryFeedback() async {
+    final provider = Provider.of<TripProvider>(context, listen: false);
+    final trip = widget.trip ?? provider.latestGeneratedTrip ?? (Trip.mockTrips.isNotEmpty ? Trip.mockTrips.first : null);
+    if (trip == null) return;
+
+    if (mounted) {
+      setState(() {
+        _isLoadingFeedback = true;
+      });
+    }
+
+    try {
+      final feedback = await ApiService().fetchItineraryFeedback(trip: trip);
+      if (mounted) {
+        setState(() {
+          _feedbackData = feedback;
+          _isLoadingFeedback = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading itinerary feedback: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingFeedback = false;
+        });
+      }
+    }
+  }
 
   Future<void> _fetchRoadRoute(LatLng startLocation, Destination dest) async {
     if (_lastStartLoc == startLocation && _lastDestId == dest.id) {
@@ -150,6 +181,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   void initState() {
     super.initState();
     _requestLocation();
+    _loadItineraryFeedback();
   }
 
   @override
@@ -1039,6 +1071,9 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                         ),
                       ],
 
+                      // AI Critique & Weather Advisory
+                      _buildCritiqueAdvisorySection(isDark),
+
                       // 1. Details Block: Cover & Info Card
                       Container(
                         padding: const EdgeInsets.all(AppConstants.spaceL),
@@ -1167,7 +1202,10 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                               ),
                               children: [
                                 TileLayer(
-                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  urlTemplate: AppConstants.mapboxAccessToken.isEmpty ||
+                                          AppConstants.mapboxAccessToken == 'YOUR_MAPBOX_ACCESS_TOKEN'
+                                      ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                                      : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                                   userAgentPackageName: 'com.lakbay.plus',
                                 ),
                                 PolylineLayer(
@@ -1810,6 +1848,210 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCritiqueAdvisorySection(bool isDark) {
+    if (_isLoadingFeedback) {
+      return Container(
+        margin: const EdgeInsets.only(bottom: AppConstants.spaceXL),
+        padding: const EdgeInsets.all(AppConstants.spaceL),
+        decoration: BoxDecoration(
+          color: isDark ? Colors.white.withValues(alpha: 0.02) : AppTheme.primaryBlue.withValues(alpha: 0.03),
+          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2, 
+                    valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryBlue),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Evaluating itinerary & weather...',
+                  style: GoogleFonts.outfit(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_feedbackData == null) {
+      return const SizedBox.shrink();
+    }
+
+    final warnings = _feedbackData!['warnings'] as List<dynamic>? ?? [];
+    final narrative = _feedbackData!['narrative_critique'] as String? ?? '';
+    final suggestions = _feedbackData!['suggestions'] as List<dynamic>? ?? [];
+
+    if (warnings.isEmpty && narrative.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: AppConstants.spaceXL),
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withValues(alpha: 0.02) : AppTheme.primaryBlue.withValues(alpha: 0.03),
+        borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.analytics_rounded,
+                color: isDark ? Colors.white : AppTheme.primaryBlue,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'AI Critique & Weather Advisory',
+                style: GoogleFonts.outfit(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : AppTheme.primaryBlue,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          if (narrative.isNotEmpty) ...[
+            Text(
+              narrative,
+              style: GoogleFonts.outfit(
+                fontSize: 12,
+                height: 1.5,
+                color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+              ),
+            ),
+            const SizedBox(height: AppConstants.spaceM),
+          ],
+          if (warnings.isNotEmpty) ...[
+            Text(
+              'Alerts & Advisories',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...warnings.take(3).map((w) {
+              final type = w['type'] as String? ?? 'info';
+              final message = w['message'] as String? ?? '';
+              final details = w['details'] as String? ?? '';
+
+              IconData icon;
+              Color color;
+              Color bg;
+
+              if (type == 'warning') {
+                icon = Icons.warning_amber_rounded;
+                color = Colors.orange[700]!;
+                bg = isDark ? const Color(0xFF2C2214) : Colors.orange[50]!;
+              } else if (type == 'caution') {
+                icon = Icons.error_outline_rounded;
+                color = Colors.red[700]!;
+                bg = isDark ? const Color(0xFF2C1414) : Colors.red[50]!;
+              } else {
+                icon = Icons.info_outline_rounded;
+                color = AppTheme.primaryBlue;
+                bg = isDark ? const Color(0xFF14242C) : Colors.blue[50]!;
+              }
+
+              return Container(
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.all(AppConstants.spaceM),
+                decoration: BoxDecoration(
+                  color: bg,
+                  borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                  border: Border.all(color: color.withValues(alpha: 0.3)),
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(icon, color: color, size: 20),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message,
+                            style: GoogleFonts.outfit(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : color,
+                            ),
+                          ),
+                          if (details.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              details,
+                              style: GoogleFonts.outfit(
+                                  fontSize: 11,
+                                  height: 1.4,
+                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: AppConstants.spaceM),
+          ],
+          if (suggestions.isNotEmpty && suggestions.first != 'Your itinerary looks great!') ...[
+            Text(
+              'Suggestions for Improvement',
+              style: GoogleFonts.outfit(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : AppTheme.primaryBlue,
+              ),
+            ),
+            const SizedBox(height: 6),
+            ...suggestions.map((s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Icon(Icons.tips_and_updates_rounded, color: Colors.amber, size: 16),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          s as String,
+                          style: GoogleFonts.outfit(
+                            fontSize: 11,
+                            height: 1.4,
+                            color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
         ],
       ),
     );

@@ -317,7 +317,10 @@ class ApiService {
   }
 
   // AI Chat
-  Future<Map<String, dynamic>?> chatWithAI(String prompt) async {
+  Future<Map<String, dynamic>?> chatWithAI(
+    String prompt, {
+    List<Map<String, String>>? history,
+  }) async {
     try {
       final headers = {'Content-Type': 'application/json'};
 
@@ -325,11 +328,16 @@ class ApiService {
         headers['Authorization'] = 'Bearer $token';
       }
 
+      final bodyPayload = <String, dynamic>{
+        'prompt': prompt,
+        if (history != null && history.isNotEmpty) 'history': history,
+      };
+
       final response = await http
           .post(
             Uri.parse('$baseUrl/ai/chat'),
             headers: headers,
-            body: json.encode({'prompt': prompt}),
+            body: json.encode(bodyPayload),
           )
           .timeout(const Duration(seconds: 60));
 
@@ -753,5 +761,61 @@ class ApiService {
       }
     }
     return [];
+  }
+
+  // Fetch itinerary evaluation feedback (weather alerts, child suitability, budget, etc.)
+  Future<Map<String, dynamic>?> fetchItineraryFeedback({
+    required Trip trip,
+  }) async {
+    try {
+      final headers = {'Content-Type': 'application/json'};
+      if (token != null) {
+        headers['Authorization'] = 'Bearer $token';
+      }
+
+      // Convert itinerary map to JSON structure expected by backend
+      final Map<String, dynamic> itineraryJson = {};
+      trip.itinerary.forEach((day, list) {
+        itineraryJson[day.toString()] = list
+            .map((act) => {
+                  'time': act.time,
+                  'title': act.title,
+                  'description': act.description,
+                  'cost': act.cost,
+                  'location': act.location,
+                })
+            .toList();
+      });
+
+      final body = {
+        'itinerary': itineraryJson,
+        'num_travelers': trip.numTravelers,
+        'num_children': 0,
+        'child_ages': '',
+        'budget': trip.budget,
+        'destination_name': trip.destinationName,
+      };
+
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/trips/itinerary-feedback'),
+            headers: headers,
+            body: json.encode(body),
+          )
+          .timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      } else {
+        if (kDebugMode) {
+          print('Itinerary feedback failed: status: ${response.statusCode}, body: ${response.body}');
+        }
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching itinerary feedback: $e');
+      }
+    }
+    return null;
   }
 }
