@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -377,6 +378,10 @@ class MemoriesScreen extends StatelessWidget {
         ? (trip.memories.first['image'] as String? ?? trip.imageUrl)
         : trip.imageUrl;
 
+    final ImageProvider coverImageProvider = (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))
+        ? NetworkImage(coverUrl)
+        : FileImage(File(coverUrl)) as ImageProvider;
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -401,7 +406,7 @@ class MemoriesScreen extends StatelessWidget {
                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
                       boxShadow: AppConstants.cardShadow,
                       image: DecorationImage(
-                        image: NetworkImage(coverUrl),
+                        image: coverImageProvider,
                         fit: BoxFit.cover,
                       ),
                     ),

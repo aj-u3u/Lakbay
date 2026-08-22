@@ -2,9 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/trip.dart';
+import '../../providers/trip_provider.dart';
 import '../../widgets/shared/empty_state.dart';
 
 // Represents a single memory that may come from network (existing) or local file (newly picked)
@@ -54,18 +56,62 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
     // Pick multiple images from gallery
     final List<XFile> picked = await _picker.pickMultiImage(imageQuality: 85);
     if (picked.isEmpty) return;
+    if (!mounted) return;
+
+    final tripProvider = Provider.of<TripProvider>(context, listen: false);
+
+    // Fetch active trip state from provider if available
+    final currentTrip = tripProvider.userTrips.firstWhere(
+      (t) => t.id == widget.trip.id,
+      orElse: () => widget.trip,
+    );
+
+    final updatedMemories = List<Map<String, dynamic>>.from(currentTrip.memories);
 
     // For each picked image, show a caption/location dialog then add
     for (final xFile in picked) {
       final result = await _showAddMemoryDialog(File(xFile.path));
       if (result == null) continue; // User dismissed
+
+      final caption = result['caption'] ?? '';
+      final location = result['location'] ?? '';
+
+      final newMemory = {
+        'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
+        'user': 'You',
+        'avatar': '',
+        'time': 'Just now',
+        'caption': caption,
+        'image': xFile.path,
+        'likes': '0',
+        'comments': '0',
+        'location': location.isNotEmpty ? location : currentTrip.destinationName.split(',').first,
+      };
+
+      updatedMemories.insert(0, newMemory);
+
       setState(() {
-        _items.add(_MemoryItem.fromFile(
-          File(xFile.path),
-          caption: result['caption'] ?? '',
-          location: result['location'] ?? '',
-        ));
+        _items.insert(
+          0,
+          _MemoryItem.fromFile(
+            File(xFile.path),
+            caption: caption,
+            location: location,
+          ),
+        );
       });
+    }
+
+    final updatedTrip = currentTrip.copyWith(memories: updatedMemories);
+    tripProvider.updateTrip(updatedTrip);
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Memory added to album! 🌅📸'),
+          backgroundColor: AppTheme.secondaryGreen,
+        ),
+      );
     }
   }
 
@@ -511,16 +557,26 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                     ? Image.file(item.localFile!, fit: BoxFit.cover)
                     : () {
                         final imgUrl = item.networkMemory?['image'] as String? ?? '';
-                        return imgUrl.isNotEmpty
-                            ? Image.network(
-                                imgUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, e, s) => Container(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                                  child: const Icon(Icons.broken_image, color: Colors.grey),
-                                ),
-                              )
-                            : Container(color: Colors.grey.shade200);
+                        if (imgUrl.isEmpty) return Container(color: Colors.grey.shade200);
+                        if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
+                          return Image.network(
+                            imgUrl,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, e, s) => Container(
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                              child: const Icon(Icons.broken_image, color: Colors.grey),
+                            ),
+                          );
+                        } else {
+                          return Image.file(
+                            File(imgUrl),
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, e, s) => Container(
+                              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                              child: const Icon(Icons.broken_image, color: Colors.grey),
+                            ),
+                          );
+                        }
                       }(),
               ),
             ),
