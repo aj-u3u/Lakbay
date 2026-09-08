@@ -1,0 +1,5 @@
+Alembic migration environment for Lakbay.
+
+Create migration files in app/db/migrations/versions by running:
+
+alembic revision --autogenerate -m "describe change"
