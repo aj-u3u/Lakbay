@@ -12,8 +12,21 @@ Before asking Codex to make changes, check these files:
 - `docs/core_focus.md`: current build phases.
 - `docs/new_feature.md`: template for requesting new features.
 - `docs/migrations.md`: database migration procedure.
+- `docs/destinations.md`: Phase 2 destination API and seed data guide.
+- `docs/recommendations.md`: Phase 3 recommendation API guide.
+- `docs/budgets.md`: Phase 4 budget estimate API guide.
+- `docs/ai_itineraries.md`: Phase 5 AI itinerary guide.
 - `docs/models.md`: AI model selection notes.
 - `docs/routing.md`: route optimization notes.
+- `docs/trips.md`: Phase 7 trip management guide.
+- `docs/group_collaboration.md`: Phase 8 group collaboration guide.
+- `docs/expenses.md`: Phase 9 expenses and shared costing guide.
+- `docs/memories.md`: Phase 10 memories and photo uploads guide.
+- `docs/reports.md`: Phase 11 report summary and PDF download guide.
+- `docs/reviews.md`: Phase 12 reviews and feedback guide.
+- `docs/notifications.md`: Phase 13 in-app notifications guide.
+- `docs/geo_analytics.md`: Phase 15 geo-analytics enhancement plan.
+- `docs/capstone_alignment.md`: panel comment, diagram, and objective notes.
 
 The most important rule:
 

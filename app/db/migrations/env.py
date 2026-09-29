@@ -23,11 +23,25 @@ import_model_modules()
 
 target_metadata = Base.metadata
 
+POSTGIS_MANAGED_OBJECTS = {
+    "geography_columns",
+    "geometry_columns",
+    "spatial_ref_sys",
+}
+
+
+def include_object(object_, name, type_, reflected, compare_to) -> bool:
+    if reflected and type_ == "table" and name in POSTGIS_MANAGED_OBJECTS:
+        return False
+
+    return True
+
 
 def run_migrations_offline() -> None:
     context.configure(
         url=settings.sqlalchemy_database_url,
         target_metadata=target_metadata,
+        include_object=include_object,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
@@ -42,6 +56,7 @@ def do_run_migrations(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
+        include_object=include_object,
         compare_type=True,
         compare_server_default=True,
     )

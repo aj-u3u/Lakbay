@@ -1,0 +1,82 @@
+from decimal import Decimal
+from typing import Annotated, Literal
+
+from pydantic import BaseModel, Field, PositiveInt, model_validator
+
+TravelMode = Literal["driving", "walking", "public_transport"]
+DistanceKm = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
+TrafficLevel = Literal["unknown", "light", "moderate", "heavy", "severe"]
+
+
+class RouteCoordinate(BaseModel):
+    label: str | None = Field(default=None, max_length=255)
+    lat: float = Field(ge=-90, le=90)
+    lng: float = Field(ge=-180, le=180)
+
+
+class RouteBaseRequest(BaseModel):
+    destination_ids: list[PositiveInt] = Field(min_length=1, max_length=25)
+    travel_mode: TravelMode = "driving"
+    origin: RouteCoordinate | None = None
+    return_to_origin: bool = False
+    use_live_traffic: bool = False
+
+    @model_validator(mode="after")
+    def validate_unique_destination_ids(self) -> "RouteBaseRequest":
+        if len(self.destination_ids) != len(set(self.destination_ids)):
+            raise ValueError("destination_ids must not contain duplicate IDs")
+
+        return self
+
+
+class RoutePreviewRequest(RouteBaseRequest):
+    pass
+
+
+class RouteOptimizeRequest(RouteBaseRequest):
+    preserve_first_destination: bool = True
+
+
+class RouteStop(BaseModel):
+    order: int
+    destination_id: int | None
+    name: str
+    lat: float
+    lng: float
+    is_origin: bool = False
+
+
+class RouteLeg(BaseModel):
+    order: int
+    from_destination_id: int | None
+    to_destination_id: int | None
+    from_name: str
+    to_name: str
+    distance_km: DistanceKm
+    duration_minutes: int = Field(ge=0)
+    is_estimated: bool
+    normal_duration_minutes: int | None = Field(default=None, ge=0)
+    traffic_delay_minutes: int | None = Field(default=None, ge=0)
+    traffic_level: TrafficLevel | None = None
+
+
+class RouteTrafficSummary(BaseModel):
+    provider: str
+    live_duration_minutes: int = Field(ge=0)
+    normal_duration_minutes: int = Field(ge=0)
+    delay_minutes: int = Field(ge=0)
+    traffic_level: TrafficLevel
+    cache_hit: bool = False
+    advisory: str
+
+
+class RouteSummaryResponse(BaseModel):
+    travel_mode: TravelMode
+    route_provider: str
+    is_estimated: bool
+    total_distance_km: DistanceKm
+    total_duration_minutes: int = Field(ge=0)
+    stops: list[RouteStop]
+    legs: list[RouteLeg]
+    warnings: list[str] = Field(default_factory=list)
+    traffic: RouteTrafficSummary | None = None

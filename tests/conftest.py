@@ -3,6 +3,9 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from geoalchemy2 import Geography
+from sqlalchemy import event
+from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
@@ -13,6 +16,11 @@ from app.main import create_app
 
 
 TEST_DATABASE_URL = "sqlite+aiosqlite://"
+
+
+@compiles(Geography, "sqlite")
+def compile_geography_for_sqlite(type_, compiler, **kw) -> str:
+    return "TEXT"
 
 
 @pytest.fixture(autouse=True)
@@ -35,6 +43,7 @@ def client(monkeypatch) -> Generator[TestClient, None, None]:
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
+    event.listen(engine.sync_engine, "connect", register_sqlite_spatial_functions)
     TestingSessionLocal = async_sessionmaker(
         bind=engine,
         expire_on_commit=False,
@@ -68,3 +77,16 @@ def client(monkeypatch) -> Generator[TestClient, None, None]:
 
     app.dependency_overrides.clear()
     asyncio.run(drop_tables())
+
+
+def register_sqlite_spatial_functions(dbapi_connection, connection_record) -> None:
+    dbapi_connection.create_function(
+        "ST_GeogFromText",
+        1,
+        lambda value: value,
+    )
+    dbapi_connection.create_function(
+        "AsBinary",
+        1,
+        lambda value: value,
+    )

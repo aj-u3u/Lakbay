@@ -31,13 +31,39 @@ class Settings(BaseSettings):
     groq_model_compare_a: str | None = None
     groq_model_compare_b: str | None = None
     groq_model_compare_c: str | None = None
+    groq_base_url: str = "https://api.groq.com/openai/v1"
+    groq_request_timeout_seconds: int = Field(default=60, ge=1, le=300)
+    groq_max_retries: int = Field(default=1, ge=0, le=3)
+    groq_temperature: float = Field(default=0.3, ge=0, le=2)
+    groq_max_tokens: int = Field(default=4096, ge=256, le=32768)
+
+    ai_itinerary_option_count: int = Field(default=5, ge=1, le=10)
+    ai_model_comparison_enabled: bool = False
 
     osrm_base_url: str | None = None
+    osrm_request_timeout_seconds: int = Field(default=30, ge=1, le=120)
+    osrm_profile_driving: str = "driving"
+    osrm_profile_walking: str = "walking"
+    route_max_destinations: int = Field(default=10, ge=1, le=25)
+
+    google_routes_api_key: str | None = None
+    google_routes_base_url: str = "https://routes.googleapis.com"
+    google_routes_request_timeout_seconds: int = Field(default=20, ge=1, le=120)
+    google_routes_cache_ttl_seconds: int = Field(default=300, ge=0, le=3600)
+    google_routes_daily_request_limit: int = Field(default=150, ge=0, le=10000)
+
+    openweather_api_key: str | None = None
+    openweather_base_url: str = "https://api.openweathermap.org/data/2.5"
+    openweather_units: str = "metric"
+    openweather_lang: str = "en"
+    openweather_request_timeout_seconds: int = Field(default=20, ge=1, le=120)
 
     cloudinary_cloud_name: str | None = None
     cloudinary_api_key: str | None = None
     cloudinary_api_secret: str | None = None
     cloudinary_upload_folder: str = "lakbay"
+    upload_max_image_bytes: int = Field(default=5_242_880, ge=1)
+    upload_allowed_image_types: str = "image/jpeg,image/png,image/webp"
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -72,6 +98,14 @@ class Settings(BaseSettings):
     @property
     def cors_allow_credentials(self) -> bool:
         return self.cors_origins != ["*"]
+
+    @property
+    def allowed_image_types(self) -> set[str]:
+        return {
+            content_type.strip().lower()
+            for content_type in self.upload_allowed_image_types.split(",")
+            if content_type.strip()
+        }
 
 
 def _normalize_asyncpg_url(url: str) -> str:

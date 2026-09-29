@@ -150,6 +150,131 @@ schema from scratch, then be applied with:
 alembic upgrade head
 ```
 
+## Current Migration Chain
+
+The current approved chain is:
+
+```text
+0001_create_auth_tables
+a1aa9ddabfe3_update_user_table_added_contact
+0002_destination_data_foundation
+0003_recommendation_signals
+0004_recommendation_stability
+0005_ai_generation_runs
+0006_trip_management
+0007_group_collaboration
+0008_expenses_shared_costing
+0009_expense_integrity
+0010_trip_memories
+0011_trip_reviews
+0012_review_integrity
+0013_notifications
+```
+
+For a fresh Neon database, run:
+
+```bash
+alembic upgrade head
+```
+
+Then confirm:
+
+```bash
+alembic current
+```
+
+The Phase 2 destination seed data can be loaded after the migration succeeds:
+
+```bash
+python -m app.seeds.davao_destinations
+```
+
+The seed command should be run only after the destination, accommodation, and
+transportation tables exist.
+
+The Phase 3 recommendation migration creates:
+
+- `user_preference_signals`.
+- `destination_interactions`.
+- `destination_popularity`.
+
+The Phase 3 stabilization migration adds a partial unique index for destination
+interactions. A user can record repeated `view` interactions, but can only have
+one `save`, one `rate`, and one `add_to_itinerary` signal per destination.
+
+The Phase 5 AI itinerary migration creates:
+
+- `ai_generation_runs`.
+- model and prompt metadata.
+- response time and token usage fields.
+- validation status and error tracking fields.
+- input and output summary JSON fields for model comparison review.
+
+Phase 6 route preview and optimization is stateless. It does not add a migration
+because route summaries are not saved until the trip management phase.
+
+The Phase 7 trip management migration creates:
+
+- `trips`.
+- `trip_destinations`.
+- `trip_itinerary_days`.
+- `trip_itinerary_activities`.
+- `trip_routes`.
+
+Delete/archive behavior is implemented as a status update to `archived`, not a
+hard database delete.
+
+The Phase 8 group collaboration migration creates:
+
+- `trip_members`.
+- `trip_tasks`.
+
+It also backfills one active `owner` membership row for each existing trip using
+`trips.owner_user_id`.
+
+The Phase 9 expenses migrations create:
+
+- `trip_expenses`.
+- `trip_expense_splits`.
+
+It stores equal split rows for active trip members and keeps voided expenses in
+the database for audit history. The stabilization migration also adds same-trip
+integrity constraints so expense payers and split members must belong to the
+same trip as the expense.
+
+The Phase 10 memories migration creates:
+
+- `trip_memories`.
+
+It stores Cloudinary image URLs, upload ownership, captions, optional trip
+destination links, and soft-delete status for trip memories.
+
+The Phase 12 reviews migrations create and stabilize:
+
+- `trip_reviews`.
+
+It stores completed-trip feedback ratings, optional destination-level review
+links, soft-delete status, and partial unique indexes that allow one active
+trip-level review and one active destination-level review per user. The
+stabilization migration adds same-trip reviewer integrity so the review user
+must belong to the same trip as the review.
+
+The Phase 13 notifications migration creates:
+
+- `notifications`.
+
+It stores in-app notification events, recipient and actor links, optional trip
+links, entity references, structured metadata, read timestamps, and soft-delete
+status.
+
+The Phase 2 destination migration also includes database check constraints for:
+
+- destination latitude and longitude ranges.
+- non-negative destination estimated cost.
+- non-negative accommodation and transportation prices.
+- positive accommodation capacity.
+- non-negative transportation duration when provided.
+
 ## PostGIS Notes
 
 The current schema draft includes `geography(Point,4326)` and a GiST index. That

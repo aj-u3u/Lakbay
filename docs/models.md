@@ -3,7 +3,7 @@
 This document defines how Lakbay should choose and manage AI models for
 itinerary generation and model comparison.
 
-Last checked against Groq documentation: September 8, 2026.
+Last checked against Groq documentation: September 16, 2026.
 
 ## Why This Exists
 
@@ -41,6 +41,13 @@ GROQ_MODEL_FALLBACK=
 GROQ_MODEL_COMPARE_A=
 GROQ_MODEL_COMPARE_B=
 GROQ_MODEL_COMPARE_C=
+GROQ_BASE_URL=https://api.groq.com/openai/v1
+GROQ_REQUEST_TIMEOUT_SECONDS=60
+GROQ_MAX_RETRIES=1
+GROQ_TEMPERATURE=0.30
+GROQ_MAX_TOKENS=4096
+AI_ITINERARY_OPTION_COUNT=5
+AI_MODEL_COMPARISON_ENABLED=false
 ```
 
 Suggested meaning:
@@ -53,6 +60,15 @@ Suggested meaning:
 - `GROQ_MODEL_COMPARE_A`: first model for thesis comparison.
 - `GROQ_MODEL_COMPARE_B`: second model for thesis comparison.
 - `GROQ_MODEL_COMPARE_C`: third model for thesis comparison.
+- `GROQ_BASE_URL`: Groq OpenAI-compatible base URL.
+- `GROQ_REQUEST_TIMEOUT_SECONDS`: request timeout for live AI calls.
+- `GROQ_MAX_RETRIES`: retry count for temporary Groq request failures.
+- `GROQ_TEMPERATURE`: generation randomness. Keep this low for structured JSON.
+- `GROQ_MAX_TOKENS`: maximum response tokens for generated itinerary JSON.
+- `AI_ITINERARY_OPTION_COUNT`: minimum number of itinerary options to request and
+  validate.
+- `AI_MODEL_COMPARISON_ENABLED`: enables comparison mode for configured compare
+  models.
 
 Do not put API keys in documentation, commits, screenshots, or shared messages.
 
@@ -113,6 +129,9 @@ For fairness, each comparison run should store:
 - Validation result.
 - Budget adherence.
 - Route feasibility.
+- Geo-analytics context used by the prompt.
+- Recommendation relevance score.
+- Itinerary feedback score.
 - User or evaluator relevance score.
 
 ## Output Validation Rule
