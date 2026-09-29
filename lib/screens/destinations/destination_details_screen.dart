@@ -71,13 +71,18 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   final MapController _mapController = MapController();
   double? _distanceToDestination;
   List<LatLng> _roadGeometryPoints = [];
+  Map<String, dynamic>? _trafficSummary;
   StreamSubscription<Position>? _positionStreamSubscription;
   List<Destination> _nearbyDestinations = [];
   bool _loadingNearby = false;
+  late final Future<Map<String, dynamic>?> _weatherFuture;
 
   @override
   void initState() {
     super.initState();
+    _weatherFuture = ApiService().fetchDestinationWeather(
+      widget.destination.id,
+    );
     // Record lightweight view interaction immediately to update popularity metrics
     ApiService().recordInteraction(widget.destination.id, 'view');
     _checkPermissionAndGetLocation();
@@ -124,26 +129,30 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
       distanceFilter: 10, // Updates when user moves at least 10 meters
     );
 
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: locationSettings,
-    ).listen((Position position) {
-      if (!mounted) return;
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(locationSettings: locationSettings).listen(
+          (Position position) {
+            if (!mounted) return;
 
-      setState(() {
-        _userPosition = position;
+            setState(() {
+              _userPosition = position;
 
-        // Dynamically update straight-line distance if geometry isn't changing
-        final dest = widget.destination;
-        _distanceToDestination = Geolocator.distanceBetween(
-          position.latitude,
-          position.longitude,
-          dest.latitude,
-          dest.longitude,
-        ) / 1000.0; // in km
-      });
-    }, onError: (error) {
-      debugPrint("Real-time location stream error: $error");
-    });
+              // Dynamically update straight-line distance if geometry isn't changing
+              final dest = widget.destination;
+              _distanceToDestination =
+                  Geolocator.distanceBetween(
+                    position.latitude,
+                    position.longitude,
+                    dest.latitude,
+                    dest.longitude,
+                  ) /
+                  1000.0; // in km
+            });
+          },
+          onError: (error) {
+            debugPrint("Real-time location stream error: $error");
+          },
+        );
   }
 
   Future<void> _checkPermissionAndGetLocation() async {
@@ -226,6 +235,74 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     };
   }
 
+  Color _trafficColor(String level) {
+    switch (level) {
+      case 'severe':
+        return Colors.redAccent;
+      case 'heavy':
+        return Colors.deepOrange;
+      case 'moderate':
+        return Colors.amber[700]!;
+      default:
+        return AppTheme.secondaryGreen;
+    }
+  }
+
+  Widget _buildTrafficSummaryBanner(bool isDark) {
+    final traffic = _trafficSummary;
+    if (traffic == null) return const SizedBox.shrink();
+
+    final level = traffic['traffic_level']?.toString() ?? 'unknown';
+    final live = traffic['live_duration_minutes']?.toString() ?? '--';
+    final delay = traffic['delay_minutes']?.toString() ?? '0';
+    final advisory = traffic['advisory']?.toString() ?? '';
+    final color = _trafficColor(level);
+
+    return Container(
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.traffic_rounded, color: color, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Live traffic: ${level.toUpperCase()} • ETA $live min • Delay $delay min',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppTheme.primaryBlue,
+                  ),
+                ),
+                if (advisory.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    advisory,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   String? _getActivityPrice(String activityName, Destination dest) {
     final prices = dest.extra.activityPrices;
 
@@ -260,7 +337,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         prices.containsKey('Snorkeling Gear')) {
       return prices['Snorkeling Gear'];
     }
-    if (lowerName.contains('surfing') && prices.containsKey('Surfboard Rental')) {
+    if (lowerName.contains('surfing') &&
+        prices.containsKey('Surfboard Rental')) {
       return prices['Surfboard Rental'];
     }
     if (lowerName.contains('skimboarding') &&
@@ -346,34 +424,36 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
 
       // Fetch OSRM street road geometry
       List<Map<String, dynamic>> destinationsList = [];
-      final isSamal = dest.name.toLowerCase().contains('samal') || 
-                      dest.location.toLowerCase().contains('samal') ||
-                      dest.name.toLowerCase().contains('pearl farm') ||
-                      dest.name.toLowerCase().contains('hagimit');
-      
+      final isSamal =
+          dest.name.toLowerCase().contains('samal') ||
+          dest.location.toLowerCase().contains('samal') ||
+          dest.name.toLowerCase().contains('pearl farm') ||
+          dest.name.toLowerCase().contains('hagimit');
+
       if (isSamal) {
         destinationsList.add({
           "destination_id": -1,
           "name": "Sasa Wharf",
           "lat": 7.1017,
-          "lng": 125.6601
+          "lng": 125.6601,
         });
         destinationsList.add({
           "destination_id": -2,
           "name": "Babak Port",
           "lat": 7.1189,
-          "lng": 125.6822
+          "lng": 125.6822,
         });
       }
-      
+
       destinationsList.add({
         "destination_id": dest.id,
         "name": dest.name,
         "lat": dest.latitude,
-        "lng": dest.longitude
+        "lng": dest.longitude,
       });
 
       List<LatLng> roadPoints = [];
+      Map<String, dynamic>? trafficSummary;
       try {
         final response = await ApiService().optimizeRoute(
           destinations: destinationsList,
@@ -382,6 +462,10 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           startName: 'Your Location',
           returnToStart: false,
         );
+        final trafficRaw = response?['traffic'];
+        trafficSummary = trafficRaw is Map
+            ? trafficRaw.cast<String, dynamic>()
+            : null;
 
         if (response != null && response['geometry'] != null) {
           final geometry = response['geometry'];
@@ -396,12 +480,14 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         }
       } catch (e) {
         debugPrint('Error fetching road route on details screen: $e');
+        trafficSummary = null;
       }
 
       setState(() {
         _userPosition = position;
         _distanceToDestination = distance / 1000; // in km
         _roadGeometryPoints = roadPoints;
+        _trafficSummary = trafficSummary;
         _loadingLocation = false;
       });
 
@@ -643,6 +729,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   ),
                   const SizedBox(height: AppConstants.spaceXL),
 
+                  _buildWeatherCard(),
+                  const SizedBox(height: AppConstants.spaceXL),
+
                   // Description
                   Text(
                     'About',
@@ -859,7 +948,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.05),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.05,
+                                      ),
                                       blurRadius: 4,
                                       offset: const Offset(0, 2),
                                     ),
@@ -975,7 +1066,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: const Icon(
@@ -1185,8 +1278,12 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                 ),
                                 children: [
                                   TileLayer(
-                                    urlTemplate: AppConstants.mapboxAccessToken.isEmpty ||
-                                            AppConstants.mapboxAccessToken == 'YOUR_MAPBOX_ACCESS_TOKEN'
+                                    urlTemplate:
+                                        AppConstants
+                                                .mapboxAccessToken
+                                                .isEmpty ||
+                                            AppConstants.mapboxAccessToken ==
+                                                'YOUR_MAPBOX_ACCESS_TOKEN'
                                         ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                                         : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                                     userAgentPackageName: 'com.lakbay.plus',
@@ -1244,8 +1341,8 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                                 MaterialPageRoute(
                                                   builder: (context) =>
                                                       DestinationDetailsScreen(
-                                                    destination: nearby,
-                                                  ),
+                                                        destination: nearby,
+                                                      ),
                                                 ),
                                               );
                                             },
@@ -1402,7 +1499,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                       ),
                                     )
                                   : TextButton.icon(
-                                      onPressed: () => _requestLocationAndRoute(fitMapCamera: true),
+                                      onPressed: () => _requestLocationAndRoute(
+                                        fitMapCamera: true,
+                                      ),
                                       icon: Icon(
                                         _userPosition == null
                                             ? Icons.directions_rounded
@@ -1424,6 +1523,11 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             ],
                           ),
                         ),
+                        if (_trafficSummary != null)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: _buildTrafficSummaryBanner(isDark),
+                          ),
                       ],
                     ),
                   ),
@@ -1646,7 +1750,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               Container(
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
@@ -1812,7 +1918,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           ],
           border: Border(
             top: BorderSide(
-              color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
+              color: isDark
+                  ? Colors.white10
+                  : Colors.grey.withValues(alpha: 0.2),
               width: 0.5,
             ),
           ),
@@ -1935,7 +2043,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                           style: TextStyle(
                             fontSize: 13,
                             color: isDark
-                                ? AppTheme.textSecondaryDark.withValues(alpha: 0.8)
+                                ? AppTheme.textSecondaryDark.withValues(
+                                    alpha: 0.8,
+                                  )
                                 : Colors.grey.withValues(alpha: 0.8),
                           ),
                         ),
@@ -2254,6 +2364,191 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     );
   }
 
+  Widget _buildWeatherCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _weatherFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            padding: const EdgeInsets.all(AppConstants.spaceM),
+            decoration: BoxDecoration(
+              color: AppTheme.accentTeal.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppConstants.radiusL),
+              border: Border.all(
+                color: AppTheme.accentTeal.withValues(alpha: 0.2),
+              ),
+            ),
+            child: const LinearProgressIndicator(minHeight: 2),
+          );
+        }
+
+        final weather = snapshot.data;
+        if (weather == null) return const SizedBox.shrink();
+
+        final current = weather['current'] is Map
+            ? (weather['current'] as Map).cast<String, dynamic>()
+            : <String, dynamic>{};
+        final condition = current['condition'] is Map
+            ? (current['condition'] as Map).cast<String, dynamic>()
+            : <String, dynamic>{};
+        final days = weather['days'] is List
+            ? weather['days'] as List
+            : const [];
+        final temp = _weatherNumber(current['temp_c']);
+        final feelsLike = _weatherNumber(current['feels_like_c']);
+        final rainChance = days.isNotEmpty && days.first is Map
+            ? _weatherInt((days.first as Map)['rain_chance_percent'])
+            : null;
+        final main = condition['main']?.toString() ?? 'Weather';
+        final description = condition['description']?.toString() ?? main;
+
+        return Container(
+          padding: const EdgeInsets.all(AppConstants.spaceM),
+          decoration: BoxDecoration(
+            color: AppTheme.accentTeal.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppConstants.radiusL),
+            border: Border.all(
+              color: AppTheme.accentTeal.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    _weatherIcon(main),
+                    color: AppTheme.accentTeal,
+                    size: 24,
+                  ),
+                  const SizedBox(width: AppConstants.spaceM),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Weather',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? AppTheme.textPrimaryDark
+                                : AppTheme.primaryBlue,
+                          ),
+                        ),
+                        Text(
+                          description,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppTheme.textSecondaryDark
+                                : AppTheme.textSecondaryLight,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (temp != null)
+                    Text(
+                      '${temp.toStringAsFixed(0)} C',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 22,
+                        color: AppTheme.accentTeal,
+                      ),
+                    ),
+                ],
+              ),
+              const SizedBox(height: AppConstants.spaceM),
+              Row(
+                children: [
+                  Expanded(
+                    child: _weatherMetric(
+                      'Feels',
+                      feelsLike == null
+                          ? '--'
+                          : '${feelsLike.toStringAsFixed(0)} C',
+                    ),
+                  ),
+                  Expanded(
+                    child: _weatherMetric(
+                      'Rain',
+                      rainChance == null ? '--' : '$rainChance%',
+                    ),
+                  ),
+                  Expanded(
+                    child: _weatherMetric(
+                      'Wind',
+                      current['wind_speed_mps'] == null
+                          ? '--'
+                          : '${_weatherNumber(current['wind_speed_mps'])?.toStringAsFixed(1)} m/s',
+                    ),
+                  ),
+                ],
+              ),
+              if ((current['advisory'] ?? '').toString().isNotEmpty) ...[
+                const SizedBox(height: AppConstants.spaceM),
+                Text(
+                  current['advisory'].toString(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    height: 1.4,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _weatherMetric(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
+      ],
+    );
+  }
+
+  IconData _weatherIcon(String condition) {
+    final lower = condition.toLowerCase();
+    if (lower.contains('thunder')) return Icons.thunderstorm_rounded;
+    if (lower.contains('rain') || lower.contains('drizzle')) {
+      return Icons.umbrella_rounded;
+    }
+    if (lower.contains('cloud')) return Icons.cloud_rounded;
+    if (lower.contains('clear')) return Icons.wb_sunny_rounded;
+    if (lower.contains('wind')) return Icons.air_rounded;
+    return Icons.thermostat_rounded;
+  }
+
+  double? _weatherNumber(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int? _weatherInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   Widget _infoSection(
     BuildContext ctx,
     String title,
@@ -2362,9 +2657,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         Text(
           'Other Places Nearby',
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryBlue,
-              ),
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
         ),
         const SizedBox(height: AppConstants.spaceM),
         SizedBox(
@@ -2379,20 +2674,24 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => DestinationDetailsScreen(
-                        destination: nearby,
-                      ),
+                      builder: (context) =>
+                          DestinationDetailsScreen(destination: nearby),
                     ),
                   );
                 },
                 child: Container(
                   width: 170,
-                  margin: const EdgeInsets.only(right: AppConstants.spaceM, bottom: 8),
+                  margin: const EdgeInsets.only(
+                    right: AppConstants.spaceM,
+                    bottom: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: isDark ? Theme.of(context).cardColor : Colors.white,
                     borderRadius: BorderRadius.circular(AppConstants.radiusL),
                     border: Border.all(
-                      color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
+                      color: isDark
+                          ? Colors.white10
+                          : Colors.grey.withValues(alpha: 0.2),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -2420,14 +2719,21 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               top: 6,
                               right: 6,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.black.withValues(alpha: 0.6),
                                   borderRadius: BorderRadius.circular(4),
                                 ),
                                 child: Row(
                                   children: [
-                                    const Icon(Icons.star, color: Color(0xFFFBBC04), size: 10),
+                                    const Icon(
+                                      Icons.star,
+                                      color: Color(0xFFFBBC04),
+                                      size: 10,
+                                    ),
                                     const SizedBox(width: 2),
                                     Text(
                                       '${nearby.rating}',
@@ -2455,7 +2761,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               style: GoogleFonts.outfit(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 12,
-                                color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                                color: isDark
+                                    ? AppTheme.textPrimaryDark
+                                    : AppTheme.textPrimaryLight,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
@@ -2463,14 +2771,20 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             const SizedBox(height: 2),
                             Row(
                               children: [
-                                const Icon(Icons.location_on, size: 10, color: AppTheme.primaryBlue),
+                                const Icon(
+                                  Icons.location_on,
+                                  size: 10,
+                                  color: AppTheme.primaryBlue,
+                                ),
                                 const SizedBox(width: 2),
                                 Expanded(
                                   child: Text(
                                     nearby.district,
                                     style: TextStyle(
                                       fontSize: 10,
-                                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                      color: isDark
+                                          ? AppTheme.textSecondaryDark
+                                          : AppTheme.textSecondaryLight,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
@@ -2505,10 +2819,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
 class PulseHeartIcon extends StatefulWidget {
   final bool isSaved;
 
-  const PulseHeartIcon({
-    super.key,
-    required this.isSaved,
-  });
+  const PulseHeartIcon({super.key, required this.isSaved});
 
   @override
   State<PulseHeartIcon> createState() => _PulseHeartIconState();
@@ -2527,14 +2838,8 @@ class _PulseHeartIconState extends State<PulseHeartIcon>
       vsync: this,
     );
     _scaleAnimation = TweenSequence<double>([
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.2),
-        weight: 50,
-      ),
-      TweenSequenceItem(
-        tween: Tween<double>(begin: 1.2, end: 1.0),
-        weight: 50,
-      ),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.0, end: 1.2), weight: 50),
+      TweenSequenceItem(tween: Tween<double>(begin: 1.2, end: 1.0), weight: 50),
     ]).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -2563,7 +2868,9 @@ class _PulseHeartIconState extends State<PulseHeartIcon>
           borderRadius: BorderRadius.circular(10),
         ),
         child: Icon(
-          widget.isSaved ? Icons.favorite_rounded : Icons.favorite_border_rounded,
+          widget.isSaved
+              ? Icons.favorite_rounded
+              : Icons.favorite_border_rounded,
           color: widget.isSaved ? Colors.redAccent : Colors.white,
           size: 18,
         ),
@@ -2571,5 +2878,3 @@ class _PulseHeartIconState extends State<PulseHeartIcon>
     );
   }
 }
-
-

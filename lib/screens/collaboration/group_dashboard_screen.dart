@@ -15,13 +15,16 @@ import '../../models/destination.dart';
 import '../../services/api_service.dart';
 import '../../providers/trip_provider.dart';
 
-
 class TransitHub {
   final String name;
   final LatLng coordinates;
   final String city;
 
-  TransitHub({required this.name, required this.coordinates, required this.city});
+  TransitHub({
+    required this.name,
+    required this.coordinates,
+    required this.city,
+  });
 }
 
 final List<TransitHub> majorTransitHubs = [
@@ -47,7 +50,6 @@ final List<TransitHub> majorTransitHubs = [
   ),
 ];
 
-
 class GroupDashboardScreen extends StatefulWidget {
   final Trip? trip;
   const GroupDashboardScreen({super.key, this.trip});
@@ -60,6 +62,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   // Named constants for budget thresholds (PHP)
   static const double kLowBudgetMax = 5000.0;
   static const double kBalancedBudgetMax = 15000.0;
+  final ApiService _apiService = ApiService();
 
   // Members List State
   late List<Map<String, String>> _members;
@@ -73,6 +76,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   // Real logged expenses state
   late List<Map<String, dynamic>> _loggedExpenses;
+  bool _isLoadingBackendCollaboration = false;
+  final Map<int, Future<Map<String, dynamic>?>> _weatherFutures = {};
 
   // Route & Location State
   Position? _userPosition;
@@ -80,6 +85,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   final MapController _mapController = MapController();
   String _commuterStartPoint = 'Current Location';
   List<LatLng> _roadGeometryPoints = [];
+  Map<String, dynamic>? _trafficSummary;
   bool _isLoadingRoute = false;
   LatLng? _lastStartLoc;
   int? _lastDestId;
@@ -100,9 +106,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     });
 
     try {
-      final isSamal = dest.name.toLowerCase().contains('samal') || 
-                      dest.location.toLowerCase().contains('samal') || 
-                      widget.trip?.destinationName.toLowerCase().contains('samal') == true;
+      final isSamal =
+          dest.name.toLowerCase().contains('samal') ||
+          dest.location.toLowerCase().contains('samal') ||
+          widget.trip?.destinationName.toLowerCase().contains('samal') == true;
 
       List<Map<String, dynamic>> destinationsList = [];
       if (isSamal) {
@@ -110,20 +117,20 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           "destination_id": -1,
           "name": "Sasa Wharf",
           "lat": 7.1017,
-          "lng": 125.6601
+          "lng": 125.6601,
         });
         destinationsList.add({
           "destination_id": -2,
           "name": "Babak Port",
           "lat": 7.1189,
-          "lng": 125.6822
+          "lng": 125.6822,
         });
       }
       destinationsList.add({
         "destination_id": dest.id,
         "name": dest.name,
         "lat": dest.latitude,
-        "lng": dest.longitude
+        "lng": dest.longitude,
       });
 
       final response = await ApiService().optimizeRoute(
@@ -133,6 +140,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         startName: 'Start Point',
         returnToStart: false,
       );
+      final trafficRaw = response?['traffic'];
+      final trafficSummary = trafficRaw is Map
+          ? trafficRaw.cast<String, dynamic>()
+          : null;
 
       if (response != null && response['geometry'] != null) {
         final geometry = response['geometry'];
@@ -147,6 +158,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           if (mounted) {
             setState(() {
               _roadGeometryPoints = points;
+              _trafficSummary = trafficSummary;
               _isLoadingRoute = false;
             });
           }
@@ -160,9 +172,77 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     if (mounted) {
       setState(() {
         _roadGeometryPoints = [];
+        _trafficSummary = null;
         _isLoadingRoute = false;
       });
     }
+  }
+
+  Color _trafficColor(String level) {
+    switch (level) {
+      case 'severe':
+        return Colors.redAccent;
+      case 'heavy':
+        return Colors.deepOrange;
+      case 'moderate':
+        return Colors.amber[700]!;
+      default:
+        return AppTheme.secondaryGreen;
+    }
+  }
+
+  Widget _buildTrafficSummaryBanner(bool isDark) {
+    final traffic = _trafficSummary;
+    if (traffic == null) return const SizedBox.shrink();
+
+    final level = traffic['traffic_level']?.toString() ?? 'unknown';
+    final live = traffic['live_duration_minutes']?.toString() ?? '--';
+    final delay = traffic['delay_minutes']?.toString() ?? '0';
+    final advisory = traffic['advisory']?.toString() ?? '';
+    final color = _trafficColor(level);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: isDark ? 0.16 : 0.10),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.traffic_rounded, color: color, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Live traffic: ${level.toUpperCase()} • ETA $live min • Delay $delay min',
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.white : AppTheme.primaryBlue,
+                  ),
+                ),
+                if (advisory.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(
+                    advisory,
+                    style: GoogleFonts.outfit(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -189,30 +269,30 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       _members = [];
     }
 
-    // Seed contributions from member list (all start at 0/Unpaid)
-    _contributions = _members
-        .map<Map<String, dynamic>>(
-          (m) => {'name': m['name']!, 'amount': 0.0, 'status': 'Unpaid'},
-        )
-        .toList();
+    _syncContributionsFromMembers();
 
     _notesController = TextEditingController();
 
-    // Seed initial mock expenses
-    _loggedExpenses = [
-      {
-        'id': 'exp-1',
-        'amount': 1200.0,
-        'category': 'Food',
-        'note': 'Group dinner at Jack\'s Ridge',
-      },
-      {
-        'id': 'exp-2',
-        'amount': 850.0,
-        'category': 'Transport',
-        'note': 'Ferry transfer to Samal',
-      },
-    ];
+    _loggedExpenses = _hasBackendTripId(trip)
+        ? []
+        : [
+            {
+              'id': 'exp-1',
+              'amount': 1200.0,
+              'category': 'Food',
+              'note': 'Group dinner at Jack\'s Ridge',
+            },
+            {
+              'id': 'exp-2',
+              'amount': 850.0,
+              'category': 'Transport',
+              'note': 'Ferry transfer to Samal',
+            },
+          ];
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _loadBackendCollaborationData();
+    });
   }
 
   @override
@@ -220,6 +300,73 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     _notesController.dispose();
     _positionStreamSubscription?.cancel();
     super.dispose();
+  }
+
+  bool _hasBackendTripId(Trip? trip) {
+    final id = int.tryParse(trip?.id ?? '');
+    return id != null && id > 0;
+  }
+
+  Trip? _currentTripSnapshot() {
+    if (widget.trip != null) {
+      final trips = context.read<TripProvider>().userTrips;
+      return trips.firstWhere(
+        (t) => t.id == widget.trip!.id,
+        orElse: () => widget.trip!,
+      );
+    }
+    final trips = context.read<TripProvider>().userTrips;
+    return trips.isNotEmpty ? trips.first : null;
+  }
+
+  void _syncContributionsFromMembers() {
+    _contributions = _members
+        .map<Map<String, dynamic>>(
+          (m) => {
+            'name': m['name'] ?? 'Traveler',
+            'amount': 0.0,
+            'status': 'Unpaid',
+          },
+        )
+        .toList();
+  }
+
+  void _syncProviderMembers(Trip activeTrip) {
+    context.read<TripProvider>().updateTrip(
+      activeTrip.copyWith(members: List<Map<String, String>>.from(_members)),
+    );
+  }
+
+  String? _firstBackendMemberId() {
+    for (final member in _members) {
+      final id = member['trip_member_id'] ?? member['id'];
+      if (id != null && int.tryParse(id) != null) return id;
+    }
+    return null;
+  }
+
+  Future<void> _loadBackendCollaborationData() async {
+    final trip = _currentTripSnapshot();
+    if (!_hasBackendTripId(trip)) return;
+
+    setState(() => _isLoadingBackendCollaboration = true);
+    final members = await _apiService.fetchTripMembers(trip!.id);
+    final membersError = _apiService.lastError;
+    final expenses = await _apiService.fetchTripExpenses(trip.id);
+    final expensesError = _apiService.lastError;
+    if (!mounted) return;
+
+    setState(() {
+      if (membersError == null || members.isNotEmpty) {
+        _members = members;
+        _syncContributionsFromMembers();
+      }
+      if (expensesError == null || expenses.isNotEmpty) {
+        _loggedExpenses = expenses;
+      }
+      _isLoadingBackendCollaboration = false;
+    });
+    _syncProviderMembers(trip);
   }
 
   Future<void> _requestLocation() async {
@@ -256,23 +403,24 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       }
 
       _positionStreamSubscription?.cancel();
-      _positionStreamSubscription = Geolocator.getPositionStream(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          distanceFilter: 10,
-        ),
-      ).listen(
-        (Position position) {
-          if (mounted) {
-            setState(() {
-              _userPosition = position;
-            });
-          }
-        },
-        onError: (error) {
-          debugPrint("Real-time location stream error: $error");
-        },
-      );
+      _positionStreamSubscription =
+          Geolocator.getPositionStream(
+            locationSettings: const LocationSettings(
+              accuracy: LocationAccuracy.high,
+              distanceFilter: 10,
+            ),
+          ).listen(
+            (Position position) {
+              if (mounted) {
+                setState(() {
+                  _userPosition = position;
+                });
+              }
+            },
+            onError: (error) {
+              debugPrint("Real-time location stream error: $error");
+            },
+          );
     } catch (e) {
       debugPrint('GPS query error: $e');
     }
@@ -280,14 +428,22 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   String _deriveBudgetStyle(Trip trip) {
     final titleLower = trip.title.toLowerCase();
-    if (titleLower.contains('low budget') || titleLower.contains('low-budget') || titleLower.contains('cheap')) {
+    if (titleLower.contains('low budget') ||
+        titleLower.contains('low-budget') ||
+        titleLower.contains('cheap')) {
       return 'Low Budget';
-    } else if (titleLower.contains('balanced budget') || titleLower.contains('balanced-budget') || titleLower.contains('balanced')) {
+    } else if (titleLower.contains('balanced budget') ||
+        titleLower.contains('balanced-budget') ||
+        titleLower.contains('balanced')) {
       return 'Balanced Budget';
-    } else if (titleLower.contains('high budget') || titleLower.contains('high-budget') || titleLower.contains('premium') || titleLower.contains('luxury')) {
+    } else if (titleLower.contains('high budget') ||
+        titleLower.contains('high-budget') ||
+        titleLower.contains('premium') ||
+        titleLower.contains('luxury')) {
       return 'High Budget';
     } else {
-      final perPerson = trip.budget / (trip.numTravelers > 0 ? trip.numTravelers : 1);
+      final perPerson =
+          trip.budget / (trip.numTravelers > 0 ? trip.numTravelers : 1);
       if (perPerson <= 1500.0) {
         return 'Low Budget';
       } else if (perPerson <= 5000.0) {
@@ -310,9 +466,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     return double.tryParse(cleanText) ?? 0.0;
   }
 
-
-
-  Map<String, String>? _getBudgetAccommodation(Destination dest, String budgetStyle) {
+  Map<String, String>? _getBudgetAccommodation(
+    Destination dest,
+    String budgetStyle,
+  ) {
     final accommTypes = dest.extra.accommodationTypes;
     if (accommTypes.isEmpty) return null;
     if (budgetStyle == 'Low Budget') {
@@ -324,13 +481,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     }
   }
 
-  Map<String, String>? _getBudgetTransport(Destination dest, String budgetStyle) {
+  Map<String, String>? _getBudgetTransport(
+    Destination dest,
+    String budgetStyle,
+  ) {
     final transOptions = dest.extra.transportOptions;
     if (transOptions.isEmpty) return null;
 
     final sortedTrans = List<Map<String, String>>.from(transOptions)
       ..sort((a, b) {
-        return _parsePrice(a['price'] ?? '0').compareTo(_parsePrice(b['price'] ?? '0'));
+        return _parsePrice(
+          a['price'] ?? '0',
+        ).compareTo(_parsePrice(b['price'] ?? '0'));
       });
 
     if (budgetStyle == 'Low Budget') {
@@ -391,7 +553,12 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     };
   }
 
-  List<Map<String, String>> _getCommuterSteps(Destination dest, String startPoint, String budgetStyle, Position? userPos) {
+  List<Map<String, String>> _getCommuterSteps(
+    Destination dest,
+    String startPoint,
+    String budgetStyle,
+    Position? userPos,
+  ) {
     if (startPoint == 'Current Location') {
       if (userPos == null) {
         return _getCommuterSteps(dest, 'Davao City', budgetStyle, null);
@@ -399,19 +566,26 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       final firstMile = _calculateFirstMile(userPos);
       final hub = firstMile['nearestHub'] as TransitHub;
       final baseSteps = _getCommuterSteps(dest, hub.city, budgetStyle, null);
-      
+
       final List<Map<String, String>> customSteps = [
         {
           'step': '1. Your Location to ${hub.name}',
-          'type': firstMile['vehicle'] + " (" + firstMile['distance'].toStringAsFixed(1) + " km)",
+          'type':
+              firstMile['vehicle'] +
+              " (" +
+              firstMile['distance'].toStringAsFixed(1) +
+              " km)",
           'cost': '₱' + firstMile['cost'].toStringAsFixed(0),
           'duration': firstMile['duration'],
-        }
+        },
       ];
 
       for (int i = 0; i < baseSteps.length; i++) {
         final originalStep = baseSteps[i];
-        final cleanStepName = originalStep['step']!.replaceFirst(RegExp(r'^\d+\.\s*'), '');
+        final cleanStepName = originalStep['step']!.replaceFirst(
+          RegExp(r'^\d+\.\s*'),
+          '',
+        );
         customSteps.add({
           'step': '${i + 2}. $cleanStepName',
           'type': originalStep['type'] ?? '',
@@ -424,10 +598,17 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
     final lowerName = dest.name.toLowerCase();
     final lowerLoc = dest.location.toLowerCase();
-    final isSamal = lowerName.contains('samal') || lowerLoc.contains('samal') || lowerName.contains('pearl farm') || lowerName.contains('hagimit');
+    final isSamal =
+        lowerName.contains('samal') ||
+        lowerLoc.contains('samal') ||
+        lowerName.contains('pearl farm') ||
+        lowerName.contains('hagimit');
     final isEden = lowerName.contains('eden');
     final isMati = lowerName.contains('dahican') || lowerLoc.contains('mati');
-    final isMalagos = lowerName.contains('malagos') || lowerName.contains('eagle') || lowerLoc.contains('calinan');
+    final isMalagos =
+        lowerName.contains('malagos') ||
+        lowerName.contains('eagle') ||
+        lowerLoc.contains('calinan');
 
     if (isSamal) {
       if (startPoint == 'Panabo') {
@@ -453,9 +634,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           {
             'step': '4. Environmental Fee',
             'type': 'Environmental Fee (Included)',
-            'cost': dest.extra.environmentalFee.isNotEmpty ? dest.extra.environmentalFee : '₱30',
+            'cost': dest.extra.environmentalFee.isNotEmpty
+                ? dest.extra.environmentalFee
+                : '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       } else {
         return [
@@ -480,9 +663,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           {
             'step': '4. Environmental Fee',
             'type': 'Environmental Fee (Included)',
-            'cost': dest.extra.environmentalFee.isNotEmpty ? dest.extra.environmentalFee : '₱30',
+            'cost': dest.extra.environmentalFee.isNotEmpty
+                ? dest.extra.environmentalFee
+                : '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       }
     } else if (isEden) {
@@ -511,7 +696,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Resort Entry Fee',
             'cost': '₱50',
             'duration': 'Instant',
-          }
+          },
         ];
       } else {
         return [
@@ -532,7 +717,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Resort Entry Fee',
             'cost': '₱50',
             'duration': 'Instant',
-          }
+          },
         ];
       }
     } else if (isMati) {
@@ -555,7 +740,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Dahican local tourist fee',
             'cost': '₱50',
             'duration': 'Instant',
-          }
+          },
         ];
       } else {
         return [
@@ -576,7 +761,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Tourist environmental entry fee',
             'cost': '₱50',
             'duration': 'Instant',
-          }
+          },
         ];
       }
     } else if (isMalagos) {
@@ -599,7 +784,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Calinan community fee',
             'cost': '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       } else {
         return [
@@ -620,7 +805,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Calinan community fee',
             'cost': '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       }
     } else {
@@ -643,7 +828,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Local community fee',
             'cost': '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       } else {
         return [
@@ -664,23 +849,25 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             'type': 'Local community fee',
             'cost': '₱30',
             'duration': 'Instant',
-          }
+          },
         ];
       }
     }
   }
 
-
-
-
-
   Widget _buildCommuterRouteCard(Destination dest, String budgetStyle) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final steps = _getCommuterSteps(dest, _commuterStartPoint, budgetStyle, _userPosition);
+    final steps = _getCommuterSteps(
+      dest,
+      _commuterStartPoint,
+      budgetStyle,
+      _userPosition,
+    );
     double totalCost = 0.0;
     for (final step in steps) {
       final priceText = step['cost'] ?? '0';
-      if (priceText.toLowerCase().contains('included') || priceText.toLowerCase().contains('free')) {
+      if (priceText.toLowerCase().contains('included') ||
+          priceText.toLowerCase().contains('free')) {
         continue;
       }
       totalCost += _parsePrice(priceText);
@@ -692,7 +879,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-        border: Border.all(color: isDark ? Colors.white.withValues(alpha: 0.08) : AppTheme.primaryBlue.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : AppTheme.primaryBlue.withValues(alpha: 0.15),
+        ),
         boxShadow: AppConstants.premiumShadow,
       ),
       child: Column(
@@ -709,7 +900,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.commute_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 20),
+                    Icon(
+                      Icons.commute_rounded,
+                      color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      size: 20,
+                    ),
                     const SizedBox(width: 8),
                     Text(
                       'Commuter Route Guide',
@@ -722,30 +917,45 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: isDark ? Colors.white.withValues(alpha: 0.1) : AppTheme.primaryBlue.withValues(alpha: 0.08),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.1)
+                        : AppTheme.primaryBlue.withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(15),
                   ),
                   child: DropdownButtonHideUnderline(
                     child: DropdownButton<String>(
                       value: _commuterStartPoint,
                       dropdownColor: Theme.of(context).cardColor,
-                      icon: Icon(Icons.keyboard_arrow_down_rounded, size: 16, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                      icon: Icon(
+                        Icons.keyboard_arrow_down_rounded,
+                        size: 16,
+                        color: isDark ? Colors.white : AppTheme.primaryBlue,
+                      ),
                       style: GoogleFonts.outfit(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
                         color: isDark ? Colors.white : AppTheme.primaryBlue,
                       ),
-                      items: ['Current Location', 'Panabo', 'Davao City'].map((String val) {
+                      items: ['Current Location', 'Panabo', 'Davao City'].map((
+                        String val,
+                      ) {
                         return DropdownMenuItem<String>(
                           value: val,
                           child: Text(
-                            val == 'Current Location' ? '📍 Current Location' : val,
+                            val == 'Current Location'
+                                ? '📍 Current Location'
+                                : val,
                             style: GoogleFonts.outfit(
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.primaryBlue,
+                              color: isDark
+                                  ? AppTheme.textPrimaryDark
+                                  : AppTheme.primaryBlue,
                             ),
                           ),
                         );
@@ -755,7 +965,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           setState(() {
                             _commuterStartPoint = newVal;
                           });
-                          if (newVal == 'Current Location' && _userPosition == null) {
+                          if (newVal == 'Current Location' &&
+                              _userPosition == null) {
                             _requestLocation();
                           }
                         }
@@ -769,7 +980,12 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           const SizedBox(height: AppConstants.spaceM),
           Text(
             'Dynamic step-by-step commuter routing, including barge connections and fees.',
-            style: GoogleFonts.outfit(fontSize: 11, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+            style: GoogleFonts.outfit(
+              fontSize: 11,
+              color: isDark
+                  ? AppTheme.textSecondaryDark
+                  : AppTheme.textSecondaryLight,
+            ),
           ),
           const SizedBox(height: AppConstants.spaceL),
           ...List.generate(steps.length, (index) {
@@ -831,7 +1047,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                 maxLines: 1,
                                 style: GoogleFonts.outfit(
                                   fontSize: 11,
-                                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                  color: isDark
+                                      ? AppTheme.textSecondaryDark
+                                      : AppTheme.textSecondaryLight,
                                 ),
                               ),
                             ),
@@ -839,9 +1057,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             Text(
                               step['cost'] ?? '',
                               style: GoogleFonts.outfit(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.secondaryGreen),
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.secondaryGreen,
+                              ),
                             ),
                           ],
                         ),
@@ -857,7 +1076,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: isDark ? Colors.white.withValues(alpha: 0.05) : AppTheme.secondaryGreen.withValues(alpha: 0.06),
+              color: isDark
+                  ? Colors.white.withValues(alpha: 0.05)
+                  : AppTheme.secondaryGreen.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Row(
@@ -892,10 +1113,13 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  Widget _buildRouteAndTransportationSection(Trip activeTrip, Destination dest) {
+  Widget _buildRouteAndTransportationSection(
+    Trip activeTrip,
+    Destination dest,
+  ) {
     final budgetStyle = _deriveBudgetStyle(activeTrip);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     final accommOpt = _getBudgetAccommodation(dest, budgetStyle);
     final transOpt = _getBudgetTransport(dest, budgetStyle);
 
@@ -904,19 +1128,26 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     if (_commuterStartPoint == 'Panabo') {
       startLocation = const LatLng(7.3079, 125.6811);
       startName = 'Panabo Terminal';
-    } else if (_commuterStartPoint == 'Current Location' && _userPosition != null) {
+    } else if (_commuterStartPoint == 'Current Location' &&
+        _userPosition != null) {
       startLocation = LatLng(_userPosition!.latitude, _userPosition!.longitude);
       startName = 'Your Location';
     } else {
       startLocation = const LatLng(7.0706, 125.6092);
-      startName = _commuterStartPoint == 'Current Location' ? 'Davao City Center (GPS Loading...)' : 'Davao City Center';
+      startName = _commuterStartPoint == 'Current Location'
+          ? 'Davao City Center (GPS Loading...)'
+          : 'Davao City Center';
     }
 
     // Trigger OSRM road geometry fetching
     _fetchRoadRoute(startLocation, dest);
 
     final lowerSearch = activeTrip.destinationName.toLowerCase();
-    final isSamal = lowerSearch.contains('samal') || dest.location.toLowerCase().contains('samal') || dest.name.toLowerCase().contains('pearl farm') || dest.name.toLowerCase().contains('hagimit');
+    final isSamal =
+        lowerSearch.contains('samal') ||
+        dest.location.toLowerCase().contains('samal') ||
+        dest.name.toLowerCase().contains('pearl farm') ||
+        dest.name.toLowerCase().contains('hagimit');
 
     final List<LatLng> routePoints = [startLocation];
     if (isSamal) {
@@ -928,8 +1159,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     final Color budgetBadgeColor = budgetStyle == 'Low Budget'
         ? Colors.green[700]!
         : budgetStyle == 'High Budget'
-            ? Colors.red[700]!
-            : Colors.amber[700]!;
+        ? Colors.red[700]!
+        : Colors.amber[700]!;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
@@ -940,13 +1171,25 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           Text(
             'Route Optimization',
             style: GoogleFonts.outfit(
-                fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppTheme.primaryBlue,
+            ),
           ),
           const SizedBox(height: 4),
           Text(
             'AI optimized paths calculated for your journey.',
-            style: GoogleFonts.outfit(fontSize: 12, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+            style: GoogleFonts.outfit(
+              fontSize: 12,
+              color: isDark
+                  ? AppTheme.textSecondaryDark
+                  : AppTheme.textSecondaryLight,
+            ),
           ),
+          if (_trafficSummary != null) ...[
+            const SizedBox(height: AppConstants.spaceS),
+            _buildTrafficSummaryBanner(isDark),
+          ],
           const SizedBox(height: AppConstants.spaceM),
           Container(
             height: 280,
@@ -967,8 +1210,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   ),
                   children: [
                     TileLayer(
-                      urlTemplate: AppConstants.mapboxAccessToken.isEmpty ||
-                              AppConstants.mapboxAccessToken == 'YOUR_MAPBOX_ACCESS_TOKEN'
+                      urlTemplate:
+                          AppConstants.mapboxAccessToken.isEmpty ||
+                              AppConstants.mapboxAccessToken ==
+                                  'YOUR_MAPBOX_ACCESS_TOKEN'
                           ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
                           : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                       userAgentPackageName: 'com.lakbay.plus',
@@ -976,7 +1221,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     PolylineLayer(
                       polylines: [
                         Polyline(
-                          points: _roadGeometryPoints.isNotEmpty ? _roadGeometryPoints : routePoints,
+                          points: _roadGeometryPoints.isNotEmpty
+                              ? _roadGeometryPoints
+                              : routePoints,
                           color: AppTheme.primaryBlue,
                           strokeWidth: 4,
                         ),
@@ -1008,7 +1255,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                     color: Colors.black26,
                                     blurRadius: 3,
                                     offset: Offset(0, 1),
-                                  )
+                                  ),
                                 ],
                               ),
                               child: const Center(
@@ -1040,21 +1287,30 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   left: 10,
                   right: 10,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
                     decoration: BoxDecoration(
-                      color: Theme.of(context).cardColor.withValues(alpha: 0.95),
+                      color: Theme.of(
+                        context,
+                      ).cardColor.withValues(alpha: 0.95),
                       borderRadius: BorderRadius.circular(8),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
-                        )
+                        ),
                       ],
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.navigation_rounded, color: isDark ? Colors.white : AppTheme.primaryBlue, size: 16),
+                        Icon(
+                          Icons.navigation_rounded,
+                          color: isDark ? Colors.white : AppTheme.primaryBlue,
+                          size: 16,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
@@ -1064,7 +1320,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             style: GoogleFonts.outfit(
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : AppTheme.primaryBlue,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppTheme.primaryBlue,
                             ),
                           ),
                         ),
@@ -1079,11 +1337,19 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     heroTag: 'recenter_dashboard_map',
                     backgroundColor: Theme.of(context).cardColor,
                     foregroundColor: Theme.of(context).colorScheme.primary,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                     onPressed: () {
-                      _mapController.move(LatLng(dest.latitude, dest.longitude), 11.5);
+                      _mapController.move(
+                        LatLng(dest.latitude, dest.longitude),
+                        11.5,
+                      );
                     },
-                    child: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                    child: const Icon(
+                      Icons.center_focus_strong_rounded,
+                      size: 18,
+                    ),
                   ),
                 ),
               ],
@@ -1093,7 +1359,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           Text(
             'Budget-Matched Bookings',
             style: GoogleFonts.outfit(
-                fontSize: 18, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: isDark ? Colors.white : AppTheme.primaryBlue,
+            ),
           ),
           const SizedBox(height: AppConstants.spaceM),
           Row(
@@ -1105,7 +1374,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.15),
+                    ),
                     boxShadow: AppConstants.premiumShadow,
                   ),
                   child: Column(
@@ -1113,28 +1384,47 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.hotel_rounded, color: budgetBadgeColor, size: 18),
+                          Icon(
+                            Icons.hotel_rounded,
+                            color: budgetBadgeColor,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Lodging',
                             style: GoogleFonts.outfit(
-                                fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppTheme.primaryBlue,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        accommOpt != null ? accommOpt['type'] ?? 'Standard Room' : 'Standard Lodging',
+                        accommOpt != null
+                            ? accommOpt['type'] ?? 'Standard Room'
+                            : 'Standard Lodging',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
-                            fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                       const Spacer(),
                       Text(
-                        accommOpt != null ? accommOpt['price'] ?? 'Free' : 'Included in trip',
+                        accommOpt != null
+                            ? accommOpt['price'] ?? 'Free'
+                            : 'Included in trip',
                         style: GoogleFonts.outfit(
-                            fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.secondaryGreen,
+                        ),
                       ),
                     ],
                   ),
@@ -1148,7 +1438,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).cardColor,
                     borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                    border: Border.all(color: Colors.grey.withValues(alpha: 0.15)),
+                    border: Border.all(
+                      color: Colors.grey.withValues(alpha: 0.15),
+                    ),
                     boxShadow: AppConstants.premiumShadow,
                   ),
                   child: Column(
@@ -1156,22 +1448,36 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     children: [
                       Row(
                         children: [
-                          Icon(Icons.directions_bus_rounded, color: budgetBadgeColor, size: 18),
+                          Icon(
+                            Icons.directions_bus_rounded,
+                            color: budgetBadgeColor,
+                            size: 18,
+                          ),
                           const SizedBox(width: 6),
                           Text(
                             'Transport',
                             style: GoogleFonts.outfit(
-                                fontSize: 12, fontWeight: FontWeight.bold, color: isDark ? Colors.white : AppTheme.primaryBlue),
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? Colors.white
+                                  : AppTheme.primaryBlue,
+                            ),
                           ),
                         ],
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        transOpt != null ? transOpt['vehicle'] ?? 'Public Transit' : 'Local Commute',
+                        transOpt != null
+                            ? transOpt['vehicle'] ?? 'Public Transit'
+                            : 'Local Commute',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.outfit(
-                            fontSize: 13, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.onSurface),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).colorScheme.onSurface,
+                        ),
                       ),
                       const SizedBox(height: 2),
                       Text(
@@ -1180,44 +1486,75 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             : 'City Center ➔ Destination',
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                        style: GoogleFonts.outfit(
+                          fontSize: 10,
+                          color: isDark
+                              ? AppTheme.textSecondaryDark
+                              : AppTheme.textSecondaryLight,
+                        ),
                       ),
                       const Spacer(),
-                      if (activeTrip.isGroup && activeTrip.numTravelers > 1) ...[
+                      if (activeTrip.isGroup &&
+                          activeTrip.numTravelers > 1) ...[
                         Text(
-                          transOpt != null ? '${transOpt['price'] ?? 'Free'}/pax' : 'Free/pax',
+                          transOpt != null
+                              ? '${transOpt['price'] ?? 'Free'}/pax'
+                              : 'Free/pax',
                           style: GoogleFonts.outfit(
-                              fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.secondaryGreen,
+                          ),
                         ),
-                        Builder(builder: (ctx) {
-                          final perPax = _parsePrice(transOpt?['price'] ?? '0');
-                          final total = perPax * activeTrip.numTravelers;
-                          return Text(
-                            'Total: ₱${total.toStringAsFixed(0)} for ${activeTrip.numTravelers} pax',
-                            style: GoogleFonts.outfit(
-                                fontSize: 9, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                          );
-                        }),
+                        Builder(
+                          builder: (ctx) {
+                            final perPax = _parsePrice(
+                              transOpt?['price'] ?? '0',
+                            );
+                            final total = perPax * activeTrip.numTravelers;
+                            return Text(
+                              'Total: ₱${total.toStringAsFixed(0)} for ${activeTrip.numTravelers} pax',
+                              style: GoogleFonts.outfit(
+                                fontSize: 9,
+                                color: isDark
+                                    ? AppTheme.textSecondaryDark
+                                    : AppTheme.textSecondaryLight,
+                              ),
+                            );
+                          },
+                        ),
                       ] else
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Flexible(
                               child: Text(
-                                transOpt != null ? transOpt['price'] ?? 'Free' : 'Free',
+                                transOpt != null
+                                    ? transOpt['price'] ?? 'Free'
+                                    : 'Free',
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
                                 style: GoogleFonts.outfit(
-                                    fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.secondaryGreen,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 8),
                             Flexible(
                               child: Text(
-                                transOpt != null ? transOpt['duration'] ?? '1 hr' : '1 hr',
+                                transOpt != null
+                                    ? transOpt['duration'] ?? '1 hr'
+                                    : '1 hr',
                                 overflow: TextOverflow.ellipsis,
                                 maxLines: 1,
-                                style: GoogleFonts.outfit(fontSize: 10, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                                style: GoogleFonts.outfit(
+                                  fontSize: 10,
+                                  color: isDark
+                                      ? AppTheme.textSecondaryDark
+                                      : AppTheme.textSecondaryLight,
+                                ),
                               ),
                             ),
                           ],
@@ -1250,11 +1587,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   Widget _summaryDivider() {
-    return Container(
-      width: 1,
-      height: 20,
-      color: Colors.white24,
-    );
+    return Container(width: 1, height: 20, color: Colors.white24);
   }
 
   Widget _summaryCol(String val, String label) {
@@ -1269,15 +1602,159 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           ),
         ),
         const SizedBox(height: 2),
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 9,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white54, fontSize: 9)),
       ],
     );
+  }
+
+  Future<Map<String, dynamic>?> _weatherFutureFor(Destination destination) {
+    return _weatherFutures.putIfAbsent(
+      destination.id,
+      () => _apiService.fetchDestinationWeather(destination.id),
+    );
+  }
+
+  Widget _buildWeatherCard(Destination destination) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return FutureBuilder<Map<String, dynamic>?>(
+      future: _weatherFutureFor(destination),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Container(
+            margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+            padding: const EdgeInsets.all(AppConstants.spaceM),
+            decoration: BoxDecoration(
+              color: AppTheme.accentTeal.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+              border: Border.all(
+                color: AppTheme.accentTeal.withValues(alpha: 0.2),
+              ),
+            ),
+            child: const LinearProgressIndicator(minHeight: 2),
+          );
+        }
+
+        final weather = snapshot.data;
+        if (weather == null) return const SizedBox.shrink();
+
+        final current = weather['current'] is Map
+            ? (weather['current'] as Map).cast<String, dynamic>()
+            : <String, dynamic>{};
+        final condition = current['condition'] is Map
+            ? (current['condition'] as Map).cast<String, dynamic>()
+            : <String, dynamic>{};
+        final days = weather['days'] is List
+            ? weather['days'] as List
+            : const [];
+        final firstDay = days.isNotEmpty && days.first is Map
+            ? (days.first as Map).cast<String, dynamic>()
+            : <String, dynamic>{};
+        final temp = _weatherNumber(current['temp_c']);
+        final rain = _weatherInt(firstDay['rain_chance_percent']);
+        final main = condition['main']?.toString() ?? 'Weather';
+        final description = condition['description']?.toString() ?? main;
+        final advisory =
+            current['advisory']?.toString() ??
+            firstDay['advisory']?.toString() ??
+            '';
+
+        return Container(
+          margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+          padding: const EdgeInsets.all(AppConstants.spaceL),
+          decoration: BoxDecoration(
+            color: AppTheme.accentTeal.withValues(alpha: 0.08),
+            borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+            border: Border.all(
+              color: AppTheme.accentTeal.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: AppTheme.accentTeal.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(_weatherIcon(main), color: AppTheme.accentTeal),
+              ),
+              const SizedBox(width: AppConstants.spaceM),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Weather for ${destination.name}',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? AppTheme.textPrimaryDark
+                            : AppTheme.primaryBlue,
+                      ),
+                    ),
+                    Text(
+                      advisory.isEmpty ? description : advisory,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppTheme.textSecondaryDark
+                            : AppTheme.textSecondaryLight,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: AppConstants.spaceM),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    temp == null ? '--' : '${temp.toStringAsFixed(0)} C',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.accentTeal,
+                    ),
+                  ),
+                  Text(
+                    rain == null ? 'Rain --' : 'Rain $rain%',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  IconData _weatherIcon(String condition) {
+    final lower = condition.toLowerCase();
+    if (lower.contains('thunder')) return Icons.thunderstorm_rounded;
+    if (lower.contains('rain') || lower.contains('drizzle')) {
+      return Icons.umbrella_rounded;
+    }
+    if (lower.contains('cloud')) return Icons.cloud_rounded;
+    if (lower.contains('clear')) return Icons.wb_sunny_rounded;
+    if (lower.contains('wind')) return Icons.air_rounded;
+    return Icons.thermostat_rounded;
+  }
+
+  double? _weatherNumber(dynamic value) {
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  int? _weatherInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.round();
+    if (value is String) return int.tryParse(value);
+    return null;
   }
 
   Widget _buildHeroBanner(Trip activeTrip, int totalStops, bool isGroup) {
@@ -1286,7 +1763,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       margin: const EdgeInsets.all(AppConstants.spaceM),
       padding: const EdgeInsets.all(AppConstants.spaceL),
       decoration: BoxDecoration(
-        color: const Color(0xFF104B50), // Premium deep dark teal fallback background color
+        color: const Color(
+          0xFF104B50,
+        ), // Premium deep dark teal fallback background color
         image: DecorationImage(
           image: NetworkImage(activeTrip.imageUrl),
           fit: BoxFit.cover,
@@ -1323,7 +1802,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             children: [
               // Solo/Group Pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -1351,7 +1833,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               const SizedBox(width: 8),
               // Budget Level Chip
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -1360,8 +1845,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   activeTrip.budget <= kLowBudgetMax
                       ? '⬇ Low Budget'
                       : activeTrip.budget <= kBalancedBudgetMax
-                          ? '= Balanced'
-                          : '⬆ High Budget',
+                      ? '= Balanced'
+                      : '⬆ High Budget',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 10,
@@ -1372,7 +1857,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               const SizedBox(width: 8),
               // Duration pill
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
@@ -1402,7 +1890,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 _summaryDivider(),
                 _summaryCol('$totalStops', 'Stops'),
                 _summaryDivider(),
-                _summaryCol('₱${activeTrip.budget.toStringAsFixed(0)}', 'Est. Budget'),
+                _summaryCol(
+                  '₱${activeTrip.budget.toStringAsFixed(0)}',
+                  'Est. Budget',
+                ),
               ],
             ),
           ),
@@ -1412,12 +1903,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   }
 
   Widget _buildItinerarySection(Trip activeTrip) {
-    // Note: The itinerary data source is retrieved from activeTrip.itinerary, which is passed down 
+    // Note: The itinerary data source is retrieved from activeTrip.itinerary, which is passed down
     // from the saved planner output in TripProvider.
     // TODO: Sync / fetch itinerary from Neon DB (itineraries table)
     if (activeTrip.itinerary.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 16.0, horizontal: AppConstants.spaceM),
+        padding: EdgeInsets.symmetric(
+          vertical: 16.0,
+          horizontal: AppConstants.spaceM,
+        ),
         child: Text(
           'No activities scheduled yet.',
           style: TextStyle(fontStyle: FontStyle.italic, color: Colors.grey),
@@ -1436,7 +1930,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: AppConstants.spaceL),
+              padding: const EdgeInsets.symmetric(
+                vertical: 8.0,
+                horizontal: AppConstants.spaceL,
+              ),
               child: Text(
                 'Day $dayNum',
                 style: GoogleFonts.outfit(
@@ -1453,10 +1950,19 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  Widget _buildExpenseTracker(Trip activeTrip, Destination matchedDest, dynamic destExtra) {
-    final totalSpent = _loggedExpenses.fold<double>(0, (sum, item) => sum + item['amount']);
+  Widget _buildExpenseTracker(
+    Trip activeTrip,
+    Destination matchedDest,
+    dynamic destExtra,
+  ) {
+    final totalSpent = _loggedExpenses.fold<double>(
+      0,
+      (sum, item) => sum + item['amount'],
+    );
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final percent = activeTrip.budget > 0 ? (totalSpent / activeTrip.budget).clamp(0.0, 1.0) : 0.0;
+    final percent = activeTrip.budget > 0
+        ? (totalSpent / activeTrip.budget).clamp(0.0, 1.0)
+        : 0.0;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
@@ -1466,7 +1972,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         boxShadow: AppConstants.cardShadow,
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Column(
@@ -1477,7 +1985,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.account_balance_wallet_rounded, color: AppTheme.secondaryGreen),
+                  const Icon(
+                    Icons.account_balance_wallet_rounded,
+                    color: AppTheme.secondaryGreen,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Expense Tracker',
@@ -1489,28 +2000,54 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 ],
               ),
               TextButton.icon(
-                onPressed: _showAddExpenseDialog,
+                onPressed: () => _showAddExpenseDialog(activeTrip),
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: Text(
                   'Add Expense',
-                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.secondaryGreen,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  backgroundColor: AppTheme.secondaryGreen.withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  backgroundColor: AppTheme.secondaryGreen.withValues(
+                    alpha: 0.1,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],
           ),
           const Divider(height: 24),
+          if (_isLoadingBackendCollaboration) ...[
+            const LinearProgressIndicator(minHeight: 2),
+            const SizedBox(height: 12),
+          ],
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _financeMetric('Spent', '₱${totalSpent.toStringAsFixed(0)}', AppTheme.secondaryGreen),
-              _financeMetric('Remaining', '₱${(activeTrip.budget - totalSpent).toStringAsFixed(0)}', AppTheme.primaryBlue),
-              _financeMetric('Budget', '₱${activeTrip.budget.toStringAsFixed(0)}', Colors.grey),
+              _financeMetric(
+                'Spent',
+                '₱${totalSpent.toStringAsFixed(0)}',
+                AppTheme.secondaryGreen,
+              ),
+              _financeMetric(
+                'Remaining',
+                '₱${(activeTrip.budget - totalSpent).toStringAsFixed(0)}',
+                AppTheme.primaryBlue,
+              ),
+              _financeMetric(
+                'Budget',
+                '₱${activeTrip.budget.toStringAsFixed(0)}',
+                Colors.grey,
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -1540,7 +2077,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               child: Center(
                 child: Text(
                   'No expenses logged yet. Tap Add Expense to start tracking!',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -1575,27 +2116,45 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           children: [
                             Text(
                               exp['note'],
-                              style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+                              style: GoogleFonts.outfit(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
                             ),
                             Text(
                               exp['category'],
-                              style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: Colors.grey,
+                              ),
                             ),
                           ],
                         ),
                       ),
                       Text(
                         '₱${exp['amount'].toStringAsFixed(0)}',
-                        style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.secondaryGreen),
+                        style: GoogleFonts.outfit(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.secondaryGreen,
+                        ),
                       ),
                       const SizedBox(width: 6),
                       IconButton(
-                        icon: const Icon(Icons.edit_rounded, size: 16, color: Colors.grey),
-                        onPressed: () => _showEditExpenseDialog(index),
+                        icon: const Icon(
+                          Icons.edit_rounded,
+                          size: 16,
+                          color: Colors.grey,
+                        ),
+                        onPressed: () =>
+                            _showEditExpenseDialog(activeTrip, index),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.delete_outline_rounded, size: 16, color: Colors.redAccent),
-                        onPressed: () => _deleteExpense(index),
+                        icon: const Icon(
+                          Icons.delete_outline_rounded,
+                          size: 16,
+                          color: Colors.redAccent,
+                        ),
+                        onPressed: () => _deleteExpense(activeTrip, index),
                       ),
                     ],
                   ),
@@ -1615,7 +2174,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
               label: Text(
                 'Export PDF Travel Receipt',
-                style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 foregroundColor: AppTheme.primaryBlue,
@@ -1640,7 +2202,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         const SizedBox(height: 2),
         Text(
           value,
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15, color: color),
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: color,
+          ),
         ),
       ],
     );
@@ -1661,11 +2227,32 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     }
   }
 
-  void _deleteExpense(int index) {
+  Future<void> _deleteExpense(Trip activeTrip, int index) async {
+    final expense = _loggedExpenses[index];
+    final expenseId =
+        expense['trip_expense_id']?.toString() ??
+        expense['id']?.toString() ??
+        '';
+    if (_hasBackendTripId(activeTrip) && int.tryParse(expenseId) != null) {
+      final deleted = await _apiService.deleteTripExpense(
+        activeTrip.id,
+        expenseId,
+      );
+      if (!mounted) return;
+      if (!deleted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_apiService.lastError ?? 'Failed to delete expense.'),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _loggedExpenses.removeAt(index);
     });
-    // TODO: persist expenses to Neon DB (expenses table)
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Expense deleted successfully'),
@@ -1675,7 +2262,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  void _showAddExpenseDialog() {
+  void _showAddExpenseDialog(Trip activeTrip) {
     final amountCtrl = TextEditingController();
     final noteCtrl = TextEditingController();
     String category = 'Food';
@@ -1684,7 +2271,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Add Expense', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Add Expense',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1696,9 +2286,19 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: category,
-                items: const ['Food', 'Transport', 'Accommodation', 'Activities', 'Others']
-                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
-                    .toList(),
+                items:
+                    const [
+                          'Food',
+                          'Transport',
+                          'Accommodation',
+                          'Activities',
+                          'Others',
+                        ]
+                        .map(
+                          (cat) =>
+                              DropdownMenuItem(value: cat, child: Text(cat)),
+                        )
+                        .toList(),
                 onChanged: (val) {
                   if (val != null) category = val;
                 },
@@ -1717,20 +2317,60 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final amt = double.tryParse(amountCtrl.text);
                 final note = noteCtrl.text.trim();
                 if (amt == null || amt <= 0 || note.isEmpty) return;
+
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(this.context);
+                Map<String, dynamic>? savedExpense;
+                if (_hasBackendTripId(activeTrip)) {
+                  final payerId = _firstBackendMemberId();
+                  if (payerId == null) {
+                    messenger.showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Add or load trip members before logging expenses.',
+                        ),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return;
+                  }
+                  savedExpense = await _apiService.createTripExpense(
+                    activeTrip.id,
+                    amount: amt,
+                    category: category,
+                    note: note,
+                    paidByTripMemberId: payerId,
+                  );
+                  if (!mounted) return;
+                  if (savedExpense == null) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          _apiService.lastError ?? 'Failed to add expense.',
+                        ),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
                 setState(() {
-                  _loggedExpenses.add({
-                    'id': 'exp-${DateTime.now().millisecondsSinceEpoch}',
-                    'amount': amt,
-                    'category': category,
-                    'note': note,
-                  });
+                  _loggedExpenses.add(
+                    savedExpense ??
+                        {
+                          'id': 'exp-${DateTime.now().millisecondsSinceEpoch}',
+                          'amount': amt,
+                          'category': category,
+                          'note': note,
+                        },
+                  );
                 });
-                // TODO: persist expenses to Neon DB (expenses table)
-                Navigator.pop(context);
+                navigator.pop();
               },
               child: const Text('Add'),
             ),
@@ -1740,9 +2380,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  void _showEditExpenseDialog(int index) {
+  void _showEditExpenseDialog(Trip activeTrip, int index) {
     final exp = _loggedExpenses[index];
-    final amountCtrl = TextEditingController(text: exp['amount'].toStringAsFixed(0));
+    final amountCtrl = TextEditingController(
+      text: exp['amount'].toStringAsFixed(0),
+    );
     final noteCtrl = TextEditingController(text: exp['note']);
     String category = exp['category'];
 
@@ -1750,7 +2392,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       context: context,
       builder: (context) {
         return AlertDialog(
-          title: Text('Edit Expense', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+          title: Text(
+            'Edit Expense',
+            style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1762,9 +2407,19 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               const SizedBox(height: 8),
               DropdownButtonFormField<String>(
                 initialValue: category,
-                items: const ['Food', 'Transport', 'Accommodation', 'Activities', 'Others']
-                    .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
-                    .toList(),
+                items:
+                    const [
+                          'Food',
+                          'Transport',
+                          'Accommodation',
+                          'Activities',
+                          'Others',
+                        ]
+                        .map(
+                          (cat) =>
+                              DropdownMenuItem(value: cat, child: Text(cat)),
+                        )
+                        .toList(),
                 onChanged: (val) {
                   if (val != null) category = val;
                 },
@@ -1783,20 +2438,55 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              onPressed: () {
+              onPressed: () async {
                 final amt = double.tryParse(amountCtrl.text);
                 final note = noteCtrl.text.trim();
                 if (amt == null || amt <= 0 || note.isEmpty) return;
+
+                final navigator = Navigator.of(context);
+                final messenger = ScaffoldMessenger.of(this.context);
+                Map<String, dynamic>? savedExpense;
+                final expenseId =
+                    exp['trip_expense_id']?.toString() ??
+                    exp['id']?.toString() ??
+                    '';
+                if (_hasBackendTripId(activeTrip) &&
+                    int.tryParse(expenseId) != null) {
+                  savedExpense = await _apiService.updateTripExpense(
+                    activeTrip.id,
+                    expenseId,
+                    amount: amt,
+                    category: category,
+                    note: note,
+                    paidByTripMemberId:
+                        exp['paid_by_trip_member_id']?.toString() ??
+                        _firstBackendMemberId(),
+                  );
+                  if (!mounted) return;
+                  if (savedExpense == null) {
+                    messenger.showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          _apiService.lastError ?? 'Failed to update expense.',
+                        ),
+                        backgroundColor: Colors.redAccent,
+                      ),
+                    );
+                    return;
+                  }
+                }
+
                 setState(() {
-                  _loggedExpenses[index] = {
-                    ...exp,
-                    'amount': amt,
-                    'category': category,
-                    'note': note,
-                  };
+                  _loggedExpenses[index] =
+                      savedExpense ??
+                      {
+                        ...exp,
+                        'amount': amt,
+                        'category': category,
+                        'note': note,
+                      };
                 });
-                // TODO: persist expenses to Neon DB (expenses table)
-                Navigator.pop(context);
+                navigator.pop();
               },
               child: const Text('Save'),
             ),
@@ -1805,8 +2495,6 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       },
     );
   }
-
-
 
   Widget _buildPhotoMemories(Trip activeTrip) {
     // Extract photo URLs from trip memories (for clean DB wiring in Step 10)
@@ -1824,7 +2512,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         boxShadow: AppConstants.cardShadow,
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Column(
@@ -1835,7 +2525,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.photo_library_rounded, color: AppTheme.accentTeal),
+                  const Icon(
+                    Icons.photo_library_rounded,
+                    color: AppTheme.accentTeal,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Photo Memories',
@@ -1851,13 +2544,21 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 icon: const Icon(Icons.add_a_photo_rounded, size: 16),
                 label: Text(
                   'Add Photo',
-                  style: GoogleFonts.outfit(fontSize: 11, fontWeight: FontWeight.bold),
+                  style: GoogleFonts.outfit(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 style: TextButton.styleFrom(
                   foregroundColor: AppTheme.accentTeal,
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
                   backgroundColor: AppTheme.accentTeal.withValues(alpha: 0.1),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
             ],
@@ -1869,7 +2570,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               child: Center(
                 child: Text(
                   'No photo memories uploaded yet. Tap Add Photo to share a memory!',
-                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey,
+                    fontStyle: FontStyle.italic,
+                  ),
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -1903,18 +2608,26 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           ? Image.file(
                               File(url),
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: Colors.grey[900],
-                                child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.grey[900],
+                                    child: const Icon(
+                                      Icons.broken_image_rounded,
+                                      color: Colors.white38,
+                                    ),
+                                  ),
                             )
                           : Image.network(
                               url,
                               fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
-                                color: Colors.grey[900],
-                                child: const Icon(Icons.broken_image_rounded, color: Colors.white38),
-                              ),
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    color: Colors.grey[900],
+                                    child: const Icon(
+                                      Icons.broken_image_rounded,
+                                      color: Colors.white38,
+                                    ),
+                                  ),
                             ),
                       if (caption.isNotEmpty)
                         Positioned(
@@ -1926,7 +2639,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             color: Colors.black45,
                             child: Text(
                               caption,
-                              style: const TextStyle(color: Colors.white, fontSize: 8),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 8,
+                              ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -1944,7 +2660,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   Future<void> _addPhotoFromGallery(Trip trip) async {
     final picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (pickedFile == null) return;
 
     final file = File(pickedFile.path);
@@ -1954,34 +2673,35 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     final caption = result['caption'] ?? '';
     final location = result['location'] ?? '';
 
-    final newMem = {
-      'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
-      'user': 'You',
-      'avatar': '',
-      'time': 'Just now',
-      'caption': caption,
-      'image': file.path,
-      'likes': '0',
-      'comments': '0',
-      'location': location.isNotEmpty ? location : trip.destinationName,
-    };
-
-    final updated = trip.copyWith(
-      memories: [...trip.memories, newMem],
+    final provider = context.read<TripProvider>();
+    final success = await provider.addMemoryToTrip(
+      trip,
+      filePath: file.path,
+      caption: caption,
+      location: location.isNotEmpty ? location : trip.destinationName,
     );
-    Provider.of<TripProvider>(context, listen: false).updateTrip(updated);
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Memory photo uploaded and synced! 📸'),
-        backgroundColor: AppTheme.secondaryGreen,
+      SnackBar(
+        content: Text(
+          success
+              ? 'Memory photo uploaded and synced!'
+              : (provider.errorMessage ?? 'Failed to upload memory photo.'),
+        ),
+        backgroundColor: success ? AppTheme.secondaryGreen : Colors.redAccent,
       ),
     );
   }
 
-  Future<Map<String, String>?> _showAddPhotoDialog(File imageFile, String defaultLocation) async {
+  Future<Map<String, String>?> _showAddPhotoDialog(
+    File imageFile,
+    String defaultLocation,
+  ) async {
     final captionCtrl = TextEditingController();
-    final locationCtrl = TextEditingController(text: defaultLocation.split(',').first);
+    final locationCtrl = TextEditingController(
+      text: defaultLocation.split(',').first,
+    );
 
     return showModalBottomSheet<Map<String, String>>(
       context: context,
@@ -1990,11 +2710,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: isDark ? AppTheme.cardColorDark : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: const EdgeInsets.all(AppConstants.spaceL),
             child: Column(
@@ -2061,7 +2785,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text('Cancel', style: GoogleFonts.outfit()),
@@ -2080,12 +2806,16 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text(
                           'Upload',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -2101,7 +2831,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
 
   Widget _buildTravelNotesWidget(Trip activeTrip, Destination dest) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Dynamic AI Suggestions based on destination
     final List<String> aiSuggestions = [
       '🎒 Pack light: Bring breathable clothes, a dry bag for wet items, and sun protection.',
@@ -2120,14 +2850,20 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           decoration: BoxDecoration(
             color: AppTheme.primaryBlue.withValues(alpha: 0.05),
             borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-            border: Border.all(color: AppTheme.primaryBlue.withValues(alpha: 0.15)),
+            border: Border.all(
+              color: AppTheme.primaryBlue.withValues(alpha: 0.15),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  const Icon(Icons.psychology_alt_rounded, color: AppTheme.primaryBlue, size: 20),
+                  const Icon(
+                    Icons.psychology_alt_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'AI Recommendations',
@@ -2147,7 +2883,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     tip,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
                       height: 1.4,
                     ),
                   ),
@@ -2156,7 +2894,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             ],
           ),
         ),
-        
+
         const SizedBox(height: AppConstants.spaceM),
 
         // Personal Notes Card (re-using the existing amber notes design)
@@ -2173,7 +2911,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             children: [
               Row(
                 children: [
-                  const Icon(Icons.note_alt_rounded, color: Colors.amber, size: 20),
+                  const Icon(
+                    Icons.note_alt_rounded,
+                    color: Colors.amber,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Text(
                     'Personal Notes & Reminders',
@@ -2196,20 +2938,30 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           ? AppTheme.secondaryGreen
                           : Colors.grey,
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (_isEditingNotes) {
                         final updated = activeTrip.copyWith(
                           notes: _notesController.text,
                         );
-                        Provider.of<TripProvider>(
-                          context,
-                          listen: false,
-                        ).updateTrip(updated);
-                        setState(() => _isEditingNotes = false);
+                        final provider = context.read<TripProvider>();
+                        final success = await provider.saveTripMetadata(
+                          updated,
+                        );
+                        if (!mounted) return;
+                        if (success) {
+                          setState(() => _isEditingNotes = false);
+                        }
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Notes saved persistently!'),
-                            backgroundColor: AppTheme.secondaryGreen,
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? 'Notes saved persistently!'
+                                  : (provider.errorMessage ??
+                                        'Failed to save notes.'),
+                            ),
+                            backgroundColor: success
+                                ? AppTheme.secondaryGreen
+                                : Colors.redAccent,
                           ),
                         );
                       } else {
@@ -2234,10 +2986,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       activeTrip.notes.isEmpty
                           ? 'Write down packaging lists, reservation details, and personal goals for this amazing adventure...'
                           : activeTrip.notes,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        height: 1.4,
-                      ),
+                      style: const TextStyle(fontSize: 12, height: 1.4),
                     ),
             ],
           ),
@@ -2315,7 +3064,11 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             tooltip: 'Edit Trip Details',
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline_rounded, size: 26, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.delete_outline_rounded,
+              size: 26,
+              color: Colors.redAccent,
+            ),
             onPressed: () => _confirmDeleteTrip(context, activeTrip),
             tooltip: 'Delete Trip',
           ),
@@ -2328,11 +3081,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           children: [
             // Hero banner redesign
             _buildHeroBanner(activeTrip, totalStops, isGroup),
+            const SizedBox(height: AppConstants.spaceM),
+            _buildWeatherCard(matchedDest),
 
             // Embedded Day-by-Day Itinerary Section
             const SizedBox(height: AppConstants.spaceM),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceL,
+              ),
               child: Text(
                 'Day-by-Day Itinerary',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -2353,7 +3110,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             // Travel Notes Section Overhaul
             const SizedBox(height: AppConstants.spaceL),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceL,
+              ),
               child: Text(
                 'Travel Notes & Tips',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -2392,7 +3151,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           : 'Tap to remove',
                       style: GoogleFonts.outfit(
                         fontSize: 12,
-                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                        color: isDark
+                            ? AppTheme.textSecondaryDark
+                            : AppTheme.textSecondaryLight,
                         fontStyle: FontStyle.italic,
                       ),
                     ),
@@ -2417,24 +3178,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                         child: Column(
                           children: [
                             GestureDetector(
-                              onTap: () {
-                                final shareLink =
-                                    'https://lakbay.app/join/${activeTrip.id}';
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Simulated invite link copied: $shareLink 🔗',
-                                    ),
-                                    backgroundColor: AppTheme.secondaryGreen,
-                                    duration: const Duration(seconds: 4),
-                                    action: SnackBarAction(
-                                      label: 'OK',
-                                      textColor: Colors.white,
-                                      onPressed: () {},
-                                    ),
-                                  ),
-                                );
-                              },
+                              onTap: () => _showInviteMemberDialog(activeTrip),
                               child: Container(
                                 width: 56,
                                 height: 56,
@@ -2461,7 +3205,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                               'Invite',
                               style: TextStyle(
                                 fontSize: 11,
-                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                color: isDark
+                                    ? AppTheme.textSecondaryDark
+                                    : AppTheme.textSecondaryLight,
                               ),
                             ),
                           ],
@@ -2495,7 +3241,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       child: GestureDetector(
                         onTap: () => isPlaceholder
                             ? _renameMember(i)
-                            : _confirmRemoveMember(i),
+                            : _confirmRemoveMember(activeTrip, i),
                         child: Column(
                           children: [
                             Stack(
@@ -2902,8 +3648,98 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
+  void _showInviteMemberDialog(Trip activeTrip) {
+    final emailController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          'Invite Member',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
+        content: TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: const InputDecoration(
+            labelText: 'Registered email',
+            border: OutlineInputBorder(),
+            hintText: 'friend@example.com',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryBlue,
+            ),
+            onPressed: () async {
+              final email = emailController.text.trim();
+              final navigator = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
+              if (!email.contains('@')) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Enter a valid registered email.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+              if (!_hasBackendTripId(activeTrip)) {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Save this trip before inviting members.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+
+              final member = await _apiService.addTripMember(
+                activeTrip.id,
+                email: email,
+              );
+              if (!mounted) return;
+              if (member == null) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      _apiService.lastError ?? 'Failed to invite member.',
+                    ),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
+              }
+
+              setState(() {
+                _members.add(member);
+                _syncContributionsFromMembers();
+              });
+              _syncProviderMembers(activeTrip);
+              navigator.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text('${member['name']} added to the trip.'),
+                  backgroundColor: AppTheme.secondaryGreen,
+                ),
+              );
+            },
+            child: const Text('Invite', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Confirmation dialog organizer role for removing members
-  void _confirmRemoveMember(int index) {
+  void _confirmRemoveMember(Trip activeTrip, int index) {
     final memberName = _members[index]['name'];
     if (_members[index]['role'] == 'Organizer') {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -2934,15 +3770,41 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
+              final memberId =
+                  _members[index]['trip_member_id'] ??
+                  _members[index]['id'] ??
+                  '';
+              final navigator = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
+              if (_hasBackendTripId(activeTrip) &&
+                  int.tryParse(memberId) != null) {
+                final removed = await _apiService.removeTripMember(
+                  activeTrip.id,
+                  memberId,
+                );
+                if (!mounted) return;
+                if (!removed) {
+                  messenger.showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        _apiService.lastError ?? 'Failed to remove member.',
+                      ),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
+                }
+              }
               setState(() {
                 _members.removeAt(index);
                 if (index < _contributions.length) {
                   _contributions.removeAt(index);
                 }
               });
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
+              _syncProviderMembers(activeTrip);
+              navigator.pop();
+              messenger.showSnackBar(
                 SnackBar(
                   content: Text('$memberName removed successfully.'),
                   backgroundColor: AppTheme.secondaryGreen,
@@ -3147,7 +4009,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryBlue,
             ),
-            onPressed: () {
+            onPressed: () async {
               final newBudget =
                   double.tryParse(budgetCtrl.text) ?? activeTrip.budget;
               final updated = activeTrip.copyWith(
@@ -3155,15 +4017,25 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 dateRange: datesCtrl.text,
                 budget: newBudget,
               );
-              Provider.of<TripProvider>(
-                context,
-                listen: false,
-              ).updateTrip(updated);
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Trip details saved successfully.'),
-                  backgroundColor: AppTheme.secondaryGreen,
+              final provider = context.read<TripProvider>();
+              final navigator = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
+              final success = await provider.saveTripMetadata(updated);
+              if (!mounted) return;
+              if (success) {
+                navigator.pop();
+              }
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? 'Trip details saved successfully.'
+                        : (provider.errorMessage ??
+                              'Failed to save trip details.'),
+                  ),
+                  backgroundColor: success
+                      ? AppTheme.secondaryGreen
+                      : Colors.redAccent,
                 ),
               );
             },
@@ -3201,7 +4073,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext); // Close dialog
-                final provider = Provider.of<TripProvider>(context, listen: false);
+                final provider = Provider.of<TripProvider>(
+                  context,
+                  listen: false,
+                );
                 final success = await provider.deleteTrip(trip.id);
                 if (success) {
                   if (context.mounted) {
@@ -3217,7 +4092,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text(provider.errorMessage ?? 'Failed to delete trip.'),
+                        content: Text(
+                          provider.errorMessage ?? 'Failed to delete trip.',
+                        ),
                         backgroundColor: Colors.redAccent,
                       ),
                     );
@@ -3548,7 +4425,8 @@ class PulsingDot extends StatefulWidget {
   State<PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<PulsingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -3601,11 +4479,16 @@ class _ActivityTileState extends State<ActivityTile> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Card(
       elevation: 0,
-      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: AppConstants.spaceM),
+      margin: const EdgeInsets.symmetric(
+        vertical: 6,
+        horizontal: AppConstants.spaceM,
+      ),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.05),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.05),
         ),
       ),
       child: Theme(
@@ -3640,7 +4523,11 @@ class _ActivityTileState extends State<ActivityTile> {
           ),
           subtitle: Row(
             children: [
-              const Icon(Icons.location_on_rounded, size: 12, color: Colors.grey),
+              const Icon(
+                Icons.location_on_rounded,
+                size: 12,
+                color: Colors.grey,
+              ),
               const SizedBox(width: 4),
               Expanded(
                 child: Text(
@@ -3653,7 +4540,12 @@ class _ActivityTileState extends State<ActivityTile> {
           ),
           children: [
             Padding(
-              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 12, top: 4),
+              padding: const EdgeInsets.only(
+                left: 16,
+                right: 16,
+                bottom: 12,
+                top: 4,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3666,7 +4558,11 @@ class _ActivityTileState extends State<ActivityTile> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      const Icon(Icons.payments_rounded, size: 14, color: AppTheme.secondaryGreen),
+                      const Icon(
+                        Icons.payments_rounded,
+                        size: 14,
+                        color: AppTheme.secondaryGreen,
+                      ),
                       const SizedBox(width: 6),
                       Text(
                         'Est. Cost: ${widget.activity.cost}',
@@ -3687,4 +4583,3 @@ class _ActivityTileState extends State<ActivityTile> {
     );
   }
 }
-

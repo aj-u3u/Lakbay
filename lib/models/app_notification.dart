@@ -25,6 +25,39 @@ class AppNotification {
     required this.type,
   });
 
+  factory AppNotification.fromJson(Map<String, dynamic> json) {
+    NotificationType type;
+    switch (json['type']) {
+      case 'aiPlan':
+        type = NotificationType.aiPlan;
+        break;
+      case 'tripUpdate':
+        type = NotificationType.tripUpdate;
+        break;
+      case 'memberJoin':
+        type = NotificationType.memberJoin;
+        break;
+      case 'taskComplete':
+        type = NotificationType.taskComplete;
+        break;
+      case 'memoryUpload':
+        type = NotificationType.memoryUpload;
+        break;
+      default:
+        type = NotificationType.tripUpdate;
+    }
+
+    return AppNotification(
+      id: json['id']?.toString() ?? '',
+      title: json['title'] ?? '',
+      body: json['body'] ?? '',
+      time: json['time'] ?? 'Just now',
+      icon: json['icon'] ?? '🔔',
+      isNew: json['isNew'] ?? true,
+      type: type,
+    );
+  }
+
   static final List<AppNotification> mockNotifications = [
     AppNotification(
       id: 'notif-1',

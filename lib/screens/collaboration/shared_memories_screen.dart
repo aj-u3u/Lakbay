@@ -18,6 +18,8 @@ class SharedMemoriesScreen extends StatefulWidget {
 }
 
 class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
+  bool _requestedBackendRefresh = false;
+
   // Random pool of beautiful travel stock photos in Davao Region
   final List<String> _stockImages = [
     'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
@@ -37,6 +39,22 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requestedBackendRefresh) return;
+    _requestedBackendRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = context.read<TripProvider>();
+      final trips = provider.userTrips;
+      final trip = widget.trip ?? (trips.isNotEmpty ? trips.first : null);
+      if (trip != null) {
+        provider.refreshTripCollaboration(trip);
+      }
+    });
+  }
+
   Future<void> _showAddMemorySheet(BuildContext context, Trip activeTrip) async {
     final picker = ImagePicker();
     final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
@@ -49,26 +67,26 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     final caption = result['caption'] ?? '';
     final location = result['location'] ?? '';
 
-    final newMemory = {
-      'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
-      'user': 'Arjane',
-      'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
-      'time': 'Just now',
-      'caption': caption,
-      'image': file.path,
-      'likes': '0',
-      'comments': '0',
-      'location': location.isNotEmpty ? location : activeTrip.destinationName.split(',').first,
-    };
-
-    final updatedMemories = List<Map<String, dynamic>>.from(activeTrip.memories);
-    updatedMemories.insert(0, newMemory);
-
-    final updatedTrip = activeTrip.copyWith(memories: updatedMemories);
-    Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
+    final provider = context.read<TripProvider>();
+    final success = await provider.addMemoryToTrip(
+      activeTrip,
+      filePath: file.path,
+      caption: caption,
+      location: location.isNotEmpty
+          ? location
+          : activeTrip.destinationName.split(',').first,
+    );
+    if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Memory uploaded successfully! 🌅📸'), backgroundColor: AppTheme.secondaryGreen),
+      SnackBar(
+        content: Text(
+          success
+              ? 'Memory uploaded successfully!'
+              : (provider.errorMessage ?? 'Failed to upload memory.'),
+        ),
+        backgroundColor: success ? AppTheme.secondaryGreen : Colors.redAccent,
+      ),
     );
   }
 
@@ -205,16 +223,23 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
-              final updatedMemories = List<Map<String, dynamic>>.from(activeTrip.memories);
-              updatedMemories.removeAt(index);
-
-              final updatedTrip = activeTrip.copyWith(memories: updatedMemories);
-              Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
-
-              Navigator.pop(ctx);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Memory deleted.'), backgroundColor: AppTheme.secondaryGreen),
+            onPressed: () async {
+              final provider = context.read<TripProvider>();
+              final navigator = Navigator.of(ctx);
+              final messenger = ScaffoldMessenger.of(context);
+              final success = await provider.deleteMemoryFromTrip(activeTrip, index);
+              if (!mounted) return;
+              navigator.pop();
+              messenger.showSnackBar(
+                SnackBar(
+                  content: Text(
+                    success
+                        ? 'Memory deleted.'
+                        : (provider.errorMessage ?? 'Failed to delete memory.'),
+                  ),
+                  backgroundColor:
+                      success ? AppTheme.secondaryGreen : Colors.redAccent,
+                ),
               );
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),

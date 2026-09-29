@@ -15,6 +15,25 @@ class GroupTasksScreen extends StatefulWidget {
 }
 
 class _GroupTasksScreenState extends State<GroupTasksScreen> {
+  bool _requestedBackendRefresh = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_requestedBackendRefresh) return;
+    _requestedBackendRefresh = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final provider = context.read<TripProvider>();
+      final trips = provider.userTrips;
+      final trip = widget.trip ??
+          (trips.isNotEmpty ? trips.first : null);
+      if (trip != null) {
+        provider.refreshTripCollaboration(trip);
+      }
+    });
+  }
+
   Trip _getTrip(BuildContext context) {
     if (widget.trip != null) {
       final trips = context.watch<TripProvider>().userTrips;
@@ -24,20 +43,23 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
   }
 
-  void _toggleTask(Trip activeTrip, int index) {
-    final updatedTasks = List<Map<String, dynamic>>.from(
-      activeTrip.tasks.map((t) => Map<String, dynamic>.from(t))
-    );
-    updatedTasks[index]['done'] = !updatedTasks[index]['done'];
-    
-    final updatedTrip = activeTrip.copyWith(tasks: updatedTasks);
-    Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
-    
-    final isDone = updatedTasks[index]['done'];
+  Future<void> _toggleTask(Trip activeTrip, int index) async {
+    final task = activeTrip.tasks[index];
+    final isDone = task['done'] != true;
+    final provider = context.read<TripProvider>();
+    final success = await provider.setTaskCompletion(activeTrip, index, isDone);
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(isDone ? 'Task marked as completed! 🎉' : 'Task marked as incomplete.'),
-        backgroundColor: isDone ? AppTheme.secondaryGreen : AppTheme.primaryBlue,
+        content: Text(
+          success
+              ? (isDone ? 'Task marked as completed!' : 'Task marked as incomplete.')
+              : (provider.errorMessage ?? 'Task update failed.'),
+        ),
+        backgroundColor: success
+            ? (isDone ? AppTheme.secondaryGreen : AppTheme.primaryBlue)
+            : Colors.redAccent,
         duration: const Duration(seconds: 2),
       ),
     );
@@ -47,9 +69,12 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     final taskController = TextEditingController();
     String selectedCategory = 'Booking';
     
-    // Dynamic assignees list based on trip travelers
-    final List<String> assignees = [];
-    if (activeTrip.isGroup) {
+    // Dynamic assignees list based on backend members or trip travelers.
+    final List<String> assignees = activeTrip.members
+        .map((member) => member['name'] ?? '')
+        .where((name) => name.isNotEmpty)
+        .toList();
+    if (assignees.isEmpty && activeTrip.isGroup) {
       if (activeTrip.numTravelers >= 1) assignees.add('Arjane');
       if (activeTrip.numTravelers >= 2) assignees.add('Bea');
       if (activeTrip.numTravelers >= 3) assignees.add('Carlo');
@@ -57,7 +82,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       for (int i = 5; i <= activeTrip.numTravelers; i++) {
         assignees.add('Traveler $i');
       }
-    } else {
+    } else if (assignees.isEmpty) {
       assignees.add('Arjane');
     }
     
@@ -186,13 +211,16 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                     ),
-                    onPressed: () {
+                    onPressed: () async {
                       if (taskController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Please enter a task title.'), backgroundColor: Colors.red),
                         );
                         return;
                       }
+                      final provider = context.read<TripProvider>();
+                      final navigator = Navigator.of(ctx);
+                      final messenger = ScaffoldMessenger.of(context);
                       
                       final newTask = {
                         'task': taskController.text.trim(),
@@ -200,16 +228,23 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                         'done': false,
                         'category': selectedCategory,
                       };
-                      
-                      final updatedTasks = List<Map<String, dynamic>>.from(activeTrip.tasks);
-                      updatedTasks.add(newTask);
-                      
-                      final updatedTrip = activeTrip.copyWith(tasks: updatedTasks);
-                      Provider.of<TripProvider>(context, listen: false).updateTrip(updatedTrip);
-                      
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Task added successfully!'), backgroundColor: AppTheme.secondaryGreen),
+
+                      final success = await provider.addTaskToTrip(activeTrip, newTask);
+                      if (!mounted) return;
+
+                      if (success) {
+                        navigator.pop();
+                      }
+                      messenger.showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            success
+                                ? 'Task added successfully!'
+                                : (provider.errorMessage ?? 'Failed to add task.'),
+                          ),
+                          backgroundColor:
+                              success ? AppTheme.secondaryGreen : Colors.redAccent,
+                        ),
                       );
                     },
                     child: Text('Add Task', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),

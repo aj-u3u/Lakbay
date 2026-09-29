@@ -80,18 +80,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return matches;
   }
 
-  final List<String> _categories = [
-    'All',
-    'Nature',
-    'Beach',
-    'Mountain',
-    'Urban',
-    'Culture',
-    'Wildlife',
-    'Food',
-    'Adventure',
-    'Relaxation',
-  ];
+
 
   final List<Map<String, dynamic>> _promoSlides = [
     {
@@ -296,11 +285,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       Expanded(
                         child: Row(
                           children: [
-                            Image.asset(
-                              'assets/images/lakbay_logo.png',
-                              width: 40,
-                              height: 40,
-                              fit: BoxFit.contain,
+                            ClipOval(
+                              child: Image.asset(
+                                'assets/images/lakbay_logo.png',
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
+                              ),
                             ),
                             const SizedBox(width: AppConstants.spaceM),
                             Column(
@@ -475,72 +466,11 @@ class _HomeScreenState extends State<HomeScreen> {
           if (provider.activeDraft != null)
             _buildContinuePlanningSliver(context, provider.activeDraft!),
 
-          // Categories
+          // ── Davao Context Strip ──────────────────────────────────────────
           SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.only(top: AppConstants.spaceL),
-              child: SizedBox(
-                height: 40,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppConstants.spaceM,
-                  ),
-                  itemCount: _categories.length,
-                  itemBuilder: (_, i) {
-                    final cat = _categories[i];
-                    final isSelected = cat == _selectedCategory;
-                    return GestureDetector(
-                      onTap: () => setState(() {
-                        _selectedCategory = cat;
-                        _searchCtrl.clear();
-                        _searchQuery = '';
-                      }),
-                      child: AnimatedContainer(
-                        duration: AppConstants.animDurationFast,
-                        margin: const EdgeInsets.only(
-                          right: AppConstants.spaceS,
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppConstants.spaceM,
-                          vertical: AppConstants.spaceS,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? AppTheme.primaryBlue
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            AppConstants.radiusCircular,
-                          ),
-                          border: Border.all(
-                            color: isSelected
-                                ? AppTheme.primaryBlue
-                                : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight).withValues(
-                                    alpha: 0.3,
-                                  ),
-                          ),
-                        ),
-                        child: Text(
-                          cat,
-                          style: TextStyle(
-                            color: isSelected
-                                ? Colors.white
-                                : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                            fontWeight: isSelected
-                                ? FontWeight.bold
-                                : FontWeight.normal,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-            ),
+            child: _buildDavaoContextStrip(context),
           ),
 
-          // AI Mood Suggestions
           SliverToBoxAdapter(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -602,7 +532,7 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const SizedBox(height: AppConstants.spaceL),
                 SectionHeader(
-                  title: 'Featured',
+                  title: '🔥 Trending in Davao',
                   onActionPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.destinationList),
                 ),
@@ -746,42 +676,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
 
-          // District Bento Explorer
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.spaceM,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: AppConstants.spaceXL),
-                  SectionHeader(
-                    title: 'Explore Districts',
-                    onActionPressed: () =>
-                        Navigator.pushNamed(context, AppRoutes.destinationList),
-                  ),
-                  const SizedBox(height: AppConstants.spaceS),
-                  Padding(
-                    padding: const EdgeInsets.only(left: 4.0),
-                    child: Text(
-                      'Encourage exploration of all 6 districts within the Davao Region',
-                      style: GoogleFonts.outfit(
-                        color: (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight).withValues(
-                          alpha: 0.8,
-                        ),
-                        fontSize: 13,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  _buildDistrictBentoGrid(context, allDests),
-                ],
-              ),
-            ),
-          ),
-
-
 
           const SliverToBoxAdapter(
             child: SizedBox(height: AppConstants.spaceXL),
@@ -793,56 +687,170 @@ class _HomeScreenState extends State<HomeScreen> {
 
 
 
-  Widget _buildRecommendedSection(BuildContext context) {
+  // District data: name, representative image URL, accent color
+  static const List<Map<String, dynamic>> _districtData = [
+    {
+      'name': 'Davao City',
+      'image': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+      'accent': Color(0xFF0D7377),
+    },
+    {
+      'name': 'Davao del Norte',
+      'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
+      'accent': Color(0xFF1A6B3A),
+    },
+    {
+      'name': 'Davao del Sur',
+      'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
+      'accent': Color(0xFF2C5364),
+    },
+    {
+      'name': 'Davao Oriental',
+      'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&q=80',
+      'accent': Color(0xFF16213E),
+    },
+    {
+      'name': 'Davao de Oro',
+      'image': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&q=80',
+      'accent': Color(0xFF355C7D),
+    },
+    {
+      'name': 'Davao Occidental',
+      'image': 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=600&q=80',
+      'accent': Color(0xFF6A3093),
+    },
+  ];
+
+  // ── Davao Context Strip ───────────────────────────────────────────────────
+  Widget _buildDavaoContextStrip(BuildContext context) {
+    final month = DateTime.now().month;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    if (_loadingRecommended) {
-      return Column(
+
+    // Davao season logic (Davao is largely typhoon-free year-round)
+    final String season;
+    final String weatherIcon;
+    final String tip;
+    final Color stripColor;
+
+    if (month >= 3 && month <= 5) {
+      season = 'Summer Season';
+      weatherIcon = '☀️';
+      tip = 'Ideal for beach trips & outdoor adventures in Davao Region';
+      stripColor = const Color(0xFFF4A261);
+    } else if (month >= 6 && month <= 9) {
+      season = 'Green Season';
+      weatherIcon = '🌦️';
+      tip = 'Lush landscapes — perfect for nature trails & waterfalls';
+      stripColor = const Color(0xFF2D6A4F);
+    } else if (month >= 10 && month <= 11) {
+      season = 'Harvest Season';
+      weatherIcon = '🌤️';
+      tip = 'Peak travel season — festivals, fairs & cooler weather';
+      stripColor = const Color(0xFF457B9D);
+    } else {
+      season = 'Cool Season';
+      weatherIcon = '🌬️';
+      tip = 'Comfortable temps — great for highland hikes & cultural tours';
+      stripColor = const Color(0xFF1D3557);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(
+          AppConstants.spaceM, AppConstants.spaceM, AppConstants.spaceM, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [
+              stripColor.withValues(alpha: isDark ? 0.35 : 0.12),
+              stripColor.withValues(alpha: isDark ? 0.18 : 0.05),
+            ],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: stripColor.withValues(alpha: isDark ? 0.40 : 0.25),
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(weatherIcon, style: const TextStyle(fontSize: 28)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        'Davao Region',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.textPrimaryDark
+                              : AppTheme.textPrimaryLight,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: stripColor.withValues(alpha: 0.18),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          season,
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w600,
+                            color: stripColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    tip,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendedSection(BuildContext context) {
+    final allDests = context.read<TripProvider>().destinations.isNotEmpty
+        ? context.read<TripProvider>().destinations
+        : Destination.davaoDestinations;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const SizedBox(height: AppConstants.spaceL),
-          Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spaceM,
-            ),
-            child: SectionHeader(
-              title: 'Recommended For You ✨',
-              onActionPressed: () {},
-            ),
-          ),
-          const SizedBox(height: AppConstants.spaceS),
-          SizedBox(
-            height: 290,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(
-                horizontal: AppConstants.spaceM,
-              ),
-              itemCount: 3,
-              itemBuilder: (_, _) => _buildShimmerCard(context),
-            ),
-          ),
-        ],
-      );
-    }
-
-    if (_recommendedDestinations.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: AppConstants.spaceL),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
-          child: Row(
+          Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Recommended For You ✨',
+                    '📍 Browse by Province',
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -850,10 +858,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   Text(
-                    'AI-curated travel experiences tailored for you',
+                    'Pick a district and start planning your itinerary',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark
+                      color: Theme.of(context).brightness == Brightness.dark
                           ? AppTheme.textSecondaryDark
                           : AppTheme.textSecondaryLight,
                     ),
@@ -873,70 +881,88 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ],
           ),
-        ),
-        const SizedBox(height: AppConstants.spaceS),
-        SizedBox(
-          height: 310,
-          child: ListView.builder(
-            scrollDirection: Axis.horizontal,
-            padding: const EdgeInsets.symmetric(
-              horizontal: AppConstants.spaceM,
+          SizedBox(
+            height: 190,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceM,
+              ),
+              itemCount: _districtData.length,
+              itemBuilder: (context, index) {
+                final district = _districtData[index];
+                final districtName = district['name'] as String;
+                final imageUrl = district['image'] as String;
+                final accentColor = district['accent'] as Color;
+                final count = allDests
+                    .where((d) => d.district == districtName)
+                    .length;
+                return _buildDistrictCategoryCard(
+                  context,
+                  districtName: districtName,
+                  imageUrl: imageUrl,
+                  accentColor: accentColor,
+                  count: count,
+                );
+              },
             ),
-            itemCount: _recommendedDestinations.length,
-            itemBuilder: (context, index) {
-              final dest = _recommendedDestinations[index];
-              return _buildRecommendedCard(context, dest);
-            },
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
-  Widget _buildRecommendedCard(BuildContext context, Destination dest) {
-    // Extract a nice personalized tag from matchReasons
-    String matchTag = "AI Pick";
-    if (dest.matchReasons.isNotEmpty) {
-      matchTag = dest.matchReasons.values.first;
-    } else {
-      matchTag = "Matches Profile";
-    }
-
+  Widget _buildDistrictCategoryCard(
+    BuildContext context, {
+    required String districtName,
+    required String imageUrl,
+    required Color accentColor,
+    required int count,
+  }) {
     return GestureDetector(
       onTap: () {
         Navigator.pushNamed(
           context,
-          AppRoutes.destinationDetail,
-          arguments: dest,
+          AppRoutes.districtHub,
+          arguments: {
+            'districtName': districtName,
+            'heroImageUrl': imageUrl,
+            'accentColor': accentColor,
+          },
         );
       },
       child: Container(
-        width: 230,
-        margin: const EdgeInsets.only(right: AppConstants.spaceM),
+        width: 140,
+        margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
-          boxShadow: AppConstants.premiumShadow,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: ClipRRect(
-          borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+          borderRadius: BorderRadius.circular(16),
           child: Stack(
+            fit: StackFit.expand,
             children: [
-              // Hero Image
-              Positioned.fill(
-                child: Destination.loadImage(
-                  dest.imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => Container(
-                    color: AppTheme.primaryBlue.withValues(alpha: 0.15),
-                    child: const Icon(
-                      Icons.landscape,
-                      size: 60,
-                      color: AppTheme.primaryBlue,
-                    ),
+              // Full background image
+              Image.network(
+                imageUrl,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Container(
+                  color: accentColor,
+                  child: const Icon(
+                    Icons.landscape_rounded,
+                    size: 48,
+                    color: Colors.white38,
                   ),
                 ),
               ),
-              // Gradient Overlay
+              // Subtle bottom gradient only — like Klook
               Positioned.fill(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -944,191 +970,46 @@ class _HomeScreenState extends State<HomeScreen> {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Colors.black.withValues(alpha: 0.1),
-                        Colors.black.withValues(alpha: 0.3),
-                        Colors.black.withValues(alpha: 0.85),
+                        Colors.transparent,
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.55),
+                        Colors.black.withValues(alpha: 0.80),
                       ],
-                      stops: const [0.2, 0.5, 1.0],
+                      stops: const [0.0, 0.45, 0.75, 1.0],
                     ),
                   ),
                 ),
               ),
-              // For You Badge
-              if (matchTag != "Matches Profile")
-                Positioned(
-                  top: AppConstants.spaceM,
-                  left: AppConstants.spaceM,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        colors: [AppTheme.secondaryGreen, AppTheme.accentTeal],
-                      ),
-                      borderRadius: BorderRadius.circular(8),
-                      boxShadow: [
-                        BoxShadow(
-                          color: AppTheme.secondaryGreen.withValues(alpha: 0.3),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome,
-                          color: Colors.white,
-                          size: 10,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          matchTag,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              // Rating Badge
+              // Bottom text: district name + spot count
               Positioned(
-                top: AppConstants.spaceM,
-                right: AppConstants.spaceM,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.9),
-                    borderRadius: BorderRadius.circular(
-                      AppConstants.radiusCircular,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.star_rounded,
-                        color: Color(0xFFFBBC04),
-                        size: 12,
-                      ),
-                      const SizedBox(width: 2),
-                      Text(
-                        dest.rating.toStringAsFixed(1),
-                        style: const TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryBlue,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              // Content details
-              Positioned(
-                bottom: AppConstants.spaceM,
-                left: AppConstants.spaceM,
-                right: AppConstants.spaceM,
+                left: 10,
+                right: 10,
+                bottom: 10,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      dest.name,
+                      districtName,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: GoogleFonts.outfit(
                         color: Colors.white,
-                        fontSize: 15,
+                        fontSize: 13,
                         fontWeight: FontWeight.bold,
-                        shadows: [
-                          const Shadow(color: Colors.black45, blurRadius: 4),
-                        ],
+                        height: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 3),
-                    Row(
-                      children: [
-                        const Icon(
-                          Icons.location_on_rounded,
-                          color: AppTheme.secondaryGreen,
-                          size: 12,
-                        ),
-                        const SizedBox(width: 3),
-                        Expanded(
-                          child: Text(
-                            dest.district,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondaryGreen.withValues(alpha: 0.9),
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'From ${dest.entranceFee}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        // Micro tag for matching category
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.white10,
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(
-                                color: Colors.white24,
-                                width: 0.5,
-                              ),
-                            ),
-                            child: Text(
-                              dest.category,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Colors.white70,
-                                fontSize: 8,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                    const SizedBox(height: 2),
+                    Text(
+                      count > 0
+                          ? '$count ${count == 1 ? 'destination' : 'destinations'}'
+                          : 'Explore',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ],
                 ),
@@ -1189,7 +1070,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Popular Destinations 🔥',
+                    '⭐ Top-Rated Attractions',
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -1197,7 +1078,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                   Text(
-                    'Davao Region\'s highest rated and trending places',
+                    'Davao Region\'s most celebrated destinations',
                     style: TextStyle(
                       fontSize: 11,
                       color: isDark

@@ -99,7 +99,7 @@ class EmptyState extends StatefulWidget {
 }
 
 class _EmptyStateState extends State<EmptyState>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _ctrl;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;

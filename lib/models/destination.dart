@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 
 class Destination {
@@ -342,6 +343,44 @@ class Destination {
 
     final accessibility = json['accessibility'] as Map<String, dynamic>? ?? {};
 
+    List<String> parseStringList(dynamic value) {
+      if (value == null) return const [];
+      if (value is List) {
+        return value.map((item) => item.toString()).toList();
+      }
+      if (value is String) {
+        final trimmed = value.trim();
+        if (trimmed.isEmpty) return const [];
+        if (trimmed.startsWith('[')) {
+          try {
+            final decoded = jsonDecode(trimmed);
+            if (decoded is List) {
+              return decoded.map((item) => item.toString()).toList();
+            }
+          } catch (_) {}
+        }
+        return trimmed
+            .split(RegExp(r'[,/]'))
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    double parseDouble(dynamic value, {double fallback = 0.0}) {
+      if (value is num) return value.toDouble();
+      if (value is String) return double.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
+    int parseInt(dynamic value, {int fallback = 0}) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? fallback;
+      return fallback;
+    }
+
     // Safely parse match reasons
     final Map<String, String> matchReasonsMap = {};
     if (json['match_reasons'] is Map) {
@@ -361,25 +400,25 @@ class Destination {
     }
 
     return Destination(
-      id: json['id'] ?? json['destination_id'] ?? 0,
+      id: parseInt(json['id'] ?? json['destination_id']),
       name: json['name'] ?? '',
       description: json['description'] ?? '',
-      rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      estimatedCost: (json['estimated_cost'] as num?)?.toDouble() ?? (json['cost'] as num?)?.toDouble() ?? 0.0,
+      rating: parseDouble(json['rating']),
+      estimatedCost: parseDouble(json['estimated_cost'] ?? json['cost']),
       district: json['district'] ?? '',
       location: json['location'] ?? '',
       category: categoryStr,
       imageUrl: json['imageUrl'] ?? json['image'] ?? json['image_url'] ?? '',
       entranceFee: json['entranceFee'] ?? json['entrance_fee'] ?? 'Free',
       operatingHours: json['operatingHours'] ?? json['operating_hours'] ?? '24 hours',
-      activities: List<String>.from(json['activities'] ?? []),
+      activities: parseStringList(json['activities']),
       isKidFriendly: accessibility['isKidFriendly'] ?? json['is_kid_friendly'] ?? true,
       isWheelchairAccessible: accessibility['isWheelchairAccessible'] ?? json['is_wheelchair_accessible'] ?? false,
       isPetFriendly: accessibility['isPetFriendly'] ?? json['is_pet_friendly'] ?? false,
       isElderlyFriendly: accessibility['isElderlyFriendly'] ?? json['is_elderly_friendly'] ?? true,
-      latitude: (json['latitude'] as num?)?.toDouble() ?? (json['lat'] as num?)?.toDouble() ?? 0.0,
-      longitude: (json['longitude'] as num?)?.toDouble() ?? (json['lng'] as num?)?.toDouble() ?? 0.0,
-      popularityScore: (json['popularity_score'] as num?)?.toDouble() ?? 0.0,
+      latitude: parseDouble(json['latitude'] ?? json['lat']),
+      longitude: parseDouble(json['longitude'] ?? json['lng']),
+      popularityScore: parseDouble(json['popularity_score']),
       trendingStatus: json['trending_status'] ?? 'stable',
       matchReasons: matchReasonsMap,
     );

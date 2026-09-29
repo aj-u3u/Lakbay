@@ -9,6 +9,7 @@ import '../../widgets/buttons/custom_button.dart';
 import '../../providers/theme_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
+import '../../providers/language_provider.dart';
 import 'wishlist_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -23,7 +24,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _pushNotifications = true;
   bool _emailUpdates = false;
   bool _weeklyDigest = true;
-  String _selectedLanguage = 'English';
 
   final List<String> _avatars = [
     'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&q=80',
@@ -96,7 +96,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  
+
                   // Full Name
                   TextFormField(
                     controller: nameCtrl,
@@ -109,12 +109,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       prefixIcon: const Icon(Icons.person_rounded, color: AppTheme.primaryBlue),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val == null || val.trim().length < 2 
-                      ? 'Enter a valid name (min 2 characters)' 
+                    validator: (val) => val == null || val.trim().length < 2
+                      ? 'Enter a valid name (min 2 characters)'
                       : null,
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  
+
                   // Username
                   TextFormField(
                     controller: usernameCtrl,
@@ -127,12 +127,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       prefixIcon: const Icon(Icons.alternate_email_rounded, color: AppTheme.primaryBlue),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val == null || val.trim().isEmpty 
-                      ? 'Username is required' 
+                    validator: (val) => val == null || val.trim().isEmpty
+                      ? 'Username is required'
                       : null,
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  
+
                   // Email
                   TextFormField(
                     controller: emailCtrl,
@@ -145,8 +145,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       prefixIcon: const Icon(Icons.email_rounded, color: AppTheme.primaryBlue),
                       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
-                    validator: (val) => val == null || !val.contains('@') 
-                      ? 'Enter a valid email address' 
+                    validator: (val) => val == null || !val.contains('@')
+                      ? 'Enter a valid email address'
                       : null,
                   ),
                   const SizedBox(height: 4),
@@ -158,7 +158,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  
+
                   // Phone Number (Optional)
                   TextFormField(
                     controller: phoneCtrl,
@@ -175,7 +175,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  
+
                   // Emergency Contact (Optional)
                   TextFormField(
                     controller: emergencyCtrl,
@@ -191,14 +191,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppConstants.spaceXL),
-                  
+
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                      onPressed: () {
+                      onPressed: () async {
                         if (!formKey.currentState!.validate()) return;
-                        
+
                         final updated = user.copyWith(
                           displayName: nameCtrl.text.trim(),
                           username: usernameCtrl.text.trim(),
@@ -206,16 +206,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           phone: phoneCtrl.text.trim(),
                           emergencyContact: emergencyCtrl.text.trim(),
                         );
-                        
-                        auth.updateUserProfile(updated);
-                        Navigator.pop(sheetCtx);
-                        
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Profile details updated successfully! ✨'),
-                            backgroundColor: AppTheme.secondaryGreen,
-                          ),
-                        );
+
+                        final success = await auth.saveUserProfile(updated);
+                        if (!mounted) return;
+
+                        if (success) {
+                          Navigator.pop(sheetCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Profile details updated successfully! ✨'),
+                              backgroundColor: AppTheme.secondaryGreen,
+                            ),
+                          );
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                auth.errorMessage ?? 'Failed to update profile.',
+                              ),
+                              backgroundColor: Colors.redAccent,
+                            ),
+                          );
+                        }
                       },
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppTheme.primaryBlue,
@@ -428,7 +440,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   // 3. Language Selector Sheet
   void _showLanguageSheet(BuildContext context) {
-    final languages = ['English', 'Tagalog (Filipino)', 'Spanish (Español)', 'Japanese (日本語)'];
+    final languages = ['English', 'Filipino'];
+    final langProvider = Provider.of<LanguageProvider>(context, listen: false);
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -449,7 +463,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Select App Language', style: GoogleFonts.outfit(
+                      Text(langProvider.translate('Select App Language'), style: GoogleFonts.outfit(
                         fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue)),
                       IconButton(
                         icon: const Icon(Icons.close_rounded, color: Colors.grey),
@@ -460,7 +474,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   const SizedBox(height: AppConstants.spaceS),
                   Column(
                     children: languages.map((lang) {
-                      final isSelected = _selectedLanguage == lang;
+                      final isSelected = langProvider.currentLanguage == lang;
                       return ListTile(
                         title: Text(lang, style: TextStyle(
                           fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
@@ -468,8 +482,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         )),
                         trailing: isSelected ? const Icon(Icons.check_circle_rounded, color: AppTheme.primaryBlue) : null,
                         onTap: () {
-                          setLocalState(() => _selectedLanguage = lang);
-                          setState(() => _selectedLanguage = lang);
+                          langProvider.setLanguage(lang);
+                          setLocalState(() {});
+                          setState(() {});
                           Navigator.pop(sheetCtx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
@@ -610,8 +625,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text(
                         'Frequently Asked Questions',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 15, 
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                           color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         ),
                       ),
@@ -627,10 +642,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             Padding(
                               padding: const EdgeInsets.all(AppConstants.spaceM),
                               child: Text(
-                                faq['a']!, 
+                                faq['a']!,
                                 style: TextStyle(
-                                  fontSize: 12, 
-                                  height: 1.5, 
+                                  fontSize: 12,
+                                  height: 1.5,
                                   color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
                                 ),
                               ),
@@ -644,8 +659,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Text(
                         'Still Need Help? Contact Us',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold, 
-                          fontSize: 15, 
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
                           color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                         ),
                       ),
@@ -795,11 +810,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final currentPasswordCtrl = TextEditingController();
     final newPasswordCtrl = TextEditingController();
     final confirmPasswordCtrl = TextEditingController();
-    
+
     bool showCurrent = false;
     bool showNew = false;
     bool showConfirm = false;
-    
+
     final formKey = GlobalKey<FormState>();
 
     showModalBottomSheet(
@@ -846,7 +861,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: AppConstants.spaceM),
-                      
+
                       // Current Password
                       TextFormField(
                         controller: currentPasswordCtrl,
@@ -867,7 +882,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         validator: (val) => val == null || val.isEmpty ? 'Current password is required' : null,
                       ),
                       const SizedBox(height: AppConstants.spaceM),
-                      
+
                       // New Password
                       TextFormField(
                         controller: newPasswordCtrl,
@@ -899,7 +914,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       const SizedBox(height: AppConstants.spaceM),
-                      
+
                       // Confirm Password
                       TextFormField(
                         controller: confirmPasswordCtrl,
@@ -917,19 +932,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                         ),
-                        validator: (val) => val != newPasswordCtrl.text 
-                          ? 'Passwords do not match exactly' 
+                        validator: (val) => val != newPasswordCtrl.text
+                          ? 'Passwords do not match exactly'
                           : null,
                       ),
                       const SizedBox(height: AppConstants.spaceXL),
-                      
+
                       SizedBox(
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
                           onPressed: () {
                             if (!formKey.currentState!.validate()) return;
-                            
+
                             Navigator.pop(sheetCtx);
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
@@ -972,9 +987,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogCtx);
-              context.read<AuthProvider>().logout();
+              await context.read<AuthProvider>().logout();
+              if (!context.mounted) return;
               Navigator.pushReplacementNamed(context, AppRoutes.login);
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('Successfully signed out.'), backgroundColor: AppTheme.secondaryGreen),
@@ -990,6 +1006,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final langProvider = Provider.of<LanguageProvider>(context);
     final user = authProvider.userProfile ?? UserProfile.defaultProfile;
 
     // Dynamic stats calculations
@@ -1071,7 +1088,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white)),
                   Text(user.email, style: const TextStyle(color: Colors.white60, fontSize: 13)),
                   const SizedBox(height: AppConstants.spaceL),
-                  
+
                   // Premium stats box (Dynamically calculated counts)
                   Container(
                     padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceM, horizontal: AppConstants.spaceS),
@@ -1106,9 +1123,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 bottom: AppConstants.spaceM,
               ),
               child: Text(
-                'Settings & Security', 
+                'Settings & Security',
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold, 
+                  fontWeight: FontWeight.bold,
                   color: AppTheme.primaryBlue
                 )
               ),
@@ -1133,7 +1150,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     clipBehavior: Clip.antiAlias,
                     child: Icon(item['icon'] as IconData, color: AppTheme.primaryBlue, size: 20),
                   ),
-                  title: Text(item['label'] as String, style: const TextStyle(
+                  title: Text(langProvider.translate(item['label'] as String), style: const TextStyle(
                     fontWeight: FontWeight.w500, fontSize: 15)),
                   trailing: Icon(
                     Icons.arrow_forward_ios_rounded,
@@ -1187,9 +1204,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           // Logout Sliver Button
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.all(AppConstants.spaceXL),
+              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceL, vertical: AppConstants.spaceXL),
               child: CustomButton(
-                label: 'Sign Out',
+                label: langProvider.translate('Log Out'),
                 onPressed: () => _confirmSignOut(context),
                 variant: ButtonVariant.outlined,
                 width: double.infinity,

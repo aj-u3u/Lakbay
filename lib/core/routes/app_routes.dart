@@ -15,6 +15,7 @@ import '../../screens/collaboration/group_dashboard_screen.dart';
 import '../../screens/collaboration/tasks_screen.dart';
 import '../../screens/collaboration/shared_memories_screen.dart';
 import '../../screens/notifications/notifications_screen.dart';
+import '../../screens/destinations/district_hub_screen.dart';
 
 class AppRoutes {
   static const String splash = '/';
@@ -31,6 +32,7 @@ class AppRoutes {
   static const String groupTasks = '/group-tasks';
   static const String groupMemories = '/group-memories';
   static const String notifications = '/notifications';
+  static const String districtHub = '/district-hub';
 
   static Route<dynamic> generateRoute(RouteSettings settings) {
     switch (settings.name) {
@@ -84,6 +86,15 @@ class AppRoutes {
         return MaterialPageRoute(builder: (_) => SharedMemoriesScreen(trip: trip));
       case notifications:
         return MaterialPageRoute(builder: (_) => const NotificationsScreen());
+      case districtHub:
+        final args = settings.arguments as Map<String, dynamic>;
+        return MaterialPageRoute(
+          builder: (_) => DistrictHubScreen(
+            districtName: args['districtName'] as String,
+            heroImageUrl: args['heroImageUrl'] as String,
+            accentColor: args['accentColor'] as Color,
+          ),
+        );
       default:
         return MaterialPageRoute(
           builder: (_) => Scaffold(

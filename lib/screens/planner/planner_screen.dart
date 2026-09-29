@@ -352,7 +352,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           setState(() {
             _messages.add(
               _ChatMessage(
-                text:
+                text: provider.errorMessage ??
                     "I couldn't process that query. Please make sure you are logged in to use the AI Travel Assistant.",
                 isUser: false,
                 timestamp: DateTime.now(),
