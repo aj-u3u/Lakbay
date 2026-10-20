@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     admin_registration_code: str = ""
 
     cors_allowed_origins: str = "*"
+    cors_allowed_origin_regex: str | None = None
 
     groq_api_key: str | None = None
     groq_model_default: str | None = None

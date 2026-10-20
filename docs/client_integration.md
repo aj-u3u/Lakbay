@@ -15,6 +15,19 @@ For the local admin browser on port 5173, set:
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
 ```
 
+If Flutter web uses a changing localhost port, also set:
+
+```env
+CORS_ALLOWED_ORIGIN_REGEX=^https?://(?:localhost|127\.0\.0\.1)(?::[0-9]+)?$
+```
+
+The regex accepts `localhost` and `127.0.0.1` on any port. Keep
+`CORS_ALLOWED_ORIGINS` for exact hosted browser origins; do not set it to `*`
+when you want to reject unrelated websites. On Render, add these values in the
+service's Environment settings and redeploy. This setting controls browser
+origins, not the API URL used by Flutter. Native Android requests do not use
+browser CORS.
+
 Then run:
 
 ```powershell
