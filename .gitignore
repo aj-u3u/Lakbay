@@ -44,6 +44,6 @@ temp/
 Thumbs.db
 
 # Generated reports and uploaded files for local development
-storage/
+/storage/
 uploads/
-reports/
+/reports/
