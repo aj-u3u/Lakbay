@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.accommodations.models import Accommodation
+from app.features.ai.retrieval_intent import DISTRICTS, resolve_retrieval_intent
 from app.features.destinations.models import Destination
 from app.features.transportations.models import Transportation
 
@@ -128,14 +129,77 @@ class RagMatch:
 class VectorRAGRetriever:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+        self.coverage: dict[str, Any] = {}
 
-    async def retrieve(self, query: str, *, limit: int = 6) -> list[RagMatch]:
-        query_terms = _terms(query)
-        if not query_terms:
+    async def retrieve(
+        self,
+        query: str,
+        *,
+        limit: int = 6,
+        history: list[str] | None = None,
+        context: dict | None = None,
+    ) -> list[RagMatch]:
+        self.coverage = {"status": "disabled", "destinations": [], "truncated": False}
+        if limit <= 0:
             return []
 
+        query_terms = _terms(query)
+        if not query_terms:
+            self.coverage["status"] = "no_query"
+            return []
+
+        documents = list(
+            {
+                (doc.source, doc.source_id): doc
+                for doc in await self._load_documents()
+            }.values()
+        )
+        destinations = [doc for doc in documents if doc.source == "destination"]
+        intent = resolve_retrieval_intent(
+            query,
+            history=history,
+            context=context,
+            locations=[
+                value
+                for doc in destinations
+                for key in ("district", "location", "name")
+                if isinstance(value := doc.payload.get(key), str)
+            ],
+        )
+        self.coverage.update(
+            status="no_matches",
+            requested_locations=list(intent.target_locations),
+            interest=intent.interest,
+            origin=intent.origin,
+        )
+        if intent.needs_clarification:
+            self.coverage["status"] = "needs_clarification"
+            return []
+
+        # Older turns supply omitted filters, not competing geographic keywords.
+        ranking_query = " ".join(
+            [query, *intent.target_locations, intent.interest or ""]
+        )
+        query_terms = _terms(ranking_query)
         query_vector = _embed_terms(query_terms)
-        documents = await self._load_documents()
+        named_rate_destinations = {
+            doc.payload["destination_id"]
+            for doc in documents
+            if doc.source != "destination"
+            and isinstance(name := doc.payload.get("name"), str)
+            and len(TOKEN_PATTERN.findall(name)) >= 2
+            and _contains_place(query, name)
+        }
+        candidates = [
+            doc
+            for doc in destinations
+            if all(_destination_in_place(doc, place) for place in intent.target_locations)
+            and _matches_interest(doc, intent.interest)
+            and (
+                not named_rate_destinations
+                or doc.source_id in named_rate_destinations
+            )
+        ]
         matches = [
             RagMatch(
                 source=document.source,
@@ -148,16 +212,128 @@ class VectorRAGRetriever:
                 ),
                 payload=document.payload,
             )
-            for document in documents
+            for document in candidates
         ]
 
-        matches = [match for match in matches if match.score >= MIN_RAG_SCORE]
-        matches.sort(key=lambda match: match.score, reverse=True)
+        matches = [
+            match
+            for match in matches
+            if match.score >= MIN_RAG_SCORE
+            or match.source_id in named_rate_destinations
+        ]
+        matches.sort(key=lambda match: (-match.score, match.source_id))
 
-        if _is_region_wide_query(query_terms):
-            return _diversify_by_district(matches, limit=limit)
+        if intent.region_wide and not intent.target_locations:
+            matches = _diversify_by_district(matches, limit=len(matches))
+        if not matches:
+            return []
 
-        return matches[:limit]
+        # Reserve space for linked rates; rates never displace their destination.
+        selected = matches[:max(1, limit // 3)]
+        result = list(selected)
+        selected_ids = {match.source_id for match in selected}
+        rate_matches: dict[tuple[int, str], list[RagMatch]] = {}
+        for document in documents:
+            if document.source == "destination":
+                continue
+            rate_match = RagMatch(
+                source=document.source,
+                source_id=document.source_id,
+                title=document.title,
+                score=_score(
+                    query_vector=query_vector,
+                    query_terms=query_terms,
+                    document=document,
+                ),
+                payload=document.payload,
+            )
+            key = (document.payload["destination_id"], document.source)
+            rate_matches.setdefault(key, []).append(rate_match)
+        for rates in rate_matches.values():
+            rates.sort(
+                key=lambda match: (
+                    -int(
+                        match.source == "transportation"
+                        and bool(intent.origin)
+                        and _contains_place(
+                            match.payload.get("route_from", ""), intent.origin
+                        )
+                    ),
+                    -match.score,
+                    match.source_id,
+                )
+            )
+
+        source_order = ("accommodation", "transportation")
+        if set(TOKEN_PATTERN.findall(query.lower())).intersection(
+            {
+                "transport", "transportation", "commute", "fare", "fares",
+                "ferry", "bus", "boat", "route",
+            }
+        ):
+            source_order = tuple(reversed(source_order))
+
+        def add_linked_rates(destination_id: int) -> None:
+            for source in source_order:
+                rates = rate_matches.get((destination_id, source), [])
+                if rates and len(result) < limit:
+                    result.append(rates[0])
+
+        for destination in selected:
+            add_linked_rates(destination.source_id)
+        for destination in matches[len(selected):]:
+            if len(result) >= limit:
+                break
+            result.append(destination)
+            selected_ids.add(destination.source_id)
+            add_linked_rates(destination.source_id)
+
+        included_keys = {(match.source, match.source_id) for match in result}
+        for key, rates in rate_matches.items():
+            if key[0] not in selected_ids:
+                continue
+            for rate in rates:
+                if len(result) >= limit:
+                    break
+                if (rate.source, rate.source_id) not in included_keys:
+                    result.append(rate)
+                    included_keys.add((rate.source, rate.source_id))
+
+        included_rates = {
+            (match.payload["destination_id"], match.source)
+            for match in result
+            if match.source != "destination"
+        }
+        self.coverage.update(
+            status="matched",
+            destinations=[
+                {
+                    "destination_id": destination.source_id,
+                    **{
+                        f"{source}_status": (
+                            "included"
+                            if (destination.source_id, source) in included_rates
+                            else "omitted_by_limit"
+                            if rate_matches.get((destination.source_id, source))
+                            else "no_available_records"
+                        )
+                        for source in ("accommodation", "transportation")
+                    },
+                }
+                for destination in result
+                if destination.source == "destination"
+            ],
+            truncated=(
+                len(selected_ids) < len(matches)
+                or any(
+                    (rate.source, rate.source_id) not in included_keys
+                    for key, rates in rate_matches.items()
+                    if key[0] in selected_ids
+                    for rate in rates
+                )
+            ),
+        )
+        return result
 
     async def _load_documents(self) -> list[RagDocument]:
         destination_result = await self.session.execute(
@@ -379,8 +555,10 @@ def _terms(text: str) -> list[str]:
     for token in TOKEN_PATTERN.findall(text.lower()):
         if token in STOPWORDS or len(token) < 2:
             continue
+        if token == "beaches":
+            token = "beach"
         terms.append(token)
-        terms.extend(SYNONYMS.get(token, set()))
+        terms.extend(sorted(SYNONYMS.get(token, set())))
 
         if token.endswith("ies") and len(token) > 4:
             terms.append(f"{token[:-3]}y")
@@ -390,6 +568,44 @@ def _terms(text: str) -> list[str]:
             terms.append(token[:-1])
 
     return terms
+
+
+def _contains_place(text: str, place: str) -> bool:
+    words = " ".join(TOKEN_PATTERN.findall(text.lower()))
+    location = " ".join(TOKEN_PATTERN.findall(place.lower()))
+    return bool(location) and f" {location} " in f" {words} "
+
+
+def _destination_in_place(document: RagDocument, place: str) -> bool:
+    # Travel directions and rate origins are not destination geography.
+    keys = (
+        ("district", "location")
+        if place in DISTRICTS
+        else ("district", "location", "name")
+    )
+    return any(
+        _contains_place(str(document.payload.get(key) or ""), place)
+        for key in keys
+    )
+
+
+def _matches_interest(document: RagDocument, interest: str | None) -> bool:
+    if interest is None:
+        return True
+    words = set(
+        TOKEN_PATTERN.findall(
+            _join_text(
+                *(document.payload.get(key) for key in ("category", "vibes", "activities"))
+            ).lower()
+        )
+    )
+    evidence = {
+        "beach": {"beach", "beaches", "coast", "coastal", "seaside"},
+        "mountain": {"mountain", "mountains", "hike", "hiking", "trail", "trekking"},
+        "waterfall": {"waterfall", "waterfalls", "falls"},
+        "food": {"food", "restaurant", "restaurants", "cafe", "cafes", "dining"},
+    }
+    return bool(words.intersection(evidence.get(interest, {interest})))
 
 
 def _embed_terms(terms: list[str]) -> tuple[float, ...]:
@@ -424,14 +640,6 @@ def _score(
     source_boost = 0.02 if document.source == "destination" else 0.0
 
     return (vector_score * 0.82) + (overlap_score * 0.16) + source_boost
-
-
-def _is_region_wide_query(query_terms: list[str]) -> bool:
-    query_term_set = set(query_terms)
-
-    return "davao" in query_term_set and bool(
-        query_term_set.intersection({"region", "province", "provinces", "area", "areas"})
-    )
 
 
 def _diversify_by_district(

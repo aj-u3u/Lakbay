@@ -9,9 +9,11 @@ from app.features.auth.router import router as auth_router
 from app.features.budgets.router import router as budgets_router
 from app.features.destinations.router import router as destinations_router
 from app.features.expenses.router import router as expenses_router
+from app.features.geo_analytics.router import router as geo_analytics_router
 from app.features.health.router import router as health_router
 from app.features.memories.router import router as memories_router
 from app.features.notifications.router import router as notifications_router
+from app.features.planning.router import router as planning_router
 from app.features.recommendations.router import (
     destination_router as destination_recommendations_router,
 )
@@ -40,6 +42,8 @@ api_router.include_router(transportations_router)
 api_router.include_router(recommendations_router)
 api_router.include_router(destination_recommendations_router)
 api_router.include_router(budgets_router)
+api_router.include_router(geo_analytics_router)
+api_router.include_router(planning_router)
 api_router.include_router(routes_router)
 api_router.include_router(weather_router)
 api_router.include_router(destination_weather_router)

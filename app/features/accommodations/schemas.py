@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -8,6 +9,8 @@ class AccommodationCreate(BaseModel):
     name: str = Field(min_length=2, max_length=255)
     room_type: str = Field(min_length=2, max_length=255)
     price: Decimal = Field(ge=0, max_digits=10, decimal_places=2)
+    currency: Literal["PHP"] = "PHP"
+    charging_unit: Literal["per_room_per_night", "per_room_per_stay"] | None = None
     capacity: int = Field(default=2, ge=1)
     description: str | None = None
     is_available: bool = True
@@ -22,6 +25,8 @@ class AccommodationUpdate(BaseModel):
         max_digits=10,
         decimal_places=2,
     )
+    currency: Literal["PHP"] | None = None
+    charging_unit: Literal["per_room_per_night", "per_room_per_stay"] | None = None
     capacity: int | None = Field(default=None, ge=1)
     description: str | None = None
     is_available: bool | None = None
@@ -33,6 +38,8 @@ class AccommodationResponse(BaseModel):
     name: str
     room_type: str
     price: Decimal
+    currency: str
+    charging_unit: str | None
     capacity: int
     description: str | None
     is_available: bool

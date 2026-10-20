@@ -70,6 +70,19 @@ class TripCreate(BaseModel):
         return self
 
 
+class TripFromAIOptionCreate(BaseModel):
+    generation_run_id: PositiveInt
+    option_number: PositiveInt
+    start_date: date | None = None
+    end_date: date | None = None
+    notes: str | None = None
+
+    @model_validator(mode="after")
+    def validate_dates(self) -> "TripFromAIOptionCreate":
+        _validate_date_range(self.start_date, self.end_date)
+        return self
+
+
 class TripUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=2, max_length=255)
     description: str | None = None
@@ -261,6 +274,7 @@ class TripResponse(TripListItemResponse):
     destinations: list[TripDestinationResponse]
     itinerary_days: list[TripItineraryDayResponse]
     route: TripRouteResponse | None = None
+    planning_snapshot: dict | None = None
     members: list[TripMemberResponse] = Field(default_factory=list)
     tasks: list[TripTaskResponse] = Field(default_factory=list)
 

@@ -248,6 +248,33 @@ def test_member_can_download_pdf_report(client) -> None:
     assert response.content.startswith(b"%PDF")
 
 
+def test_report_includes_saved_group_tasks(client) -> None:
+    owner_headers = register_user(client, email="report-owner-tasks@example.com")
+    trip = create_trip(client, owner_headers)
+    task_response = client.post(
+        f"/api/v1/trips/{trip['trip_id']}/tasks",
+        headers=owner_headers,
+        json={"title": "Book group hotel", "due_date": "2026-10-09"},
+    )
+
+    response = client.get(
+        f"/api/v1/trips/{trip['trip_id']}/reports/summary",
+        headers=owner_headers,
+    )
+    pdf_response = client.get(
+        f"/api/v1/trips/{trip['trip_id']}/reports/pdf",
+        headers=owner_headers,
+    )
+
+    assert task_response.status_code == 201
+    assert response.status_code == 200
+    assert response.json()["tasks"] == [
+        {"title": "Book group hotel", "status": "pending", "due_date": "2026-10-09"}
+    ]
+    assert pdf_response.status_code == 200
+    assert pdf_response.content.startswith(b"%PDF")
+
+
 def test_pdf_report_handles_full_data_and_markup_like_text(client) -> None:
     owner_headers = register_user(client, email="report-owner-rich-pdf@example.com")
     register_user(client, email="report-member-rich-pdf@example.com")

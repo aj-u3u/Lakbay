@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.features.accommodations.models import Accommodation
+from app.features.ai.models import AIGenerationRun
 from app.features.destinations.models import Destination
 from app.features.transportations.models import Transportation
 from app.features.trips.models import (
@@ -20,6 +21,17 @@ from app.features.users.models import User
 class TripRepository:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def get_owned_generation_run(
+        self, *, user_id: int, generation_run_id: int,
+    ) -> AIGenerationRun | None:
+        result = await self.session.execute(
+            select(AIGenerationRun).where(
+                AIGenerationRun.ai_generation_run_id == generation_run_id,
+                AIGenerationRun.user_id == user_id,
+            )
+        )
+        return result.scalar_one_or_none()
 
     async def list_accessible_trips(
         self,

@@ -13,7 +13,7 @@ class DestinationRepository:
     async def list(self, filters: DestinationListQuery) -> list[Destination]:
         statement = (
             self._apply_filters(select(Destination), filters)
-            .order_by(Destination.name.asc())
+            .order_by(Destination.name.asc(), Destination.destination_id.asc())
             .offset(filters.offset)
             .limit(filters.limit)
         )

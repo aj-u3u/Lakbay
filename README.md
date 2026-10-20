@@ -72,6 +72,9 @@ Open:
 http://127.0.0.1:8000/docs
 ```
 
+For the admin browser and Android client setup, see
+[`docs/client_integration.md`](docs/client_integration.md).
+
 ## Current Endpoint Groups
 
 Authentication and users:
@@ -135,6 +138,12 @@ POST /api/v1/routes/preview
 POST /api/v1/routes/optimize
 ```
 
+Geo-analytics destination grouping:
+
+```text
+POST /api/v1/geo-analytics/destination-groups
+```
+
 Trips:
 
 ```text
@@ -188,6 +197,12 @@ Run Phase 6 route tests only:
 python -m pytest tests/test_phase6_routes.py -q
 ```
 
+Run Phase 15B grouping tests only:
+
+```bash
+python -m pytest tests/test_phase15b_geo_analytics.py -q
+```
+
 Run Phase 7 trip tests only:
 
 ```bash
@@ -207,4 +222,5 @@ python -m pytest tests/test_phase7_trips.py -q
 - `docs/ai_itineraries.md`: Phase 5 AI itinerary guide.
 - `docs/routing.md`: Phase 6 route preview and optimization guide.
 - `docs/trips.md`: Phase 7 trip management guide.
+- `docs/geo_analytics.md`: Phase 15B grouping API and later geo-analytics plan.
 - `docs/new_feature.md`: template for reviewing new feature ideas.

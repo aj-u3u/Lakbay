@@ -12,10 +12,37 @@ from app.features.ai.schemas import (
     AIItineraryGenerateResponse,
 )
 from app.features.ai.service import AIItineraryService
+from app.features.planning.dependencies import get_planning_route_limiter
+from app.features.routes.service import RouteService
 from app.features.users.models import User
 from app.integrations.groq.client import GroqClient, get_groq_client
+from app.integrations.osrm.client import get_osrm_client
 
 router = APIRouter(prefix="/ai", tags=["ai"])
+
+
+def get_ai_chat_route_service(
+    data: AIChatRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> RouteService | None:
+    state = data.planning_state
+    if state is None or state.route_preferences is None:
+        return None
+    get_planning_route_limiter().check(current_user.user_id)
+    return RouteService(session, get_osrm_client())
+
+
+def get_ai_itinerary_route_service(
+    data: AIItineraryGenerateRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> RouteService | None:
+    state = data.planning_state
+    if state is None or state.route_preferences is None:
+        return None
+    get_planning_route_limiter().check(current_user.user_id)
+    return RouteService(session, get_osrm_client())
 
 
 @router.post(
@@ -35,8 +62,9 @@ async def generate_itinerary(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     current_user: Annotated[User, Depends(get_current_user)],
     groq_client: Annotated[GroqClient, Depends(get_groq_client)],
+    route_service: Annotated[RouteService | None, Depends(get_ai_itinerary_route_service)],
 ) -> AIItineraryGenerateResponse:
-    return await AIItineraryService(session, groq_client).generate_itinerary(
+    return await AIItineraryService(session, groq_client, route_service).generate_itinerary(
         user=current_user,
         data=data,
     )
@@ -50,7 +78,9 @@ async def generate_itinerary(
     description=(
         "Protected free-text assistant endpoint. It sends the user's message, "
         "optional conversation history, and optional context to the configured "
-        "Groq model and returns a natural-language assistant response."
+        "Groq model and returns a natural-language assistant response. When "
+        "planning_state is supplied, it also returns validated state updates and "
+        "a recalculated stateless planning preview."
     ),
 )
 async def chat(
@@ -58,8 +88,9 @@ async def chat(
     session: Annotated[AsyncSession, Depends(get_db_session)],
     current_user: Annotated[User, Depends(get_current_user)],
     groq_client: Annotated[GroqClient, Depends(get_groq_client)],
+    route_service: Annotated[RouteService | None, Depends(get_ai_chat_route_service)],
 ) -> AIChatResponse:
-    return await AIItineraryService(session, groq_client).chat(
+    return await AIItineraryService(session, groq_client, route_service).chat(
         user=current_user,
         data=data,
     )

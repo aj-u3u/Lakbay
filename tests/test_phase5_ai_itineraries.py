@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from app.core.config import get_settings
 from app.integrations.groq.client import get_groq_client
 from app.integrations.groq.schemas import GroqChatCompletion
@@ -88,11 +90,15 @@ def user_headers(client) -> dict[str, str]:
     return {"Authorization": f"Bearer {response.json()['tokens']['access_token']}"}
 
 
-def create_destination(client, headers: dict[str, str] | None = None) -> dict:
+def create_destination(
+    client,
+    headers: dict[str, str] | None = None,
+    **overrides,
+) -> dict:
     response = client.post(
         "/api/v1/destinations",
         headers=headers or admin_headers(client),
-        json=DESTINATION_PAYLOAD,
+        json={**DESTINATION_PAYLOAD, **overrides},
     )
 
     assert response.status_code == 201
@@ -105,6 +111,7 @@ def create_accommodation(
     *,
     destination_id: int,
     headers: dict[str, str],
+    **overrides,
 ) -> dict:
     response = client.post(
         f"/api/v1/destinations/{destination_id}/accommodations",
@@ -114,6 +121,7 @@ def create_accommodation(
             "room_type": "Standard Room",
             "price": "1800.00",
             "capacity": 2,
+            **overrides,
         },
     )
 
@@ -127,6 +135,7 @@ def create_transportation(
     *,
     destination_id: int,
     headers: dict[str, str],
+    **overrides,
 ) -> dict:
     response = client.post(
         f"/api/v1/destinations/{destination_id}/transportations",
@@ -138,6 +147,7 @@ def create_transportation(
             "route_to": "Mati City",
             "price": "600.00",
             "duration_minutes": 240,
+            **overrides,
         },
     )
 
@@ -280,6 +290,246 @@ def test_ai_chat_uses_retrieved_lakbay_context(client, monkeypatch) -> None:
         and item["facts"]["name"] == "AI Test Beach"
         for item in prompt_payload["retrieved_lakbay_context"]
     )
+
+
+def test_ai_chat_retrieves_requested_province_and_linked_rates(
+    client,
+    monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    destination = create_destination(
+        client,
+        headers=admin,
+        name="Samal Test Beach",
+        district="Davao del Norte",
+        location="Island Garden City of Samal",
+    )
+    accommodation = create_accommodation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+        name="Samal Test Stay",
+    )
+    transportation = create_transportation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+        vehicle_type="Ferry",
+        route_from="Sasa Wharf",
+        route_to="Samal",
+        price="100.00",
+        duration_minutes=30,
+    )
+    unrelated = create_destination(client, headers=admin)
+    create_accommodation(
+        client,
+        destination_id=unrelated["destination_id"],
+        headers=admin,
+    )
+    create_transportation(
+        client,
+        destination_id=unrelated["destination_id"],
+        headers=admin,
+    )
+    fake_client = FakeGroqClient(["Test response."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": (
+                "i wanna travel the beaches in davao del norte, can you recommend "
+                "that good for solo traveler and that's within my budget of "
+                "15,000 and i wanna stay for 2 days."
+            ),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = json.loads(fake_client.calls[0]["messages"][-1]["content"])
+    facts = payload["retrieved_lakbay_context"]
+    assert {(item["source"], item["source_id"]) for item in facts} == {
+        ("destination", destination["destination_id"]),
+        ("accommodation", accommodation["accommodation_id"]),
+        ("transportation", transportation["transportation_id"]),
+    }
+    assert all(
+        item["facts"]["destination_id"] == destination["destination_id"]
+        for item in facts
+    )
+    assert any(
+        item["source"] == "transportation"
+        and item["facts"]["vehicle_type"] == "Ferry"
+        and item["facts"]["price"] == "100.00"
+        for item in facts
+    )
+    coverage = payload["retrieval_coverage"]
+    assert coverage["status"] == "matched"
+    assert coverage["requested_locations"] == ["davao del norte"]
+    assert coverage["interest"] == "beach"
+    assert coverage["destinations"] == [
+        {
+            "destination_id": destination["destination_id"],
+            "accommodation_status": "included",
+            "transportation_status": "included",
+        }
+    ]
+    assert coverage["truncated"] is False
+    assert response.json()["retrieved_context"] == facts
+
+
+def test_ai_chat_excludes_inactive_places_and_unavailable_rates(
+    client,
+    monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    destination = create_destination(client, headers=admin)
+    inactive_destination = create_destination(
+        client,
+        headers=admin,
+        name="Inactive Mati Beach",
+    )
+    active_stay = create_accommodation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+    )
+    unavailable_stay = create_accommodation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+        name="Unavailable Beach Stay",
+    )
+    unavailable_transport = create_transportation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+    )
+    create_accommodation(
+        client,
+        destination_id=inactive_destination["destination_id"],
+        headers=admin,
+        name="Stay Under Inactive Beach",
+    )
+    create_transportation(
+        client,
+        destination_id=inactive_destination["destination_id"],
+        headers=admin,
+    )
+    for path in (
+        f"/api/v1/destinations/{inactive_destination['destination_id']}",
+        f"/api/v1/accommodations/{unavailable_stay['accommodation_id']}",
+        f"/api/v1/transportations/{unavailable_transport['transportation_id']}",
+    ):
+        assert client.delete(path, headers=admin).status_code == 200
+    fake_client = FakeGroqClient(["Test response."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={"message": "Plan a beach trip in Mati with a room and transportation."},
+    )
+
+    assert response.status_code == 200
+    payload = json.loads(fake_client.calls[0]["messages"][-1]["content"])
+    assert {
+        (item["source"], item["source_id"])
+        for item in payload["retrieved_lakbay_context"]
+    } == {
+        ("destination", destination["destination_id"]),
+        ("accommodation", active_stay["accommodation_id"]),
+    }
+    assert payload["retrieval_coverage"]["destinations"] == [
+        {
+            "destination_id": destination["destination_id"],
+            "accommodation_status": "included",
+            "transportation_status": "no_available_records",
+        }
+    ]
+
+
+@pytest.mark.parametrize("settings", [{"use_rag": False}, {"rag_limit": 0}])
+def test_ai_chat_reports_disabled_retrieval(client, monkeypatch, settings) -> None:
+    configure_ai(monkeypatch)
+    create_destination(client)
+    fake_client = FakeGroqClient(["Test response."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={"message": "Plan a beach trip in Mati.", **settings},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["retrieved_context"] == []
+    assert response.json()["mode"] == "chat"
+    payload = json.loads(fake_client.calls[0]["messages"][-1]["content"])
+    assert payload["retrieved_lakbay_context"] == []
+    assert payload["retrieval_coverage"]["status"] == "disabled"
+    assert payload["retrieval_coverage"]["destinations"] == []
+
+
+def test_ai_chat_reports_no_matches_for_uncovered_province(
+    client,
+    monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    create_destination(client)
+    fake_client = FakeGroqClient(["Test response."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={"message": "Recommend beaches in Davao del Norte."},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["retrieved_context"] == []
+    payload = json.loads(fake_client.calls[0]["messages"][-1]["content"])
+    assert payload["retrieved_lakbay_context"] == []
+    assert payload["retrieval_coverage"]["status"] == "no_matches"
+    assert payload["retrieval_coverage"]["requested_locations"] == ["davao del norte"]
+    assert payload["retrieval_coverage"]["interest"] == "beach"
+
+
+def test_ai_chat_distinguishes_missing_rates_from_context_limit(
+    client,
+    monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    destination = create_destination(client, headers=admin)
+    create_accommodation(
+        client,
+        destination_id=destination["destination_id"],
+        headers=admin,
+    )
+    fake_client = FakeGroqClient(["Test response."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={"message": "Recommend a beach in Mati.", "rag_limit": 1},
+    )
+
+    assert response.status_code == 200
+    payload = json.loads(fake_client.calls[0]["messages"][-1]["content"])
+    assert len(payload["retrieved_lakbay_context"]) == 1
+    assert payload["retrieval_coverage"]["destinations"] == [
+        {
+            "destination_id": destination["destination_id"],
+            "accommodation_status": "omitted_by_limit",
+            "transportation_status": "no_available_records",
+        }
+    ]
+    assert payload["retrieval_coverage"]["truncated"] is True
 
 
 def test_user_can_generate_ai_itinerary_drafts(client, monkeypatch) -> None:

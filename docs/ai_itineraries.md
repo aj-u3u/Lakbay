@@ -16,6 +16,34 @@ POST /api/v1/ai/itineraries/generate
 POST /api/v1/ai/chat
 ```
 
+## Planning preview to itinerary options
+
+The existing generation endpoint also accepts `planning_state` and
+`input_revision`. For this mode, send the complete state last returned by
+`POST /api/v1/planning/preview`, together with matching `destination_ids`,
+`accommodation_ids`, `transportation_ids`, `traveler_count`, `day_count`, and
+whole-trip `total_budget`. Catalog transportation IDs come from selected
+`transportation:<id>` options; personal-vehicle and walking choices have no rate
+ID. A mismatch or unavailable selection is rejected.
+
+The backend recalculates the preview, sends its budget lines and route to the
+configured AI model, and returns at least the configured number of validated
+options. Each option must reference every selected destination and catalog rate
+ID exactly; an omitted or substituted ID invalidates that model run. The
+response includes `selected_generation_run_id` and `planning_preview`. Its
+`budget.lines` distinguish verified catalog charging units, catalog prices with
+assumed charging units, and traveler allowances. A catalog amount does not
+verify the number of charges, a return fare, availability, or route coverage.
+`estimated_total_cost` on an AI option and `estimated_cost` on an AI activity
+have `cost_source=ai_draft_estimate`; the backend preview budget is the cost
+projection used when saving. Missing costs remain visible as a partial preview.
+
+To save one option, send its `option_number` and
+`selected_generation_run_id` to `POST /api/v1/trips/from-ai-option`. The run
+must belong to the current user. Generation stores the validated options and
+preview in the run record, so the save endpoint does not accept replacement
+itinerary text or different destination IDs from the client.
+
 Authentication:
 
 - Requires a normal user bearer token.
@@ -32,10 +60,11 @@ Purpose:
 Free-text chat purpose:
 
 - Accept a natural-language user message and optional recent chat history.
-- Build a vector query from the message, recent user history, and optional
-  context.
-- Retrieve the most relevant active destinations, available accommodations, and
-  available transportation rows from the Lakbay database.
+- Resolve the target area, departure point, and interest from the message,
+  user history, and recognized context fields. Explicit destination changes
+  replace earlier preferences.
+- Filter and rank active destinations first, then select available accommodation
+  and transportation records linked to those destinations.
 - Pass the retrieved context into Groq/Qwen so the answer is grounded in actual
   Lakbay data.
 - Return the assistant response plus the retrieved context used for traceability.
@@ -163,12 +192,65 @@ The response includes:
   facts used in the prompt.
 - model metadata and token usage when Groq returns it.
 
-The RAG retriever is implemented without an extra deployment dependency. It
-creates hashed numeric vectors from live database rows at request time, compares
-them to the user's message with cosine similarity, and sends only the highest
-scoring records to the LLM. This is a working vector RAG baseline and can later
-be swapped for persistent embeddings or `pgvector` if the project needs larger
-semantic search scale.
+The RAG retriever is implemented without an extra deployment dependency or an
+additional model call. It normalizes beach/beaches, distinguishes departure
+locations from target locations, filters destinations by area and interest, and
+uses hashed vectors to rank eligible destinations. Available stays and transport
+records are selected through the destination ID instead of competing globally
+for context slots. The default six-record limit can hold two destinations with
+one stay and one transport option each; smaller limits may omit related rates.
+
+The internal Groq payload includes `retrieval_coverage` to distinguish no matching
+catalog destinations, requests needing clarification, disabled retrieval, no
+available related rates, and records omitted by the context limit. Empty catalog
+results do not establish that a place or transport option does not exist. Catalog
+availability flags do not establish live room vacancy, and destination cost
+estimates are not complete trip budgets. RAG grounding does not add public
+request fields. Planning-aware chat adds the optional contract below.
+
+## Planning-Aware Chat
+
+To carry a preview through conversation, send the complete current planning state
+and the client's current input revision to the existing authenticated chat
+endpoint:
+
+```json
+{
+  "message": "Make this a solo day trip.",
+  "input_revision": 4,
+  "planning_state": {
+    "origin": {"label": "Davao City"},
+    "destination_ids": [12],
+    "total_budget": "6000.00",
+    "traveler_count": 2,
+    "day_count": 2,
+    "night_count": 1,
+    "interests": ["beach"]
+  }
+}
+```
+
+When `planning_state` is supplied, the model must return a JSON object containing
+`chat_response` and partial `state_updates`. The backend validates the patch,
+retains fields the traveler did not change, and returns:
+
+- `planning.input_revision`: the echoed revision for stale-response handling.
+- `planning.state_updates`: the accepted changes to origin label, destinations,
+  budget, travelers, duration, return preference, or interests. Origin
+  coordinates remain under Flutter's map-selection control.
+- `planning.update_status`: `applied`, `no_changes`, `needs_clarification`, or
+  `invalid_output`.
+- `planning.preview`: the normal planning-preview response recalculated from the
+  resulting state.
+
+The model cannot change transport, activity, accommodation, route, fuel, or
+pricing selections; Flutter sends those through `planning_state` or to
+`POST /api/v1/planning/preview`. Newly proposed destination IDs must be grounded
+in retrieved catalog context. Unsupported destination IDs or invalid structured
+output leave the current state intact, and the response still includes its
+preview. Flutter should retain the returned `preview.state`, increment its
+revision after user edits, and ignore responses for older revisions. Omitting
+`planning_state` keeps the ordinary free-text chat flow.
 
 ## Response Shape
 
@@ -273,6 +355,12 @@ python -m pytest -q
 ```
 
 The test suite mocks Groq. It does not spend API credits.
+
+Run the Phase 4 planning-aware chat tests:
+
+```bash
+python -m pytest tests/test_planning_chat.py -q
+```
 
 ## Swagger Test Steps
 

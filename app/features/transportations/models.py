@@ -20,6 +20,12 @@ class Transportation(Base):
     __tablename__ = "transportations"
     __table_args__ = (
         CheckConstraint("price >= 0", name="ck_transportations_price_non_negative"),
+        CheckConstraint("currency = 'PHP'", name="ck_transportations_currency_php"),
+        CheckConstraint(
+            "charging_unit IS NULL OR charging_unit IN "
+            "('per_person', 'per_vehicle', 'per_group')",
+            name="ck_transportations_charging_unit",
+        ),
         CheckConstraint(
             "duration_minutes IS NULL OR duration_minutes >= 0",
             name="ck_transportations_duration_minutes_non_negative",
@@ -36,6 +42,8 @@ class Transportation(Base):
     route_from: Mapped[str] = mapped_column(String(255))
     route_to: Mapped[str] = mapped_column(String(255))
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(3), server_default="PHP")
+    charging_unit: Mapped[str | None] = mapped_column(String(32))
     duration_minutes: Mapped[int | None] = mapped_column()
     duration_text: Mapped[str | None] = mapped_column(String(100))
     notes: Mapped[str | None] = mapped_column(Text)

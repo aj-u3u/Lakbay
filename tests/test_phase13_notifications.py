@@ -1,5 +1,6 @@
 from itertools import count
 
+from fastapi.testclient import TestClient
 
 ADMIN_COUNTER = count(1)
 
@@ -400,3 +401,99 @@ def test_trip_and_route_updates_create_notifications(client) -> None:
     assert update_response.status_code == 200
     assert route_response.status_code == 200
     assert event_types == {"trip_updated", "trip_route_updated"}
+
+
+def test_two_account_collaboration_sync_and_outsider_denial(client) -> None:
+    owner_headers = register_user(client, email="sync-owner@example.com")
+    member_headers = register_user(client, email="sync-member@example.com")
+    outsider_headers = register_user(client, email="sync-outsider@example.com")
+    trip = create_trip(client, owner_headers)
+    trip_id = trip["trip_id"]
+    owner_member_id = trip["members"][0]["trip_member_id"]
+
+    with TestClient(client.app) as second_device:
+        member = add_member(
+            client,
+            headers=owner_headers,
+            trip_id=trip_id,
+            email="sync-member@example.com",
+        )
+        member_trips = second_device.get("/api/v1/trips", headers=member_headers)
+        assert member_trips.status_code == 200
+        assert trip_id in {item["trip_id"] for item in member_trips.json()}
+
+        task = second_device.post(
+            f"/api/v1/trips/{trip_id}/tasks",
+            headers=member_headers,
+            json={"title": "Reserve transport", "assigned_trip_member_id": owner_member_id},
+        )
+        assert task.status_code == 201
+        owner_tasks = client.get(f"/api/v1/trips/{trip_id}/tasks", headers=owner_headers)
+        assert owner_tasks.status_code == 200
+        assert owner_tasks.json()[0]["trip_task_id"] == task.json()["trip_task_id"]
+
+        role_update = client.patch(
+            f"/api/v1/trips/{trip_id}/members/{member['trip_member_id']}",
+            headers=owner_headers,
+            json={"role": "organizer"},
+        )
+        assert role_update.status_code == 200
+        member_view = second_device.get(
+            f"/api/v1/trips/{trip_id}/members", headers=member_headers
+        )
+        assert member_view.status_code == 200
+        assert any(
+            row["trip_member_id"] == member["trip_member_id"]
+            and row["role"] == "organizer"
+            for row in member_view.json()
+        )
+
+        expense = create_expense(
+            client,
+            headers=owner_headers,
+            trip_id=trip_id,
+            paid_by_trip_member_id=owner_member_id,
+        )
+        member_expenses = second_device.get(
+            f"/api/v1/trips/{trip_id}/expenses", headers=member_headers
+        )
+        assert member_expenses.status_code == 200
+        assert member_expenses.json()[0]["trip_expense_id"] == expense["trip_expense_id"]
+        assert sorted(
+            split["share_amount"] for split in member_expenses.json()[0]["splits"]
+        ) == ["45.00", "45.00"]
+
+        member_notifications = second_device.get(
+            "/api/v1/notifications", headers=member_headers
+        )
+        owner_notifications = client.get(
+            "/api/v1/notifications", headers=owner_headers
+        )
+        assert member_notifications.status_code == 200
+        assert {item["event_type"] for item in member_notifications.json()} >= {
+            "trip_member_added", "expense_created"
+        }
+        assert any(
+            item["event_type"] == "task_assigned"
+            for item in owner_notifications.json()
+        )
+
+        outsider_read = second_device.get(
+            f"/api/v1/trips/{trip_id}", headers=outsider_headers
+        )
+        outsider_task = second_device.post(
+            f"/api/v1/trips/{trip_id}/tasks",
+            headers=outsider_headers,
+            json={"title": "Unauthorized task"},
+        )
+        outsider_expenses = second_device.get(
+            f"/api/v1/trips/{trip_id}/expenses", headers=outsider_headers
+        )
+        assert outsider_read.status_code == 404
+        assert outsider_task.status_code == 404
+        assert outsider_expenses.status_code == 404
+        remaining_tasks = client.get(
+            f"/api/v1/trips/{trip_id}/tasks", headers=owner_headers
+        )
+        assert remaining_tasks.status_code == 200
+        assert len(remaining_tasks.json()) == 1

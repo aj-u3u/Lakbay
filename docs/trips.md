@@ -11,6 +11,7 @@ can view shared trip information.
 
 ```text
 POST   /api/v1/trips
+POST   /api/v1/trips/from-ai-option
 GET    /api/v1/trips
 GET    /api/v1/trips/{trip_id}
 PATCH  /api/v1/trips/{trip_id}
@@ -30,6 +31,28 @@ DELETE /api/v1/trips/{trip_id}/tasks/{task_id}
 ```
 
 All endpoints require a bearer access token.
+
+## Save a selected planning itinerary
+
+After a planning-enabled AI generation response, send:
+
+```json
+{"generation_run_id": 42, "option_number": 3, "start_date": null, "end_date": null, "notes": null}
+```
+
+Use the actual `selected_generation_run_id` and chosen `option_number` from
+the response. The backend loads that user's validated run, then creates the
+trip, selected destination and rate references, itinerary days and activities,
+the preview's route summary, and its cost snapshot in one transaction. It
+rejects missing cost estimates, invalid selections, or a requested route with
+no summary. The trip's `estimated_total_cost` comes from the backend preview;
+AI activity costs remain draft estimates and are labeled in
+`planning_snapshot`. `GET /api/v1/trips/{trip_id}` returns the same snapshot
+and route after a server restart. Older trips have `planning_snapshot: null`.
+
+Migration `2026_10_18_0500` adds nullable `trips.planning_snapshot` JSON and
+follows `dfc235ae4bed` in the Alembic chain. Review the migration before
+applying it to the configured database.
 
 ## Access Rule
 

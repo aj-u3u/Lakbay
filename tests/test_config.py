@@ -26,7 +26,10 @@ def test_neon_url_is_normalized_for_asyncpg() -> None:
 
 
 def test_cors_origins_accepts_wildcard() -> None:
-    settings = Settings(DATABASE_URL="postgresql+asyncpg://user:pass@localhost/db")
+    settings = Settings(
+        DATABASE_URL="postgresql+asyncpg://user:pass@localhost/db",
+        cors_allowed_origins="*",
+    )
 
     assert settings.cors_origins == ["*"]
     assert settings.cors_allow_credentials is False

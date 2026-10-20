@@ -2,7 +2,7 @@
 
 This guide covers Phase 11: Reports.
 
-Phase 11 generates on-demand trip reports from existing trip, route, itinerary,
+Phase 11 generates on-demand trip reports from existing trip, route, itinerary, group tasks,
 expense, and member data. It does not create report tables.
 
 ## Endpoints
@@ -21,6 +21,7 @@ The summary endpoint returns JSON containing:
 - Trip overview.
 - Destinations.
 - Itinerary days and activities.
+- Saved group tasks and their status and due date.
 - Saved route summary, when available.
 - Expense totals, category breakdown, and member balances.
 - Trip members.

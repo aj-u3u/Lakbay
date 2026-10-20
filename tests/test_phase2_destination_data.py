@@ -425,3 +425,70 @@ def test_deleted_transportation_is_hidden_from_public_list(client) -> None:
     assert delete_response.status_code == 200
     assert delete_response.json()["is_available"] is False
     assert list_response.json() == []
+
+
+def test_rate_ids_currency_units_and_deactivation_follow_admin_changes(client) -> None:
+    headers = admin_headers(client)
+    destination = create_destination(client, headers=headers)
+    destination_id = destination["destination_id"]
+    cases = [
+        (
+            "accommodations",
+            "accommodation_id",
+            {
+                "name": "Verified Stay",
+                "room_type": "Standard Room",
+                "price": "1900.00",
+                "currency": "PHP",
+                "charging_unit": "per_room_per_night",
+            },
+            {"price": "2100.00", "charging_unit": "per_room_per_stay"},
+        ),
+        (
+            "transportations",
+            "transportation_id",
+            {
+                "vehicle_type": "Van",
+                "transport_mode": "public_transport",
+                "route_from": "Davao City",
+                "route_to": "Verified Stay",
+                "price": "250.00",
+                "currency": "PHP",
+                "charging_unit": "per_person",
+            },
+            {"price": "300.00", "charging_unit": "per_vehicle"},
+        ),
+    ]
+    for collection, id_key, payload, update in cases:
+        created = client.post(
+            f"/api/v1/destinations/{destination_id}/{collection}",
+            headers=headers,
+            json=payload,
+        )
+        assert created.status_code == 201
+        record_id = created.json()[id_key]
+        assert created.json()["charging_unit"] == payload["charging_unit"]
+        assert created.json()["currency"] == "PHP"
+
+        listed = client.get(f"/api/v1/destinations/{destination_id}/{collection}")
+        assert [row[id_key] for row in listed.json()] == [record_id]
+
+        updated = client.patch(
+            f"/api/v1/{collection}/{record_id}", headers=headers, json=update
+        )
+        assert updated.status_code == 200
+        assert updated.json()[id_key] == record_id
+        assert updated.json()["charging_unit"] == update["charging_unit"]
+        refreshed = client.get(f"/api/v1/destinations/{destination_id}/{collection}")
+        assert refreshed.json()[0][id_key] == record_id
+        assert refreshed.json()[0]["price"] == update["price"]
+
+        deactivated = client.delete(
+            f"/api/v1/{collection}/{record_id}", headers=headers
+        )
+        assert deactivated.status_code == 200
+        assert deactivated.json()[id_key] == record_id
+        assert deactivated.json()["is_available"] is False
+        assert client.get(
+            f"/api/v1/destinations/{destination_id}/{collection}"
+        ).json() == []

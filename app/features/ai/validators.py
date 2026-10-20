@@ -23,6 +23,11 @@ class AIItineraryCatalog:
     total_budget: Decimal
     day_count: int
     minimum_option_count: int
+    required_destination_ids: set[int] | None = None
+    required_accommodation_ids: set[int] | None = None
+    required_transportation_ids: set[int] | None = None
+    accommodation_destination_ids: dict[int, int] | None = None
+    transportation_destination_ids: dict[int, int] | None = None
 
 
 def parse_and_validate_itinerary_output(
@@ -69,6 +74,9 @@ def parse_and_validate_itinerary_output(
             "AI output did not include enough valid itinerary options.",
             details=[f"Valid options: {len(options)}"],
         )
+
+    if len({option.option_number for option in options}) != len(options):
+        raise AIOutputValidationError("Itinerary option numbers must be unique.")
 
     return options
 
@@ -130,6 +138,19 @@ def _validate_option(*, option: AIItineraryOption, catalog: AIItineraryCatalog) 
         for activity in day.activities:
             _validate_activity_ids(activity=activity, catalog=catalog)
 
+    activities = [activity for day in option.days for activity in day.activities]
+    for field, required in (
+        ("destination_id", catalog.required_destination_ids),
+        ("accommodation_id", catalog.required_accommodation_ids),
+        ("transportation_id", catalog.required_transportation_ids),
+    ):
+        if required is not None:
+            actual = {getattr(activity, field) for activity in activities if getattr(activity, field) is not None}
+            if actual != required:
+                raise AIOutputValidationError(
+                    f"Every option must use exactly the selected {field} values: {sorted(required)}."
+                )
+
 
 def _validate_activity_ids(*, activity, catalog: AIItineraryCatalog) -> None:
     if (
@@ -155,3 +176,17 @@ def _validate_activity_ids(*, activity, catalog: AIItineraryCatalog) -> None:
         raise AIOutputValidationError(
             f"Unknown transportation_id {activity.transportation_id}."
         )
+
+    for field, linked_destinations in (
+        ("accommodation_id", catalog.accommodation_destination_ids),
+        ("transportation_id", catalog.transportation_destination_ids),
+    ):
+        rate_id = getattr(activity, field)
+        if (
+            linked_destinations is not None and rate_id is not None
+            and activity.destination_id is not None
+            and linked_destinations.get(rate_id) != activity.destination_id
+        ):
+            raise AIOutputValidationError(
+                f"{field} {rate_id} does not belong to destination_id {activity.destination_id}."
+            )

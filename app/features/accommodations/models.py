@@ -21,6 +21,12 @@ class Accommodation(Base):
     __table_args__ = (
         CheckConstraint("price >= 0", name="ck_accommodations_price_non_negative"),
         CheckConstraint("capacity >= 1", name="ck_accommodations_capacity_positive"),
+        CheckConstraint("currency = 'PHP'", name="ck_accommodations_currency_php"),
+        CheckConstraint(
+            "charging_unit IS NULL OR charging_unit IN "
+            "('per_room_per_night', 'per_room_per_stay')",
+            name="ck_accommodations_charging_unit",
+        ),
     )
 
     accommodation_id: Mapped[int] = mapped_column(primary_key=True, index=True)
@@ -31,6 +37,8 @@ class Accommodation(Base):
     name: Mapped[str] = mapped_column(String(255))
     room_type: Mapped[str] = mapped_column(String(255))
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(3), server_default="PHP")
+    charging_unit: Mapped[str | None] = mapped_column(String(32))
     capacity: Mapped[int] = mapped_column(default=2)
     description: Mapped[str | None] = mapped_column(Text)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, index=True)

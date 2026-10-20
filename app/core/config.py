@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     osrm_profile_driving: str = "driving"
     osrm_profile_walking: str = "walking"
     route_max_destinations: int = Field(default=10, ge=1, le=25)
+    geo_group_requests_per_minute: int = Field(default=10, ge=1, le=120)
+    planning_route_requests_per_minute: int = Field(default=10, ge=1, le=120)
 
     google_routes_api_key: str | None = None
     google_routes_base_url: str = "https://routes.googleapis.com"

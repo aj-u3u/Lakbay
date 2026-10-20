@@ -46,7 +46,7 @@ class RecommendationService:
             item
             for destination in destinations
             if (
-                item := self._score_destination(
+                item := self.score_destination(
                     destination=destination,
                     preference=preference,
                     popularity=popularity_by_destination.get(
@@ -149,7 +149,7 @@ class RecommendationService:
 
         return destination
 
-    def _score_destination(
+    def score_destination(
         self,
         *,
         destination: Destination,

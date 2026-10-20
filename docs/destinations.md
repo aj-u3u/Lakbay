@@ -53,12 +53,17 @@ GET /api/v1/destinations/{destination_id}/accommodations
 ```
 
 Returns available accommodation options for one active destination.
+Each row includes its stable `accommodation_id`, `currency`, and
+`charging_unit`. The client should refetch this list when the detail page is
+opened or refreshed; deactivated rows no longer appear.
 
 ```text
 GET /api/v1/destinations/{destination_id}/transportations
 ```
 
 Returns available transportation options for one active destination.
+Each row includes its stable `transportation_id`, `currency`, and
+`charging_unit`.
 
 ## Admin Endpoints
 
@@ -114,6 +119,25 @@ Money fields use two decimal places and must fit `Numeric(10, 2)`:
 
 The API validates those values before saving, and the database migration adds
 basic check constraints for coordinates, costs, capacity, and travel duration.
+
+Accommodation and transportation rates use **PHP**. Admins choose a charging
+unit for each newly entered rate:
+
+| Rate | Allowed `charging_unit` | Meaning |
+| --- | --- | --- |
+| Accommodation | `per_room_per_night` | One room for one night |
+| Accommodation | `per_room_per_stay` | One room for the stated stay |
+| Transportation | `per_person` | One passenger on the listed route leg |
+| Transportation | `per_vehicle` | One vehicle on the listed route leg |
+| Transportation | `per_group` | One group on the listed route leg |
+
+Migration `dfc235ae4bed` adds `currency` and `charging_unit` without
+changing any rate IDs. Existing rows receive `currency=PHP` and
+`charging_unit=null`; their price basis must be verified by an admin before
+being presented as a confirmed unit. The admin editor requires a unit when
+saving a rate. API callers should send the same fields. A null unit is exposed
+as unverified to older clients and existing records; no client should infer a
+unit from the vehicle type or room name.
 
 ## Migration
 

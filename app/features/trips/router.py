@@ -7,6 +7,7 @@ from app.core.dependencies import get_current_user
 from app.db.session import get_db_session
 from app.features.trips.schemas import (
     TripCreate,
+    TripFromAIOptionCreate,
     TripListItemResponse,
     TripMemberCreate,
     TripMemberResponse,
@@ -43,6 +44,21 @@ async def create_trip(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> TripResponse:
     return await TripService(session).create_trip(user=current_user, data=data)
+
+
+@router.post(
+    "/from-ai-option",
+    response_model=TripResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Save a selected planning itinerary",
+    description="Save one validated option from the current user's planning generation run, with its cost and route snapshot.",
+)
+async def create_trip_from_ai_option(
+    data: TripFromAIOptionCreate,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> TripResponse:
+    return await TripService(session).create_from_ai_option(user=current_user, data=data)
 
 
 @router.get(

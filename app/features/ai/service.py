@@ -2,6 +2,7 @@ from decimal import Decimal
 from time import perf_counter
 
 from fastapi import status
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
@@ -13,6 +14,8 @@ from app.features.ai.rag import VectorRAGRetriever
 from app.features.ai.schemas import (
     AIChatRequest,
     AIChatResponse,
+    AIPlanningChatOutput,
+    AIPlanningChatResult,
     AIItineraryGenerateRequest,
     AIItineraryGenerateResponse,
     AIModelRunResult,
@@ -23,6 +26,9 @@ from app.features.ai.validators import (
     parse_and_validate_itinerary_output,
 )
 from app.features.destinations.models import Destination
+from app.features.planning.schemas import PlanningOrigin, PlanningPreviewRequest, PlanningPreviewResponse, PlanningState
+from app.features.planning.service import PlanningService
+from app.features.routes.service import RouteService
 from app.features.transportations.models import Transportation
 from app.features.users.models import User
 from app.integrations.groq.client import GroqClient
@@ -45,10 +51,16 @@ CHAT_REQUEST_PURPOSE = "travel_chat"
 
 
 class AIItineraryService:
-    def __init__(self, session: AsyncSession, groq_client: GroqClient) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        groq_client: GroqClient,
+        route_service: RouteService | None = None,
+    ) -> None:
         self.session = session
         self.ai = AIItineraryRepository(session)
         self.groq_client = groq_client
+        self.route_service = route_service
 
     async def generate_itinerary(
         self,
@@ -57,6 +69,12 @@ class AIItineraryService:
         data: AIItineraryGenerateRequest,
     ) -> AIItineraryGenerateResponse:
         settings = get_settings()
+        planning_preview: PlanningPreviewResponse | None = None
+        if data.planning_state is not None:
+            planning_preview = await PlanningService(self.session, self.route_service).preview(
+                PlanningPreviewRequest(input_revision=data.input_revision, state=data.planning_state)
+            )
+            _validate_generation_planning_state(data, planning_preview)
         destinations = await self.ai.list_active_destinations_by_ids(
             list(data.destination_ids),
         )
@@ -94,11 +112,21 @@ class AIItineraryService:
             total_budget=Decimal(data.total_budget),
             day_count=data.day_count,
             minimum_option_count=settings.ai_itinerary_option_count,
+            required_destination_ids=set(data.destination_ids) if planning_preview else None,
+            required_accommodation_ids=set(data.accommodation_ids) if planning_preview else None,
+            required_transportation_ids=set(data.transportation_ids) if planning_preview else None,
+            accommodation_destination_ids={
+                item.accommodation_id: item.destination_id for item in accommodations
+            } if planning_preview else None,
+            transportation_destination_ids={
+                item.transportation_id: item.destination_id for item in transportations
+            } if planning_preview else None,
         )
         messages = build_itinerary_messages(
             request=data,
             catalog=catalog_payload,
             option_count=settings.ai_itinerary_option_count,
+            planning_preview=planning_preview,
         )
 
         model_runs: list[AIModelRunResult] = []
@@ -112,6 +140,7 @@ class AIItineraryService:
                 messages=messages,
                 catalog=validator_catalog,
                 option_count=settings.ai_itinerary_option_count,
+                planning_preview=planning_preview,
             )
             model_runs.append(run_result)
 
@@ -136,6 +165,10 @@ class AIItineraryService:
         return AIItineraryGenerateResponse(
             options=primary_options,
             model_runs=model_runs,
+            selected_generation_run_id=next(
+                run.ai_generation_run_id for run in model_runs if run.status == "succeeded"
+            ) if planning_preview else None,
+            planning_preview=planning_preview,
         )
 
     async def chat(
@@ -151,16 +184,22 @@ class AIItineraryService:
             allow_fallback=data.allow_fallback,
         )
         rag_matches = []
+        retrieval_coverage = {"status": "disabled", "destinations": [], "truncated": False}
         if data.use_rag and data.rag_limit > 0:
-            rag_matches = await VectorRAGRetriever(self.session).retrieve(
-                _build_rag_query(data),
+            retriever = VectorRAGRetriever(self.session)
+            rag_matches = await retriever.retrieve(
+                data.message,
                 limit=data.rag_limit,
+                history=[item.content for item in data.history if item.role == "user"],
+                context=data.context,
             )
+            retrieval_coverage = retriever.coverage
 
         retrieved_context = [match.to_prompt_dict() for match in rag_matches]
         messages = build_chat_messages(
             request=data,
             retrieved_context=retrieved_context,
+            retrieval_coverage=retrieval_coverage,
         )
         failed_runs: list[dict] = []
 
@@ -185,14 +224,33 @@ class AIItineraryService:
                     messages=messages,
                 )
                 response_time_ms = _elapsed_ms(started_at)
-                chat_response = completion.content.strip() or (
-                    "I could not generate a helpful answer just now. "
-                    "Please try asking in another way."
-                )
+                planning_result = None
+                validation_status = "not_run"
+                if data.planning_state is None:
+                    chat_response = completion.content.strip() or (
+                        "I could not generate a helpful answer just now. "
+                        "Please try asking in another way."
+                    )
+                else:
+                    (
+                        chat_response,
+                        planning_result,
+                        validation_status,
+                    ) = await _build_planning_chat_result(
+                        content=completion.content,
+                        data=data,
+                        session=self.session,
+                        route_service=self.route_service,
+                        retrieved_destination_ids={
+                            match.source_id
+                            for match in rag_matches
+                            if match.source == "destination"
+                        },
+                    )
                 updated_run = await self.ai.update_generation_run(
                     run,
                     status="succeeded",
-                    validation_status="not_run",
+                    validation_status=validation_status,
                     response_time_ms=response_time_ms,
                     prompt_tokens=completion.prompt_tokens,
                     completion_tokens=completion.completion_tokens,
@@ -200,6 +258,12 @@ class AIItineraryService:
                     output_summary={
                         "response_length": len(chat_response),
                         "retrieved_context_count": len(retrieved_context),
+                        "planning_update_status": (
+                            planning_result.update_status if planning_result else None
+                        ),
+                        "planning_input_revision": (
+                            planning_result.input_revision if planning_result else None
+                        ),
                     },
                 )
                 await self.session.commit()
@@ -214,6 +278,7 @@ class AIItineraryService:
                     retrieved_context=[
                         match.to_response_dict() for match in rag_matches
                     ],
+                    planning=planning_result,
                     response_time_ms=updated_run.response_time_ms,
                     prompt_tokens=updated_run.prompt_tokens,
                     completion_tokens=updated_run.completion_tokens,
@@ -330,6 +395,7 @@ class AIItineraryService:
         messages: list[dict[str, str]],
         catalog: AIItineraryCatalog,
         option_count: int,
+        planning_preview: PlanningPreviewResponse | None = None,
     ) -> AIModelRunResult:
         run = await self.ai.create_generation_run(
             user_id=user.user_id,
@@ -366,6 +432,10 @@ class AIItineraryService:
                 output_summary={
                     "option_count": len(options),
                     "minimum_option_count": option_count,
+                    **({
+                        "options": [option.model_dump(mode="json") for option in options],
+                        "planning_preview": planning_preview.model_dump(mode="json"),
+                    } if planning_preview is not None else {}),
                 },
             )
             await self.session.commit()
@@ -551,7 +621,46 @@ def _build_input_summary(data: AIItineraryGenerateRequest) -> dict:
         "interests": list(data.interests),
         "travel_style": data.travel_style,
         "compare_models": data.compare_models,
+        "planning_enabled": data.planning_state is not None,
+        "input_revision": data.input_revision if data.planning_state is not None else None,
     }
+
+
+def _validate_generation_planning_state(
+    data: AIItineraryGenerateRequest,
+    preview: PlanningPreviewResponse,
+) -> None:
+    state = preview.state
+    selected_transport_ids = {
+        option.transportation_id for option in preview.transport_options
+        if option.selected and option.transportation_id is not None
+    }
+    if preview.selection_problems:
+        raise LakbayAPIError(
+            "Review planning selections before generating an itinerary.",
+            code="planning_selection_invalid",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            details={"selection_problems": [item.model_dump() for item in preview.selection_problems]},
+        )
+    if preview.budget.minimum_over_budget_amount > 0:
+        raise LakbayAPIError(
+            "The selected plan already exceeds the budget estimate.",
+            code="planning_over_budget",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    if (
+        data.destination_ids != state.destination_ids
+        or set(data.accommodation_ids) != set(state.selected_accommodation_ids)
+        or set(data.transportation_ids) != selected_transport_ids
+        or data.traveler_count != state.traveler_count
+        or data.day_count != state.day_count
+        or data.total_budget != preview.whole_trip_budget
+    ):
+        raise LakbayAPIError(
+            "AI generation inputs must match the selected planning preview.",
+            code="planning_input_mismatch",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 def _build_chat_input_summary(data: AIChatRequest) -> dict:
@@ -563,44 +672,116 @@ def _build_chat_input_summary(data: AIChatRequest) -> dict:
         "model_role": data.model_role,
         "use_rag": data.use_rag,
         "rag_limit": data.rag_limit,
+        "planning_enabled": data.planning_state is not None,
+        "input_revision": data.input_revision if data.planning_state is not None else None,
     }
 
 
-def _build_rag_query(data: AIChatRequest) -> str:
-    parts = [data.message]
-    parts.extend(
-        message.content
-        for message in data.history[-4:]
-        if message.role == "user"
+async def _build_planning_chat_result(
+    *,
+    content: str,
+    data: AIChatRequest,
+    session: AsyncSession,
+    route_service: RouteService | None,
+    retrieved_destination_ids: set[int],
+) -> tuple[str, AIPlanningChatResult, str]:
+    assert data.planning_state is not None
+    current_state = data.planning_state
+    fallback_response = (
+        "I couldn't safely update your plan from that response. Your current "
+        "preview is shown below; try restating the change or use the preview controls."
     )
-    parts.extend(_flatten_context_values(data.context or {}))
+    try:
+        output = AIPlanningChatOutput.model_validate_json(_strip_json_fence(content))
+    except ValidationError:
+        output = None
 
-    return " ".join(parts)
+    update_status = "invalid_output"
+    validation_status = "invalid"
+    chat_response = fallback_response
+    changes_json: dict = {}
+    next_state = current_state
+    if output is not None:
+        validation_status = "valid"
+        chat_response = output.chat_response.strip()
+        changes = output.state_updates.model_dump(exclude_unset=True, mode="python")
+        changes_json = output.state_updates.model_dump(exclude_unset=True, mode="json")
+        update_status = "no_changes"
+
+        proposed_origin = changes.get("origin")
+        if isinstance(proposed_origin, dict):
+            label = proposed_origin["label"]
+            current_origin = current_state.origin
+            if (
+                current_origin is not None
+                and current_origin.label is not None
+                and current_origin.label.casefold() == label.casefold()
+            ):
+                changes.pop("origin")
+                changes_json.pop("origin", None)
+            else:
+                # An AI-proposed label cannot supply coordinates. Clear stale
+                # coordinates when the traveler changes their origin label.
+                changes["origin"] = PlanningOrigin(label=label)
+
+        requested_destinations = changes.get("destination_ids")
+        if requested_destinations is not None:
+            allowed_destinations = retrieved_destination_ids | set(current_state.destination_ids)
+            if not set(requested_destinations).issubset(allowed_destinations):
+                changes.pop("destination_ids")
+                changes_json.pop("destination_ids", None)
+                update_status = "needs_clarification"
+                chat_response = (
+                    f"{chat_response}\n\nI couldn't match that destination to an active "
+                    "Lakbay catalog entry, so I kept your current destination selection. "
+                    "Choose a destination from the preview or clarify the place."
+                )
+
+        current_values = current_state.model_dump(mode="json")
+        for field_name, value in list(changes_json.items()):
+            if field_name in changes and current_values.get(field_name) == value:
+                changes.pop(field_name)
+                changes_json.pop(field_name)
+
+        try:
+            if changes:
+                next_state = PlanningState.model_validate(
+                    {**current_state.model_dump(), **changes},
+                )
+                if update_status != "needs_clarification":
+                    update_status = "applied"
+            elif update_status != "needs_clarification":
+                update_status = "no_changes"
+        except ValidationError:
+            next_state = current_state
+            changes_json = {}
+            update_status = "invalid_output"
+            validation_status = "invalid"
+            chat_response = fallback_response
+
+    preview = await PlanningService(session, route_service).preview(
+        PlanningPreviewRequest(
+            input_revision=data.input_revision,
+            state=next_state,
+        ),
+    )
+    return (
+        chat_response,
+        AIPlanningChatResult(
+            input_revision=data.input_revision,
+            state_updates=changes_json,
+            update_status=update_status,
+            preview=preview,
+        ),
+        validation_status,
+    )
 
 
-def _flatten_context_values(value) -> list[str]:
-    if value is None:
-        return []
-
-    if isinstance(value, str):
-        return [value]
-
-    if isinstance(value, (int, float, bool)):
-        return [str(value)]
-
-    if isinstance(value, dict):
-        items: list[str] = []
-        for child in value.values():
-            items.extend(_flatten_context_values(child))
-        return items
-
-    if isinstance(value, list):
-        items: list[str] = []
-        for child in value:
-            items.extend(_flatten_context_values(child))
-        return items
-
-    return [str(value)]
+def _strip_json_fence(content: str) -> str:
+    value = content.strip()
+    if value.startswith("```") and value.endswith("```"):
+        value = value.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+    return value
 
 
 def _build_run_result(

@@ -1,12 +1,16 @@
 from datetime import UTC, date, datetime
 
 from fastapi import status
+from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import LakbayAPIError
 from app.features.accommodations.models import Accommodation
+from app.features.ai.schemas import AIItineraryOption
 from app.features.destinations.models import Destination
 from app.features.notifications.service import NotificationService
+from app.features.planning.schemas import PlanningPreviewResponse
+from app.features.routes.schemas import RouteSummaryResponse
 from app.features.transportations.models import Transportation
 from app.features.trips.models import (
     Trip,
@@ -14,11 +18,15 @@ from app.features.trips.models import (
     TripItineraryActivity,
     TripItineraryDay,
     TripMember,
+    TripRoute,
     TripTask,
 )
 from app.features.trips.repository import TripRepository
 from app.features.trips.schemas import (
     TripCreate,
+    TripFromAIOptionCreate,
+    TripItineraryActivityCreate,
+    TripItineraryDayCreate,
     TripDestinationResponse,
     TripItineraryActivityResponse,
     TripItineraryDayResponse,
@@ -44,7 +52,11 @@ class TripService:
         self.trips = TripRepository(session)
         self.notifications = NotificationService(session)
 
-    async def create_trip(self, *, user: User, data: TripCreate) -> TripResponse:
+    async def create_trip(
+        self, *, user: User, data: TripCreate,
+        planning_snapshot: dict | None = None,
+        route_summary: RouteSummaryResponse | None = None,
+    ) -> TripResponse:
         destinations = await self.trips.list_active_destinations_by_ids(
             list(data.destination_ids),
         )
@@ -86,6 +98,7 @@ class TripService:
             total_budget=data.total_budget,
             estimated_total_cost=data.estimated_total_cost,
             notes=data.notes,
+            planning_snapshot=planning_snapshot,
         )
         trip.members = [
             TripMember(
@@ -123,6 +136,19 @@ class TripService:
             )
             for day in data.itinerary_days
         ]
+        if route_summary is not None:
+            route_destinations = {
+                stop.destination_id for stop in route_summary.stops
+                if stop.destination_id is not None
+            }
+            if route_destinations != selected_destination_ids:
+                raise LakbayAPIError(
+                    "The saved route must contain exactly the trip's destinations.",
+                    code="trip_route_destination_mismatch",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+            route_data = TripRouteCreate.model_validate(route_summary.model_dump())
+            trip.route = TripRoute(**route_data.model_dump(mode="json"))
 
         await self.trips.create_trip(trip)
         await self.session.commit()
@@ -140,6 +166,103 @@ class TripService:
             )
 
         return _trip_response(created_trip, destination_by_id=destination_by_id)
+
+    async def create_from_ai_option(
+        self, *, user: User, data: TripFromAIOptionCreate,
+    ) -> TripResponse:
+        run = await self.trips.get_owned_generation_run(
+            user_id=user.user_id, generation_run_id=data.generation_run_id,
+        )
+        if (
+            run is None or run.request_purpose != "itinerary_generation"
+            or run.status != "succeeded" or run.validation_status != "valid"
+            or not run.output_summary or "planning_preview" not in run.output_summary
+        ):
+            raise LakbayAPIError(
+                "A saved planning generation run was not found.",
+                code="planning_generation_not_found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        try:
+            preview = PlanningPreviewResponse.model_validate(run.output_summary["planning_preview"])
+            options = [
+                AIItineraryOption.model_validate(item)
+                for item in run.output_summary["options"]
+            ]
+        except (KeyError, TypeError, ValidationError) as exc:
+            raise LakbayAPIError(
+                "The stored planning run is invalid.",
+                code="planning_generation_invalid",
+                status_code=status.HTTP_409_CONFLICT,
+            ) from exc
+        option = next((item for item in options if item.option_number == data.option_number), None)
+        if option is None:
+            raise LakbayAPIError(
+                "This itinerary option was not part of the generation run.",
+                code="planning_option_not_found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        if preview.selection_problems or preview.budget.total_estimate is None:
+            raise LakbayAPIError(
+                "Resolve selected options and missing costs before saving this trip.",
+                code="planning_preview_incomplete",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        if preview.route.status != "not_requested" and preview.route.summary is None:
+            raise LakbayAPIError(
+                "The requested route must have a summary before saving this trip.",
+                code="planning_route_incomplete",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        if preview.whole_trip_budget is None or preview.state.traveler_count is None:
+            raise LakbayAPIError(
+                "Budget and traveler count are required to save this trip.",
+                code="planning_preview_incomplete",
+                status_code=status.HTTP_409_CONFLICT,
+            )
+        trip_data = TripCreate(
+            title=option.title,
+            description=option.summary,
+            start_date=data.start_date,
+            end_date=data.end_date,
+            traveler_count=preview.state.traveler_count,
+            total_budget=preview.whole_trip_budget,
+            estimated_total_cost=preview.budget.total_estimate,
+            destination_ids=preview.state.destination_ids,
+            notes=data.notes,
+            itinerary_days=[
+                TripItineraryDayCreate(
+                    day_number=day.day,
+                    title=day.title,
+                    summary=day.summary,
+                    activities=[
+                        TripItineraryActivityCreate(
+                            activity_order=index,
+                            time=activity.time,
+                            title=activity.title,
+                            description=activity.description,
+                            destination_id=activity.destination_id,
+                            accommodation_id=activity.accommodation_id,
+                            transportation_id=activity.transportation_id,
+                            estimated_cost=activity.estimated_cost,
+                            notes=activity.notes,
+                        )
+                        for index, activity in enumerate(day.activities, start=1)
+                    ],
+                )
+                for day in option.days
+            ],
+        )
+        snapshot = {
+            "generation_run_id": run.ai_generation_run_id,
+            "option_number": option.option_number,
+            "preview": preview.model_dump(mode="json"),
+            "ai_costs_are_draft_estimates": True,
+        }
+        return await self.create_trip(
+            user=user, data=trip_data, planning_snapshot=snapshot,
+            route_summary=preview.route.summary,
+        )
 
     async def list_trips(
         self,
@@ -854,6 +977,7 @@ def _trip_response(
             if trip.route is not None
             else None
         ),
+        planning_snapshot=trip.planning_snapshot,
         members=[
             _member_response(member)
             for member in sorted(

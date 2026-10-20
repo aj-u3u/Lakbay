@@ -136,6 +136,9 @@ Current implementation notes:
   costs, capacity, and travel duration.
 - Starter Davao destination seed data lives in
   `app/seeds/davao_destinations.py`.
+- Rate currency and charging unit columns were added in `dfc235ae4bed`.
+  New admin-entered rates use PHP and an explicit unit. Older seeded rates
+  retain a null unit until verified by an admin.
 - Endpoint details are documented in `docs/destinations.md`.
 
 ## Phase 3: Preferences And Recommendation Signals
@@ -447,8 +450,8 @@ Current implementation notes:
 - `GET /api/v1/trips/{trip_id}/reports/summary` returns the JSON data used by
   the report.
 - `GET /api/v1/trips/{trip_id}/reports/pdf` returns a downloadable PDF.
-- Reports include existing trip, destination, itinerary, route, expense, and
-  member data.
+- Reports include existing trip, destination, itinerary, group task, route,
+  expense, and member data.
 - Review and feedback data remain deferred to Phase 12.
 
 ## Phase 12: Reviews And Feedback
@@ -636,6 +639,12 @@ Done when:
 
 - AI itinerary options are based on route-aware and budget-aware context.
 - AI still uses only allowed destination, accommodation, and transportation IDs.
+
+Current implementation increment: planning-enabled itinerary generation reuses
+the stateless planning preview for catalog selections, cost provenance, and route
+context. A chosen validated option can be saved with that preview and route in
+Phase 7 trip records. Destination-group scoring remains a separate input for
+future integration.
 
 ### Phase 15F: Itinerary Feedback
 
