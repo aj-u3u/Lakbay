@@ -9,7 +9,8 @@ import '../../providers/trip_provider.dart';
 import '../../models/destination.dart';
 import '../../models/trip.dart';
 import '../../models/planner_draft.dart';
-import '../destinations/destination_details_screen.dart';
+import 'chat_plan_review_sheet.dart';
+import 'chat_ai_options_sheet.dart';
 
 class PlannerScreen extends StatefulWidget {
   const PlannerScreen({super.key});
@@ -79,25 +80,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
     '₱20,000',
     '₱30,000',
   ];
-  final List<String> _dateOptions = [
-    'This Weekend',
-    'Next Weekend',
-    'Next Month',
-    'Flexible Dates',
-  ];
-  final List<String> _budgetCategories = [
-    'Low Budget',
-    'Balanced Budget',
-    'High Budget',
-  ];
-  final List<String> _destDurations = [
-    '1 Day',
-    '2 Days',
-    '3 Days',
-    '4 Days',
-    '5 Days',
-  ];
-
   final List<String> _travelTypes = ['Solo Travel', 'Group Travel'];
   final List<String> _travelerCounts = ['2', '3', '4', '5', '6+'];
 
@@ -119,6 +101,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final provider = context.read<TripProvider>();
     final dest = provider.activePlanDestination;
     final session = provider.sessionPreferences;
+    provider.startChatPlanning(destination: dest);
+    provider.refreshChatPlanningPreview();
 
     // Pre-populate shared preferences from session context
     if (session.budget != null) {
@@ -147,13 +131,25 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _currentStep = 10;
 
       final List<String> remembered = [];
-      if (_extractedDays) remembered.add("Duration: $_selectedDays day${_selectedDays > 1 ? 's' : ''}");
-      if (_extractedTravelType) remembered.add("Travelers: $_numTravelers (${_numTravelers > 1 ? 'Group' : 'Solo'})");
-      if (_extractedBudget) remembered.add("Budget: ₱${_selectedBudget.toStringAsFixed(0)}");
+      if (_extractedDays) {
+        remembered.add(
+          "Duration: $_selectedDays day${_selectedDays > 1 ? 's' : ''}",
+        );
+      }
+      if (_extractedTravelType) {
+        remembered.add(
+          "Travelers: $_numTravelers (${_numTravelers > 1 ? 'Group' : 'Solo'})",
+        );
+      }
+      if (_extractedBudget) {
+        remembered.add("Budget: ₱${_selectedBudget.toStringAsFixed(0)}");
+      }
 
-      String welcomeText = "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.";
+      String welcomeText =
+          "You selected **${dest.name}**! 🌴 Let's plan your customized visit here.";
       if (remembered.isNotEmpty) {
-        welcomeText += "\n\nI remembered your preferences from our conversation:\n• ${remembered.join('\n• ')}";
+        welcomeText +=
+            "\n\nI remembered your preferences from our conversation:\n• ${remembered.join('\n• ')}";
       }
       welcomeText += "\n\nFirst, when do you plan to travel?";
 
@@ -207,6 +203,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final tripProv = context.read<TripProvider>();
     tripProv.setActivePlanDestination(null);
     tripProv.updateDraft(null); // Clear draft!
+    tripProv.startChatPlanning();
     setState(() {
       _messages.clear();
       _currentStep = 7; // Configure to fully free-form conversation!
@@ -240,6 +237,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final tripProv = context.read<TripProvider>();
     tripProv.setActivePlanDestination(null);
     tripProv.updateDraft(null); // Clear draft!
+    tripProv.startChatPlanning();
     setState(() {
       _messages.clear();
       _currentStep = 7; // Configure to fully free-form conversation!
@@ -259,7 +257,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
       _isTyping = false;
       _messages.add(
         _ChatMessage(
-          text: "Your trip has been saved! Ready to plan another adventure? 🗺️",
+          text:
+              "Your trip has been saved! Ready to plan another adventure? 🗺️",
           isUser: false,
           timestamp: DateTime.now(),
         ),
@@ -320,13 +319,18 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
         final historyPayload = _messages
             .where((m) => m.text.isNotEmpty)
-            .map((m) => {
-                  'role': m.isUser ? 'user' : 'assistant',
-                  'content': m.text,
-                })
+            .map(
+              (m) => {
+                'role': m.isUser ? 'user' : 'assistant',
+                'content': m.text,
+              },
+            )
             .toList();
 
-        final success = await provider.sendFreeFormChat(text, history: historyPayload);
+        final success = await provider.sendFreeFormChat(
+          text,
+          history: historyPayload,
+        );
 
         if (!mounted) return;
         setState(() {
@@ -352,7 +356,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
           setState(() {
             _messages.add(
               _ChatMessage(
-                text: provider.errorMessage ??
+                text:
+                    provider.errorMessage ??
                     "I couldn't process that query. Please make sure you are logged in to use the AI Travel Assistant.",
                 isUser: false,
                 timestamp: DateTime.now(),
@@ -383,7 +388,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't recognize a destination. Please choose a location in the Davao Region, such as 'Davao City', 'Samal Island', or 'Mati'.",
+                text:
+                    "I couldn't recognize a destination. Please choose a location in the Davao Region, such as 'Davao City', 'Samal Island', or 'Mati'.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -404,7 +410,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't determine the duration of your stay. Please specify the number of days (e.g., 2, 3, or 5 days).",
+                text:
+                    "I couldn't determine the duration of your stay. Please specify the number of days (e.g., 2, 3, or 5 days).",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -425,7 +432,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _currentStep = 3;
           aiResponse =
               "Awesome, a group trip! 👥 How many travelers will be joining?";
-        } else if (text.toLowerCase().contains('solo') || text.toLowerCase().contains('myself') || text.toLowerCase().contains('alone')) {
+        } else if (text.toLowerCase().contains('solo') ||
+            text.toLowerCase().contains('myself') ||
+            text.toLowerCase().contains('alone')) {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
           _extractedTravelType = true;
@@ -437,7 +446,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't determine your travel type. Please specify whether you are traveling Solo or with a Group.",
+                text:
+                    "I couldn't determine your travel type. Please specify whether you are traveling Solo or with a Group.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -454,7 +464,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't determine the number of travelers. Please enter a number, such as 2, 4, or 6.",
+                text:
+                    "I couldn't determine the number of travelers. Please enter a number, such as 2, 4, or 6.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -471,13 +482,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
         break;
       case 5:
         final clean = _tryParseBudget(text);
-        final hasCat = _containsBudgetCategoryKeyword(text);
-        if (clean == null && !hasCat) {
+        if (clean == null) {
           setState(() {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't recognize your budget amount. Please enter a monetary amount (e.g., 5000, 10000) or budget tier (Low, Balanced, High).",
+                text:
+                    "Please enter a whole-trip budget amount (e.g., 5000 or 10000). You can choose a travel style next.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -486,9 +497,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _scrollToBottom();
           return;
         }
-        if (clean != null) {
-          _selectedBudget = clean;
-        }
+        _selectedBudget = clean;
         _extractedBudget = true;
         _currentStep = 4;
         aiResponse =
@@ -501,7 +510,8 @@ class _PlannerScreenState extends State<PlannerScreen> {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
-                text: "I couldn't recognize a travel vibe. Please choose a theme such as 'Beach', 'Nature', 'Adventure', or 'Relaxing'.",
+                text:
+                    "I couldn't recognize a travel vibe. Please choose a theme such as 'Beach', 'Nature', 'Adventure', or 'Relaxing'.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -511,55 +521,34 @@ class _PlannerScreenState extends State<PlannerScreen> {
           return;
         }
         _selectedVibe = matchedVibe;
-        _currentStep = 6;
-        aiResponse =
-            "Wonderful! I am now generating your custom $_selectedVibe itinerary in $_selectedDistrict "
-            "with a budget of ₱${_selectedBudget.toStringAsFixed(0)}... ⏳";
-
-        _appendAIMessage(aiResponse);
-
         final provider = context.read<TripProvider>();
-        final trip = await provider.generatePlan(
-          district: _selectedDistrict,
-          days: _selectedDays,
-          vibe: _selectedVibe,
-          budget: _selectedBudget,
-          isGroup: _selectedTravelType.toLowerCase().contains('group'),
-          numTravelers: _numTravelers,
-        );
-
+        if (provider.destinations.isEmpty) await provider.refreshDestinations();
         if (!mounted) return;
-
+        final matching = provider.destinations
+            .where(
+              (destination) =>
+                  destination.district.toLowerCase() ==
+                  _selectedDistrict.toLowerCase(),
+            )
+            .take(5)
+            .toList();
+        final choices = matching.isEmpty
+            ? provider.destinations.take(5).toList()
+            : matching;
         setState(() {
           _isTyping = false;
+          _currentStep = 7;
+          _messages.add(
+            _ChatMessage(
+              text: choices.isEmpty
+                  ? 'The destination catalog is unavailable. Retry from Review plan.'
+                  : 'Choose a catalog destination, then review your trip details and cost estimates.',
+              isUser: false,
+              timestamp: DateTime.now(),
+              recommendations: choices.isEmpty ? null : choices,
+            ),
+          );
         });
-
-        if (trip != null) {
-          setState(() {
-            _currentStep = 7;
-            _messages.add(
-              _ChatMessage(
-                text:
-                    "Here is your custom travel itinerary! 🏝️\nI hope you enjoy exploring the beauty of the Davao Region.",
-                isUser: false,
-                timestamp: DateTime.now(),
-                generatedTrip: trip,
-              ),
-            );
-          });
-        } else {
-          setState(() {
-            _currentStep = 4;
-            _messages.add(
-              _ChatMessage(
-                text:
-                    "Ah, I ran into an error generating your plan. Please check your options and try again!",
-                isUser: false,
-                timestamp: DateTime.now(),
-              ),
-            );
-          });
-        }
         _saveDraft();
         _scrollToBottom();
         return;
@@ -653,7 +642,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
     }
 
     // Relative "in X days" pattern
-    final inDaysMatch = RegExp(r'\bin\s+(\d+)\s*days?\b', caseSensitive: false).firstMatch(textLower);
+    final inDaysMatch = RegExp(
+      r'\bin\s+(\d+)\s*days?\b',
+      caseSensitive: false,
+    ).firstMatch(textLower);
     if (inDaysMatch != null) {
       final days = int.tryParse(inDaysMatch.group(1) ?? '');
       if (days != null && days > 0) {
@@ -728,10 +720,14 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   int? _tryParseDuration(String input) {
     final textLower = input.toLowerCase().trim();
-    if (textLower == 'weekend' || textLower == 'a weekend' || textLower == 'this weekend') {
+    if (textLower == 'weekend' ||
+        textLower == 'a weekend' ||
+        textLower == 'this weekend') {
       return 2;
     }
-    if (textLower == 'a week' || textLower == '1 week' || textLower == 'one week') {
+    if (textLower == 'a week' ||
+        textLower == '1 week' ||
+        textLower == 'one week') {
       return 7;
     }
     final daysMatch = RegExp(r'\b(\d+)\s*(?:day|days)\b').firstMatch(textLower);
@@ -749,10 +745,15 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
   int? _tryParseTravelerCount(String input) {
     final textLower = input.toLowerCase().trim();
-    if (textLower.contains('solo') || textLower.contains('myself') || textLower.contains('alone') || textLower == '1') {
+    if (textLower.contains('solo') ||
+        textLower.contains('myself') ||
+        textLower.contains('alone') ||
+        textLower == '1') {
       return 1;
     }
-    if (textLower.contains('couple') || textLower.contains('two of us') || textLower.contains('both of us')) {
+    if (textLower.contains('couple') ||
+        textLower.contains('two of us') ||
+        textLower.contains('both of us')) {
       return 2;
     }
     final groupMatch = RegExp(
@@ -787,19 +788,28 @@ class _PlannerScreenState extends State<PlannerScreen> {
     return null;
   }
 
-  bool _containsBudgetCategoryKeyword(String input) {
-    final textLower = input.toLowerCase();
-    const keywords = ['low', 'cheap', 'budget', 'affordable', 'balanced', 'moderate', 'high', 'luxury', 'premium'];
-    return keywords.any((k) => textLower.contains(k));
-  }
-
   String? _tryParseDistrict(String input) {
     final textLower = input.toLowerCase().trim();
     const knownDistricts = [
-      'davao city', 'davao', 'samal', 'samal island', 'mati', 'toril',
-      'panabo', 'digos', 'kopiat', 'malagos', 'roxas', 'lake leonard',
-      'aliwagwag', 'hamiguitan', 'tagbibinta', 'davao del norte',
-      'davao del sur', 'davao oriental', 'davao de oro'
+      'davao city',
+      'davao',
+      'samal',
+      'samal island',
+      'mati',
+      'toril',
+      'panabo',
+      'digos',
+      'kopiat',
+      'malagos',
+      'roxas',
+      'lake leonard',
+      'aliwagwag',
+      'hamiguitan',
+      'tagbibinta',
+      'davao del norte',
+      'davao del sur',
+      'davao oriental',
+      'davao de oro',
     ];
     for (final dist in knownDistricts) {
       if (textLower.contains(dist)) {
@@ -821,11 +831,50 @@ class _PlannerScreenState extends State<PlannerScreen> {
     final textLower = input.toLowerCase().trim();
     const vibesMap = {
       'Beach': ['beach', 'beaches', 'island', 'resort', 'coastal', 'sea'],
-      'Nature': ['nature', 'mountain', 'hiking', 'park', 'falls', 'waterfall', 'green', 'forest'],
-      'Adventure': ['adventure', 'adventurous', 'trekking', 'climb', 'surfing', 'action'],
-      'Relaxing': ['relaxing', 'relax', 'quiet', 'peaceful', 'spa', 'chill', 'serene'],
-      'Culture': ['culture', 'cultural', 'heritage', 'museum', 'historical', 'history'],
-      'Food Trip': ['food', 'dining', 'culinary', 'restaurant', 'street food', 'eat', 'market'],
+      'Nature': [
+        'nature',
+        'mountain',
+        'hiking',
+        'park',
+        'falls',
+        'waterfall',
+        'green',
+        'forest',
+      ],
+      'Adventure': [
+        'adventure',
+        'adventurous',
+        'trekking',
+        'climb',
+        'surfing',
+        'action',
+      ],
+      'Relaxing': [
+        'relaxing',
+        'relax',
+        'quiet',
+        'peaceful',
+        'spa',
+        'chill',
+        'serene',
+      ],
+      'Culture': [
+        'culture',
+        'cultural',
+        'heritage',
+        'museum',
+        'historical',
+        'history',
+      ],
+      'Food Trip': [
+        'food',
+        'dining',
+        'culinary',
+        'restaurant',
+        'street food',
+        'eat',
+        'market',
+      ],
       'Nightlife': ['nightlife', 'night', 'bar', 'party', 'evening'],
     };
     for (final entry in vibesMap.entries) {
@@ -935,12 +984,10 @@ class _PlannerScreenState extends State<PlannerScreen> {
       } else {
         if (text.contains('low') || text.contains('cheap')) {
           _selectedBudgetCategory = 'Low Budget';
-          _extractedBudget = true;
         } else if (text.contains('affordable') ||
             text.contains('moderate') ||
             text.contains('comfort')) {
           _selectedBudgetCategory = 'Balanced Budget';
-          _extractedBudget = true;
         }
       }
     } else if (text.contains('luxury') ||
@@ -948,7 +995,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
         text.contains('high') ||
         text.contains('expensive')) {
       _selectedBudgetCategory = 'High Budget';
-      _extractedBudget = true;
     }
 
     try {
@@ -972,50 +1018,168 @@ class _PlannerScreenState extends State<PlannerScreen> {
     setState(() {
       _isTyping = true;
     });
-
-    final aiResponse =
-        "Excellent! Preparing your **$_selectedBudgetCategory** plan for "
-        "${dest.name} ($_selectedDays day${_selectedDays > 1 ? 's' : ''}, $_selectedDate)... ⏳";
-
-    _appendAIMessage(aiResponse);
-
-    // Generate the trip with budget-aware logic
-    final trip = await _generateDestinationPlan(dest);
-
+    final provider = context.read<TripProvider>();
+    await provider.chooseChatDestination(dest);
+    await provider.updateChatPlanning({
+      'day_count': _selectedDays,
+      'traveler_count': _numTravelers,
+      if (_extractedBudget) 'total_budget': _selectedBudget.toStringAsFixed(2),
+      if (_selectedVibe.isNotEmpty) 'interests': <String>[_selectedVibe],
+    });
     if (!mounted) return;
     setState(() {
       _isTyping = false;
-    });
-
-    // Build cost breakdown message
-    final costBreakdown = _buildCostBreakdownText(dest);
-
-    setState(() {
       _currentStep = 15;
       _messages.add(
         _ChatMessage(
-          text: costBreakdown,
+          text:
+              'Review ${dest.name}, your travel details, and whole-trip cost estimates. The itinerary will be generated after the estimate is complete.',
           isUser: false,
           timestamp: DateTime.now(),
         ),
       );
     });
     _scrollToBottom();
+    _openChatPlanReview();
+  }
 
-    await Future.delayed(const Duration(milliseconds: 600));
+  void _openChatPlanReview() {
+    final provider = context.read<TripProvider>();
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ChatPlanReviewSheet(provider: provider),
+    );
+  }
+
+  void _openChatAIOptions() {
+    final provider = context.read<TripProvider>();
+    if (provider.chatAIOptions.isEmpty) return;
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => ChatAIOptionsSheet(
+        provider: provider,
+        onSaved: _resetChatWithSuccessMessage,
+      ),
+    );
+  }
+
+  Future<void> _generateReviewedChatPlan() async {
+    final provider = context.read<TripProvider>();
+    setState(() => _isTyping = true);
+    final success = await provider.generateChatItinerary();
+    if (!mounted) return;
     setState(() {
+      _isTyping = false;
       _messages.add(
         _ChatMessage(
-          text:
-              "Here is your personalised **$_selectedBudgetCategory** itinerary for ${dest.name}! 🎉\n"
-              "Tap the bookmark icon to save it to My Trips.",
+          text: success
+              ? 'Validated AI itineraries are ready. Review the options and save the one you prefer.'
+              : provider.errorMessage ??
+                    'Could not generate an itinerary. Review the plan and retry.',
           isUser: false,
           timestamp: DateTime.now(),
-          generatedTrip: trip,
+          generatedTrip: success ? provider.latestGeneratedTrip : null,
         ),
       );
     });
     _scrollToBottom();
+    if (success) _openChatAIOptions();
+  }
+
+  Widget _buildChatPlanningBar() {
+    return Consumer<TripProvider>(
+      builder: (context, provider, _) {
+        final preview = provider.chatPlanningPreview;
+        final state = provider.chatPlanningState;
+        final budget = preview?['budget'];
+        final budgetMap = budget is Map ? budget : const <String, dynamic>{};
+        final names = (preview?['destinations'] as List? ?? const [])
+            .whereType<Map>()
+            .map((destination) => destination['name']?.toString() ?? '')
+            .where((name) => name.isNotEmpty)
+            .join(', ');
+        final missing = (preview?['missing_inputs'] as List? ?? const [])
+            .map((item) => item.toString().replaceAll('_', ' '))
+            .toList();
+        final missingCosts = (budgetMap['missing_costs'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => item['message']?.toString() ?? '')
+            .where((item) => item.isNotEmpty)
+            .toList();
+        final problems = (preview?['selection_problems'] as List? ?? const [])
+            .whereType<Map>()
+            .map((item) => item['message']?.toString() ?? '')
+            .where((item) => item.isNotEmpty)
+            .toList();
+        final summary = names.isEmpty ? 'No destination selected' : names;
+        final cost = budgetMap['total_estimate'];
+        final fit = budgetMap['fit']?.toString();
+        final detail = cost == null
+            ? (missing.isNotEmpty
+                  ? 'Needs ${missing.take(2).join(', ')}'
+                  : missingCosts.isNotEmpty
+                  ? missingCosts.first
+                  : problems.isNotEmpty
+                  ? problems.first
+                  : 'Review the trip details and costs')
+            : 'Whole-trip estimate ₱$cost • ${fit == 'fits_estimate'
+                  ? 'fits budget'
+                  : fit == 'over_budget'
+                  ? 'over budget'
+                  : 'needs review'}';
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+          color: Theme.of(context).colorScheme.surfaceContainerLow,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                summary,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              Text(
+                detail,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _openChatPlanReview,
+                    child: const Text('Review plan'),
+                  ),
+                  if (provider.chatAIOptions.isNotEmpty)
+                    TextButton(
+                      onPressed: _openChatAIOptions,
+                      child: const Text('View AI options'),
+                    ),
+                  FilledButton(
+                    onPressed:
+                        provider.canGenerateChatPlan && !provider.isLoading
+                        ? _generateReviewedChatPlan
+                        : null,
+                    child: const Text('Generate'),
+                  ),
+                ],
+              ),
+              if (state['destination_ids'] is List &&
+                  (state['destination_ids'] as List).length > 1)
+                Text(
+                  'Review all selected stops before generating.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   // =========================================================================
@@ -1277,7 +1441,9 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _currentStep = 125;
           aiResponse =
               "Awesome, a group trip! 👥 How many travelers will be joining?";
-        } else if (text.toLowerCase().contains('solo') || text.toLowerCase().contains('myself') || text.toLowerCase().contains('alone')) {
+        } else if (text.toLowerCase().contains('solo') ||
+            text.toLowerCase().contains('myself') ||
+            text.toLowerCase().contains('alone')) {
           _selectedTravelType = 'Solo';
           _numTravelers = 1;
           _extractedTravelType = true;
@@ -1332,14 +1498,13 @@ class _PlannerScreenState extends State<PlannerScreen> {
       // Step 128 — user sets their estimated budget
       case 128:
         final clean = _tryParseBudget(text);
-        final hasCat = _containsBudgetCategoryKeyword(text);
-        if (clean == null && !hasCat) {
+        if (clean == null) {
           setState(() {
             _isTyping = false;
             _messages.add(
               _ChatMessage(
                 text:
-                    "I couldn't recognize your budget amount. Please enter a monetary amount (e.g., 5000, 10000) or budget category (Low, Balanced, High).",
+                    "Please enter a whole-trip budget amount (e.g., 5000 or 10000). You can choose a budget style next.",
                 isUser: false,
                 timestamp: DateTime.now(),
               ),
@@ -1348,9 +1513,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _scrollToBottom();
           return;
         }
-        if (clean != null) {
-          _selectedBudget = clean;
-        }
+        _selectedBudget = clean;
         _extractedBudget = true;
         _currentStep = 13;
         final prompt = _buildSuggestedBudgetPrompt(dest);
@@ -1397,7 +1560,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
           _scrollToBottom();
           return;
         }
-        _extractedBudget = true;
         await _generateAndShowDestinationPlan(dest);
         return;
     }
@@ -1420,15 +1582,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
   // =========================================================================
   //  HELPERS
   // =========================================================================
-  void _appendAIMessage(String text) {
-    setState(() {
-      _messages.add(
-        _ChatMessage(text: text, isUser: false, timestamp: DateTime.now()),
-      );
-    });
-    _scrollToBottom();
-  }
-
   double _parsePrice(String text) {
     final cleanText = text.replaceAll(RegExp(r'[^\d\.-]'), '');
     if (cleanText.isEmpty) return 0.0;
@@ -1577,49 +1730,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
         entranceFee;
   }
 
-  double _calculateOptimizedCost(
-    Destination dest,
-    String transCat,
-    String accommCat,
-    String mealCat,
-    String actCat,
-  ) {
-    final extra = dest.extra;
-    final isLowMeal = mealCat == 'Low Budget';
-    final isHighMeal = mealCat == 'High Budget';
-
-    // 1. Transport
-    final double totalTransport = _getTransportCost(dest, transCat);
-
-    // 2. Meals
-    final double mealsPerDay = isLowMeal
-        ? 150.0 * 3
-        : isHighMeal
-        ? 600.0 * 3
-        : 300.0 * 3;
-    final double totalMeals = mealsPerDay * _selectedDays;
-
-    // 3. Activities
-    final double totalActivities = _getActivitiesCost(dest, actCat);
-
-    // 4. Accommodation
-    final double accommodationPerNight = _getAccommodationCost(dest, accommCat);
-    final double totalAccomm = _selectedDays > 1
-        ? accommodationPerNight * (_selectedDays - 1)
-        : 0.0;
-
-    // 5. Environmental & Entrance Fees
-    final double environmentalFee = _parsePrice(extra.environmentalFee);
-    final double entranceFee = _parsePrice(dest.entranceFee);
-
-    return totalTransport +
-        totalMeals +
-        totalActivities +
-        totalAccomm +
-        environmentalFee +
-        entranceFee;
-  }
-
   String _buildSuggestedBudgetPrompt(Destination dest) {
     final lowCost = _calculateOptionCost(dest, 'Low Budget');
     final balancedCost = _calculateOptionCost(dest, 'Balanced Budget');
@@ -1675,368 +1785,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
         "$balancedText\n"
         "$highText\n\n"
         "Which budget style would you like to select for your customized trip? (Low, Balanced, or High)";
-  }
-
-  /// Builds a richly formatted cost breakdown string using actual destination financial data
-  String _buildCostBreakdownText(Destination dest) {
-    final extra = dest.extra;
-    final isLow = _selectedBudgetCategory == 'Low Budget';
-    final isHigh = _selectedBudgetCategory == 'High Budget';
-
-    // 1. Transport
-    final double totalTransport = _getTransportCost(
-      dest,
-      _selectedBudgetCategory,
-    );
-    final transportOpt = _getTransportOption(dest, _selectedBudgetCategory);
-    String transportInfo = '';
-    if (transportOpt != null) {
-      transportInfo =
-          "${transportOpt['vehicle'] ?? ''} from ${transportOpt['from'] ?? ''} → ${transportOpt['to'] ?? ''}";
-    }
-
-    // 2. Meals
-    final double mealsPerDay = isLow
-        ? 150.0 * 3
-        : isHigh
-        ? 600.0 * 3
-        : 300.0 * 3;
-    final double totalMeals = mealsPerDay * _selectedDays;
-
-    // 3. Activities
-    final double totalActivities = _getActivitiesCost(
-      dest,
-      _selectedBudgetCategory,
-    );
-
-    // 4. Accommodation
-    final double accommodationPerNight = _getAccommodationCost(
-      dest,
-      _selectedBudgetCategory,
-    );
-    final double totalAccomm = _selectedDays > 1
-        ? accommodationPerNight * (_selectedDays - 1)
-        : 0.0;
-
-    // 5. Environmental & Entrance Fees
-    final double environmentalFee = _parsePrice(extra.environmentalFee);
-    final double entranceFee = _parsePrice(dest.entranceFee);
-
-    final double grandTotal =
-        totalTransport +
-        totalMeals +
-        totalActivities +
-        totalAccomm +
-        environmentalFee +
-        entranceFee;
-
-    // Pick accommodation type based on category
-    String accommType = '';
-    if (extra.accommodationTypes.isNotEmpty) {
-      if (isLow) {
-        accommType = extra.accommodationTypes.first['type'] ?? '';
-      } else if (isHigh) {
-        accommType = extra.accommodationTypes.last['type'] ?? '';
-      } else {
-        final mid = extra.accommodationTypes.length ~/ 2;
-        accommType = extra.accommodationTypes[mid]['type'] ?? '';
-      }
-    }
-
-    final emoji = isLow
-        ? '🟢'
-        : isHigh
-        ? '🔴'
-        : '🟡';
-
-    return "$emoji **$_selectedBudgetCategory Cost Breakdown**\n"
-        "📍 ${dest.name} • $_selectedDays Day${_selectedDays > 1 ? 's' : ''} • $_selectedDate\n\n"
-        "🚌 **Transport** — ₱${totalTransport.toStringAsFixed(0)}\n"
-        "${transportInfo.isNotEmpty ? '   $transportInfo\n' : ''}"
-        "🍽️ **Meals** (${_selectedDays}x) — ₱${totalMeals.toStringAsFixed(0)}\n"
-        "   ${extra.mealInclusions.isNotEmpty ? extra.mealInclusions.first : 'Local food stalls available.'}\n"
-        "🎯 **Activities** — ₱${totalActivities.toStringAsFixed(0)}\n"
-        "   ${dest.activities.take(3).join(' • ')}\n"
-        "${_selectedDays > 1 && totalAccomm > 0 ? '🏨 **Accommodation** (${_selectedDays - 1} night${_selectedDays > 2 ? 's' : ''}) — ₱${totalAccomm.toStringAsFixed(0)}\n'
-                  '   ${accommType.isNotEmpty ? accommType : 'Standard Room'}\n' : ''}"
-        "🌿 **Environmental Fee** — ${extra.environmentalFee}\n"
-        "🎟️ **Entrance Fee** — ${dest.entranceFee}\n\n"
-        "━━━━━━━━━━━━━━━━━━\n"
-        "💰 **Estimated Total: ₱${grandTotal.toStringAsFixed(0)}** per person\n"
-        "${_selectedTravelType.toLowerCase().contains('group') ? '👥 **Group Total (for $_numTravelers travelers): ₱${(grandTotal * _numTravelers).toStringAsFixed(0)}**\n' : ''}"
-        "(excluding personal expenses)";
-  }
-
-  /// Generates a Trip object tailored to the destination, date, days, and budget
-  Future<Trip> _generateDestinationPlan(Destination dest) async {
-    await Future.delayed(const Duration(milliseconds: 1800));
-
-    // Compute a real start date
-    final startDate = _parseSmartDate(_selectedDate);
-
-    final endDate = startDate.add(Duration(days: _selectedDays - 1));
-    final dateRange = _selectedDays == 1
-        ? _formatDate(startDate)
-        : '${_formatDate(startDate)} – ${_formatDate(endDate)}';
-
-    // User's per-person budget limit
-    final double perPersonLimit =
-        _selectedBudget / (_numTravelers > 0 ? _numTravelers : 1);
-
-    // Intelligently select category if not explicitly chosen
-    String activeCategory = _selectedBudgetCategory;
-    if (activeCategory.isEmpty) {
-      final double balancedCost = _calculateOptionCost(dest, 'Balanced Budget');
-      if (perPersonLimit >= _calculateOptionCost(dest, 'High Budget')) {
-        activeCategory = 'High Budget';
-      } else if (perPersonLimit >= balancedCost) {
-        activeCategory = 'Balanced Budget';
-      } else {
-        activeCategory = 'Low Budget';
-      }
-      _selectedBudgetCategory = activeCategory;
-    }
-
-    // Check if the chosen category cost exceeds the user's financial limit
-    bool needsCostOptimization =
-        _calculateOptionCost(dest, activeCategory) > perPersonLimit;
-
-    // Optimization modifiers per category
-    String transportCategory = activeCategory;
-    String accommCategory = activeCategory;
-    String mealCategory = activeCategory;
-    String activityCategory = activeCategory;
-
-    if (needsCostOptimization) {
-      // Intelligently minimize costs step-by-step to fit within the limit
-      // 1. First downgrade transport to Low Budget (commuter transit)
-      transportCategory = 'Low Budget';
-      double optimizedCost = _calculateOptimizedCost(
-        dest,
-        transportCategory,
-        accommCategory,
-        mealCategory,
-        activityCategory,
-      );
-
-      // 2. If still exceeding, downgrade accommodation to Low Budget (camp space/hostel)
-      if (optimizedCost > perPersonLimit) {
-        accommCategory = 'Low Budget';
-        optimizedCost = _calculateOptimizedCost(
-          dest,
-          transportCategory,
-          accommCategory,
-          mealCategory,
-          activityCategory,
-        );
-      }
-
-      // 3. If still exceeding, downgrade meals to Low Budget
-      if (optimizedCost > perPersonLimit) {
-        mealCategory = 'Low Budget';
-        optimizedCost = _calculateOptimizedCost(
-          dest,
-          transportCategory,
-          accommCategory,
-          mealCategory,
-          activityCategory,
-        );
-      }
-
-      // 4. If still exceeding, downgrade activities to Low Budget (focus on free activities)
-      if (optimizedCost > perPersonLimit) {
-        activityCategory = 'Low Budget';
-      }
-    }
-
-    final isLowMeal = mealCategory == 'Low Budget';
-    final isHighMeal = mealCategory == 'High Budget';
-
-    final isLowAct = activityCategory == 'Low Budget';
-    final isHighAct = activityCategory == 'High Budget';
-
-    final isLowAcc = accommCategory == 'Low Budget';
-    final isHighAcc = accommCategory == 'High Budget';
-
-    // Build day-by-day itinerary based on destination
-    final Map<int, List<TripActivity>> agenda = {};
-    final extra = dest.extra;
-
-    final transportOpt = _getTransportOption(dest, transportCategory);
-
-    for (int day = 1; day <= _selectedDays; day++) {
-      final List<TripActivity> dayPlan = [];
-      final String loc = dest.name;
-
-      // Morning: transport + arrival or next-day activity
-      dayPlan.add(
-        TripActivity(
-          time: '07:00 AM',
-          title: day == 1
-              ? 'Depart & Travel to ${dest.name}'
-              : 'Morning at ${dest.name}',
-          description: day == 1
-              ? (transportOpt != null
-                    ? '${transportOpt['vehicle']} from ${transportOpt['from']} → ${transportOpt['to']}.'
-                    : 'Head to ${dest.location} via your preferred transport.')
-              : 'Start the day with breakfast and light exploration around the area.',
-          cost: day == 1
-              ? (transportOpt != null ? transportOpt['price']! : 'Free')
-              : 'Free',
-          location: day == 1 ? 'En Route' : loc,
-        ),
-      );
-
-      // Entrance / check-in
-      dayPlan.add(
-        TripActivity(
-          time: '09:00 AM',
-          title: day == 1
-              ? 'Arrival & Check-In at ${dest.name}'
-              : 'Full Day Exploration',
-          description: day == 1
-              ? 'Pay entrance fee (${dest.entranceFee}) and environmental fee (${extra.environmentalFee}). Collect maps and orient with the surroundings.'
-                  '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}'
-              : 'Enjoy a beautiful morning exploring the core sights of the destination.'
-                  '${dest.activities.isNotEmpty ? ' Suggested activities: ${dest.activities.join(", ")}.' : ''}',
-          cost: day == 1 ? dest.entranceFee : 'Free',
-          location: loc,
-        ),
-      );
-
-      // Main activity
-      if (dest.activities.isNotEmpty) {
-        final actIdx = (day - 1) % dest.activities.length;
-        final actName = dest.activities[actIdx];
-
-        // Find price for this specific activity
-        String actPrice = 'Free';
-        final prices = extra.activityPrices;
-        final matchingKey = prices.keys.firstWhere(
-          (k) =>
-              k.toLowerCase().contains(actName.toLowerCase()) ||
-              actName.toLowerCase().contains(k.toLowerCase()),
-          orElse: () => '',
-        );
-        if (matchingKey.isNotEmpty) {
-          actPrice = prices[matchingKey]!;
-        } else if (isLowAct) {
-          actPrice = 'Free';
-        } else {
-          actPrice = isHighAct ? '₱400' : '₱200';
-        }
-
-        dayPlan.add(
-          TripActivity(
-            time: '10:30 AM',
-            title: actName,
-            description: isLowAct
-                ? 'Budget-friendly option — enjoy $actName with value-conscious settings.'
-                : isHighAct
-                ? 'Premium private guided $actName with top-tier equipment and priority access.'
-                : 'Standard experience of $actName with standard equipment.',
-            cost: actPrice,
-            location: loc,
-          ),
-        );
-      }
-
-      // Lunch
-      dayPlan.add(
-        TripActivity(
-          time: '12:30 PM',
-          title: 'Lunch Break',
-          description: isLowMeal
-              ? 'Affordable local eateries or packed lunch. Karinderia-style meals available nearby.'
-              : isHighMeal
-              ? 'Premium in-resort dining or top-rated restaurant nearby.'
-              : 'Mid-range restaurant or in-resort café.',
-          cost: isLowMeal
-              ? '₱150'
-              : isHighMeal
-              ? '₱600'
-              : '₱300',
-          location: loc,
-        ),
-      );
-
-      // Afternoon activity
-      dayPlan.add(
-        TripActivity(
-          time: '02:00 PM',
-          title: 'Afternoon ${dest.category} Experience',
-          description:
-              'Explore more of ${dest.name}. '
-              '${extra.travelNotes.isNotEmpty ? extra.travelNotes.first : 'Enjoy the scenery and take photos.'}',
-          cost: isLowAct
-              ? '₱100'
-              : isHighAct
-              ? '₱500'
-              : '₱250',
-          location: loc,
-        ),
-      );
-
-      // Evening / Overnight
-      if (_selectedDays > 1 && day < _selectedDays) {
-        final accommTypes = extra.accommodationTypes;
-        String accommName = 'Standard Room';
-        String accommPrice = '₱800–₱1,200 / night';
-        if (accommTypes.isNotEmpty) {
-          int accommIdx = isLowAcc
-              ? 0
-              : isHighAcc
-              ? accommTypes.length - 1
-              : accommTypes.length ~/ 2;
-          accommIdx = accommIdx.clamp(0, accommTypes.length - 1);
-          accommName = accommTypes[accommIdx]['type'] ?? accommName;
-          accommPrice = accommTypes[accommIdx]['price'] ?? accommPrice;
-        }
-        dayPlan.add(
-          TripActivity(
-            time: '06:00 PM',
-            title: 'Dinner & Check-In: $accommName',
-            description:
-                '${extra.mealInclusions.isNotEmpty ? extra.mealInclusions.first : 'Dinner at nearby grill houses.'} Overnight at $accommName.',
-            cost: accommPrice,
-            location: loc,
-          ),
-        );
-      } else {
-        dayPlan.add(
-          TripActivity(
-            time: '05:00 PM',
-            title: 'Wrap Up & Return Trip',
-            description:
-                'Pack up and head back via ${transportOpt != null ? transportOpt['vehicle'] ?? 'transport' : 'transport'}.',
-            cost: transportOpt != null ? transportOpt['price']! : 'Free',
-            location: 'En Route Home',
-          ),
-        );
-      }
-
-      agenda[day] = dayPlan;
-    }
-
-    final double budgetEst = _calculateOptimizedCost(
-      dest,
-      transportCategory,
-      accommCategory,
-      mealCategory,
-      activityCategory,
-    );
-
-    return Trip(
-      id: 'ai-dest-trip-${DateTime.now().millisecondsSinceEpoch}',
-      title: '$_selectedBudgetCategory Trip to ${dest.name}',
-      destinationName: '${dest.name}, ${dest.district}',
-      dateRange: dateRange,
-      budget: budgetEst,
-      imageUrl: dest.imageUrl,
-      itinerary: agenda,
-      isGroup: _selectedTravelType.toLowerCase().contains('group'),
-      numTravelers: _numTravelers,
-    );
   }
 
   String _formatDate(DateTime d) {
@@ -2203,6 +1951,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
             ),
           ),
 
+          _buildChatPlanningBar(),
           _buildInputBar(),
         ],
       ),
@@ -2416,7 +2165,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
         Padding(
           padding: const EdgeInsets.only(left: 4, bottom: 8),
           child: Text(
-            'Recommended Destinations:',
+            'Choose a destination:',
             style: GoogleFonts.outfit(
               fontSize: 13,
               fontWeight: FontWeight.bold,
@@ -2432,16 +2181,31 @@ class _PlannerScreenState extends State<PlannerScreen> {
             itemBuilder: (context, index) {
               final dest = recommendations[index];
               return GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => DestinationDetailsScreen(
-                        destination: dest,
-                        isFromRecommendation: true,
+                onTap: () async {
+                  final provider = context.read<TripProvider>();
+                  await provider.chooseChatDestination(dest);
+                  await provider.updateChatPlanning({
+                    'day_count': _selectedDays,
+                    'traveler_count': _numTravelers,
+                    if (_extractedBudget)
+                      'total_budget': _selectedBudget.toStringAsFixed(2),
+                    if (_selectedVibe.isNotEmpty)
+                      'interests': <String>[_selectedVibe],
+                  });
+                  if (!mounted) return;
+                  setState(() {
+                    _activeDest = dest;
+                    _currentStep = 7;
+                    _messages.add(
+                      _ChatMessage(
+                        text:
+                            '${dest.name} selected. Review the trip details and costs before generating.',
+                        isUser: false,
+                        timestamp: DateTime.now(),
                       ),
-                    ),
-                  );
+                    );
+                  });
+                  _openChatPlanReview();
                 },
                 child: Container(
                   width: 150,
@@ -2847,7 +2611,7 @@ class _PlannerScreenState extends State<PlannerScreen> {
 
                                 final success = await provider.addNewTrip(trip);
 
-                                if (context.mounted) {
+                                if (mounted) {
                                   Navigator.pop(
                                     context,
                                   ); // Dismiss loading dialog
@@ -2981,7 +2745,6 @@ class _PlannerScreenState extends State<PlannerScreen> {
   }
 
   Widget _buildDot(int index) => _TypingDot(delayMs: index * 150);
-
 
   Widget _buildInputBar() {
     final isDark = Theme.of(context).brightness == Brightness.dark;

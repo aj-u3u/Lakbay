@@ -22,112 +22,6 @@ class MemoriesScreen extends StatelessWidget {
     'Davao de Oro',
   ];
 
-  // Mock completed trips seeded for first-time impression
-  // Only show mock data if userTrips has zero completed trips
-  // TODO: Remove seed data once real completed trips flow from backend
-  static final List<Trip> _fallbackMockCompletedTrips = [
-    Trip(
-      id: 'mock-comp-samal',
-      title: 'Island Garden Escape',
-      destinationName: 'Samal Island, Davao del Norte',
-      dateRange: 'May 10 - May 12, 2026',
-      budget: 18000.0,
-      imageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-      isGroup: true,
-      numTravelers: 3,
-      members: [
-        {'name': 'You (Organizer)', 'role': 'Organizer', 'avatar': ''},
-        {'name': 'Arjane', 'role': 'Member', 'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80'},
-        {'name': 'Bea', 'role': 'Member', 'avatar': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80'},
-      ],
-      memories: [
-        {
-          'id': 'mock-mem-s1',
-          'user': 'You',
-          'avatar': '',
-          'time': 'May 10, 2026',
-          'caption': 'Checking in! The overwater bungalows are gorgeous.',
-          'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-          'location': 'Pearl Farm Resort',
-        },
-        {
-          'id': 'mock-mem-s2',
-          'user': 'Arjane',
-          'avatar': 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100&q=80',
-          'time': 'May 11, 2026',
-          'caption': 'Giant clam sanctuary snorkeling! So many colors 🐠',
-          'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
-          'location': 'Coral Garden Reef',
-        },
-        {
-          'id': 'mock-mem-s3',
-          'user': 'Bea',
-          'avatar': 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=100&q=80',
-          'time': 'May 12, 2026',
-          'caption': 'Chasing waterfalls at Hagimit! The water is freezing!',
-          'image': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
-          'location': 'Hagimit Falls',
-        },
-      ],
-      itinerary: {},
-    ),
-    Trip(
-      id: 'mock-comp-davao',
-      title: 'City Highlands & Night Market',
-      destinationName: 'Davao City Proper',
-      dateRange: 'April 15 - April 16, 2026',
-      budget: 6500.0,
-      imageUrl: 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80',
-      isGroup: false,
-      numTravelers: 1,
-      members: [],
-      memories: [
-        {
-          'id': 'mock-mem-d1',
-          'user': 'You',
-          'avatar': '',
-          'time': 'April 15, 2026',
-          'caption': 'Pine forest walks up in Toril. Smells amazing!',
-          'image': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80',
-          'location': 'Eden Nature Park',
-        },
-        {
-          'id': 'mock-mem-d2',
-          'user': 'You',
-          'avatar': '',
-          'time': 'April 16, 2026',
-          'caption': 'Met the majestic national bird at the sanctuary!',
-          'image': 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=800&q=80',
-          'location': 'Philippine Eagle Center',
-        },
-      ],
-      itinerary: {},
-    ),
-    Trip(
-      id: 'mock-comp-mati',
-      title: 'Surfing Dahican Beach',
-      destinationName: 'Mati, Davao Oriental',
-      dateRange: 'March 18 - March 20, 2026',
-      budget: 8000.0,
-      imageUrl: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
-      isGroup: false,
-      numTravelers: 1,
-      members: [],
-      memories: [
-        {
-          'id': 'mock-mem-m1',
-          'user': 'You',
-          'avatar': '',
-          'time': 'March 18, 2026',
-          'caption': 'First attempt at skimboarding! Caught a mini wave 🏄‍♂️',
-          'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
-          'location': 'Dahican Beach',
-        },
-      ],
-      itinerary: {},
-    ),
-  ];
-
   // Helper to extract the destination/district group name cleanly
   String _getDestinationGroup(String destName) {
     final lower = destName.toLowerCase();
@@ -144,18 +38,31 @@ class MemoriesScreen extends StatelessWidget {
 
   // Completion check replicating the logic in trips_screen.dart
   bool _isTripCompleted(Trip trip) {
-    if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
+    if (trip.dateRange.contains('Flexible') ||
+        trip.dateRange.contains('AI Generated')) {
       return false; // Drafts/flexible are upcoming
     }
     try {
       final parts = trip.dateRange.split(RegExp(r'\s*[-–]\s*'));
-      final String endDateStr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
-      
+      final String endDateStr = parts.length > 1
+          ? parts[1].trim()
+          : parts[0].trim();
+
       final months = {
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        'jan': 1,
+        'feb': 2,
+        'mar': 3,
+        'apr': 4,
+        'may': 5,
+        'jun': 6,
+        'jul': 7,
+        'aug': 8,
+        'sep': 9,
+        'oct': 10,
+        'nov': 11,
+        'dec': 12,
       };
-      
+
       final cleanStr = endDateStr.toLowerCase().replaceAll(',', '');
       final strParts = cleanStr.split(RegExp(r'\s+'));
       if (strParts.length >= 3) {
@@ -186,11 +93,11 @@ class MemoriesScreen extends StatelessWidget {
       body: Consumer<TripProvider>(
         builder: (context, provider, child) {
           // Filter completed user trips
-          final completedTrips = provider.userTrips.where((t) => _isTripCompleted(t)).toList();
+          final completedTrips = provider.userTrips
+              .where((t) => _isTripCompleted(t))
+              .toList();
 
-          // Apply guard: Only show mock data if userTrips has zero completed trips
-          // TODO: Remove seed data once real completed trips flow from backend
-          final displayTrips = completedTrips.isEmpty ? _fallbackMockCompletedTrips : completedTrips;
+          final displayTrips = completedTrips;
 
           // Group display trips by destination district
           final groupedTrips = <String, List<Trip>>{};
@@ -200,7 +107,10 @@ class MemoriesScreen extends StatelessWidget {
           }
 
           // Calculate Dynamic Stats
-          final totalMemories = displayTrips.fold<int>(0, (sum, t) => sum + t.memories.length);
+          final totalMemories = displayTrips.fold<int>(
+            0,
+            (sum, t) => sum + t.memories.length,
+          );
           final totalTrips = displayTrips.length;
           final totalDistricts = groupedTrips.keys.length;
 
@@ -216,7 +126,9 @@ class MemoriesScreen extends StatelessWidget {
                       gradient: const LinearGradient(
                         colors: [AppTheme.primaryBlue, Color(0xFF104B50)],
                       ),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusXL),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.radiusXL,
+                      ),
                       boxShadow: AppConstants.premiumShadow,
                     ),
                     child: Row(
@@ -236,7 +148,12 @@ class MemoriesScreen extends StatelessWidget {
               // Title Section Header
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(AppConstants.spaceM, AppConstants.spaceM, AppConstants.spaceM, 0),
+                  padding: const EdgeInsets.fromLTRB(
+                    AppConstants.spaceM,
+                    AppConstants.spaceM,
+                    AppConstants.spaceM,
+                    0,
+                  ),
                   child: Text(
                     'Travel Bookshelf',
                     style: GoogleFonts.outfit(
@@ -253,26 +170,31 @@ class MemoriesScreen extends StatelessWidget {
                 SliverFillRemaining(
                   child: Center(
                     child: Text(
-                      'Your travel album is empty.',
+                      'Your completed trips will appear here.',
                       style: GoogleFonts.outfit(
                         fontSize: 16,
-                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.onSurface.withValues(alpha: 0.55),
                       ),
                     ),
                   ),
                 )
               else
                 SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) {
-                      final districtName = groupedTrips.keys.elementAt(index);
-                      final districtTrips = groupedTrips[districtName]!;
-                      return _buildBookshelfRow(context, districtName, districtTrips);
-                    },
-                    childCount: groupedTrips.length,
-                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final districtName = groupedTrips.keys.elementAt(index);
+                    final districtTrips = groupedTrips[districtName]!;
+                    return _buildBookshelfRow(
+                      context,
+                      districtName,
+                      districtTrips,
+                    );
+                  }, childCount: groupedTrips.length),
                 ),
-              const SliverToBoxAdapter(child: SizedBox(height: AppConstants.spaceXL)),
+              const SliverToBoxAdapter(
+                child: SizedBox(height: AppConstants.spaceXL),
+              ),
             ],
           );
         },
@@ -293,16 +215,17 @@ class MemoriesScreen extends StatelessWidget {
         ),
         Text(
           label,
-          style: const TextStyle(
-            color: Colors.white54,
-            fontSize: 12,
-          ),
+          style: const TextStyle(color: Colors.white54, fontSize: 12),
         ),
       ],
     );
   }
 
-  Widget _buildBookshelfRow(BuildContext context, String districtName, List<Trip> trips) {
+  Widget _buildBookshelfRow(
+    BuildContext context,
+    String districtName,
+    List<Trip> trips,
+  ) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
@@ -312,10 +235,17 @@ class MemoriesScreen extends StatelessWidget {
         children: [
           // Shelf Header
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: AppConstants.spaceS),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.spaceM,
+              vertical: AppConstants.spaceS,
+            ),
             child: Row(
               children: [
-                const Icon(Icons.folder_shared_rounded, color: AppTheme.primaryBlue, size: 20),
+                const Icon(
+                  Icons.folder_shared_rounded,
+                  color: AppTheme.primaryBlue,
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   districtName,
@@ -329,7 +259,9 @@ class MemoriesScreen extends StatelessWidget {
                   '(${trips.length})',
                   style: GoogleFonts.outfit(
                     fontSize: 12,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
                   ),
                 ),
               ],
@@ -341,7 +273,9 @@ class MemoriesScreen extends StatelessWidget {
             height: 200,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.spaceM,
+              ),
               itemCount: trips.length,
               itemBuilder: (context, idx) {
                 return _buildAlbumCard(context, trips[idx]);
@@ -372,23 +306,23 @@ class MemoriesScreen extends StatelessWidget {
 
   Widget _buildAlbumCard(BuildContext context, Trip trip) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Determine album cover: first memory image URL, or fallback to trip hero image URL
     final coverUrl = trip.memories.isNotEmpty
         ? (trip.memories.first['image'] as String? ?? trip.imageUrl)
         : trip.imageUrl;
 
-    final ImageProvider coverImageProvider = (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))
+    final ImageProvider? coverImageProvider = coverUrl.isEmpty
+        ? null
+        : (coverUrl.startsWith('http://') || coverUrl.startsWith('https://'))
         ? NetworkImage(coverUrl)
-        : FileImage(File(coverUrl)) as ImageProvider;
+        : FileImage(File(coverUrl));
 
     return GestureDetector(
       onTap: () {
         Navigator.push(
           context,
-          MaterialPageRoute(
-            builder: (_) => OpenedAlbumScreen(trip: trip),
-          ),
+          MaterialPageRoute(builder: (_) => OpenedAlbumScreen(trip: trip)),
         );
       },
       child: Container(
@@ -405,11 +339,23 @@ class MemoriesScreen extends StatelessWidget {
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(AppConstants.radiusM),
                       boxShadow: AppConstants.cardShadow,
-                      image: DecorationImage(
-                        image: coverImageProvider,
-                        fit: BoxFit.cover,
-                      ),
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.18),
+                      image: coverImageProvider == null
+                          ? null
+                          : DecorationImage(
+                              image: coverImageProvider,
+                              fit: BoxFit.cover,
+                            ),
                     ),
+                    child: coverImageProvider == null
+                        ? const Center(
+                            child: Icon(
+                              Icons.photo_album_rounded,
+                              color: AppTheme.primaryBlue,
+                              size: 42,
+                            ),
+                          )
+                        : null,
                   ),
                   // Dark shadow gradient on bottom of cover
                   Container(
@@ -430,7 +376,10 @@ class MemoriesScreen extends StatelessWidget {
                     top: 8,
                     right: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(8),
@@ -439,7 +388,9 @@ class MemoriesScreen extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            trip.isGroup ? Icons.people_rounded : Icons.person_rounded,
+                            trip.isGroup
+                                ? Icons.people_rounded
+                                : Icons.person_rounded,
                             size: 10,
                             color: Colors.white,
                           ),
@@ -477,7 +428,9 @@ class MemoriesScreen extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
               style: GoogleFonts.outfit(
                 fontSize: 10,
-                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                color: isDark
+                    ? AppTheme.textSecondaryDark
+                    : AppTheme.textSecondaryLight,
               ),
             ),
           ],
@@ -486,4 +439,3 @@ class MemoriesScreen extends StatelessWidget {
     );
   }
 }
-

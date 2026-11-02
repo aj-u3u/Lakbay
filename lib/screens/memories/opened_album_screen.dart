@@ -9,24 +9,18 @@ import '../../models/trip.dart';
 import '../../providers/trip_provider.dart';
 import '../../widgets/shared/empty_state.dart';
 
-// Represents a single memory that may come from network (existing) or local file (newly picked)
+// Represents a memory returned by the trip memories API.
 class _MemoryItem {
-  final Map<String, dynamic>? networkMemory; // existing memory from trip.memories
-  final File? localFile;                      // newly picked gallery image
-  String caption;
-  String location;
+  final Map<String, dynamic> networkMemory;
+  final String caption;
+  final String location;
 
   _MemoryItem.fromNetwork(this.networkMemory)
-      : localFile = null,
-        caption = networkMemory?['caption'] as String? ?? '',
-        location = networkMemory?['location'] as String? ?? '';
+    : caption = networkMemory['caption'] as String? ?? '',
+      location = networkMemory['location'] as String? ?? '';
 
-  _MemoryItem.fromFile(this.localFile, {this.caption = '', this.location = ''})
-      : networkMemory = null;
-
-  bool get isLocal => localFile != null;
-  String get uploader => networkMemory?['user'] as String? ?? 'You';
-  String get time => networkMemory?['time'] as String? ?? 'Just now';
+  String get uploader => networkMemory['user'] as String? ?? 'You';
+  String get time => networkMemory['time'] as String? ?? 'Just now';
 }
 
 class OpenedAlbumScreen extends StatefulWidget {
@@ -41,6 +35,9 @@ class OpenedAlbumScreen extends StatefulWidget {
 class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
   final ImagePicker _picker = ImagePicker();
   late List<_MemoryItem> _items;
+  bool _isUploading = false;
+  bool _isRefreshing = true;
+  bool _loadFailed = false;
 
   @override
   void initState() {
@@ -49,69 +46,105 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
     _items = widget.trip.memories
         .map((m) => _MemoryItem.fromNetwork(m))
         .toList();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refreshMemories());
+  }
+
+  Future<void> _refreshMemories() async {
+    if (!mounted) return;
+    if (!_isRefreshing) setState(() => _isRefreshing = true);
+    final provider = context.read<TripProvider>();
+    if (!provider.isPersistedTrip(widget.trip)) {
+      setState(() => _isRefreshing = false);
+      return;
+    }
+    final loaded = await provider.refreshTripMemories(widget.trip);
+    if (!mounted) return;
+    final trip = provider.userTrips.firstWhere(
+      (candidate) => candidate.id == widget.trip.id,
+      orElse: () => widget.trip,
+    );
+    setState(() {
+      if (loaded) {
+        _items = trip.memories.map(_MemoryItem.fromNetwork).toList();
+      }
+      _loadFailed = !loaded;
+      _isRefreshing = false;
+    });
   }
 
   // ── Gallery picker ────────────────────────────────────────────────────────
   Future<void> _pickFromGallery() async {
-    // Pick multiple images from gallery
-    final List<XFile> picked = await _picker.pickMultiImage(imageQuality: 85);
-    if (picked.isEmpty) return;
-    if (!mounted) return;
-
-    final tripProvider = Provider.of<TripProvider>(context, listen: false);
-
-    // Fetch active trip state from provider if available
-    final currentTrip = tripProvider.userTrips.firstWhere(
-      (t) => t.id == widget.trip.id,
-      orElse: () => widget.trip,
-    );
-
-    final updatedMemories = List<Map<String, dynamic>>.from(currentTrip.memories);
-
-    // For each picked image, show a caption/location dialog then add
-    for (final xFile in picked) {
-      final result = await _showAddMemoryDialog(File(xFile.path));
-      if (result == null) continue; // User dismissed
-
-      final caption = result['caption'] ?? '';
-      final location = result['location'] ?? '';
-
-      final newMemory = {
-        'id': 'mem-${DateTime.now().millisecondsSinceEpoch}',
-        'user': 'You',
-        'avatar': '',
-        'time': 'Just now',
-        'caption': caption,
-        'image': xFile.path,
-        'likes': '0',
-        'comments': '0',
-        'location': location.isNotEmpty ? location : currentTrip.destinationName.split(',').first,
-      };
-
-      updatedMemories.insert(0, newMemory);
-
-      setState(() {
-        _items.insert(
-          0,
-          _MemoryItem.fromFile(
-            File(xFile.path),
-            caption: caption,
-            location: location,
-          ),
-        );
-      });
+    if (_isUploading || _isRefreshing) return;
+    final tripProvider = context.read<TripProvider>();
+    if (!tripProvider.isPersistedTrip(widget.trip)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Save this trip before adding memories.')),
+      );
+      return;
     }
 
-    final updatedTrip = currentTrip.copyWith(memories: updatedMemories);
-    tripProvider.updateTrip(updatedTrip);
+    try {
+      final picked = await _picker.pickMultiImage(imageQuality: 85);
+      if (picked.isEmpty || !mounted) return;
+      setState(() => _isUploading = true);
 
-    if (mounted) {
+      var savedCount = 0;
+      String? failure;
+      for (final xFile in picked) {
+        if (!mounted) break;
+        final result = await _showAddMemoryDialog(File(xFile.path));
+        if (result == null || !mounted) continue;
+
+        final currentTrip = tripProvider.userTrips.firstWhere(
+          (candidate) => candidate.id == widget.trip.id,
+          orElse: () => widget.trip,
+        );
+        final saved = await tripProvider.addMemoryToTrip(
+          currentTrip,
+          filePath: xFile.path,
+          caption: result['caption'] ?? '',
+          location: (result['location'] ?? '').isNotEmpty
+              ? result['location']!
+              : currentTrip.destinationName.split(',').first,
+        );
+        if (!mounted) break;
+        if (!saved) {
+          failure = tripProvider.errorMessage ?? 'Failed to save memory.';
+          break;
+        }
+        savedCount++;
+        final updatedTrip = tripProvider.userTrips.firstWhere(
+          (candidate) => candidate.id == widget.trip.id,
+          orElse: () => widget.trip,
+        );
+        setState(() {
+          _items = updatedTrip.memories.map(_MemoryItem.fromNetwork).toList();
+        });
+      }
+
+      if (!mounted || (savedCount == 0 && failure == null)) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Memory added to album! 🌅📸'),
-          backgroundColor: AppTheme.secondaryGreen,
+        SnackBar(
+          content: Text(
+            failure == null
+                ? '$savedCount photo${savedCount == 1 ? '' : 's'} saved to album.'
+                : '$savedCount saved. $failure',
+          ),
+          backgroundColor: failure == null
+              ? AppTheme.secondaryGreen
+              : Colors.redAccent,
         ),
       );
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not add photos. Please try again.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -126,11 +159,15 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: isDark ? AppTheme.cardColorDark : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: const EdgeInsets.all(AppConstants.spaceL),
             child: Column(
@@ -171,6 +208,7 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                 // Caption field
                 TextField(
                   controller: captionCtrl,
+                  maxLength: 500,
                   decoration: InputDecoration(
                     labelText: 'Caption (optional)',
                     prefixIcon: const Icon(Icons.edit_note_rounded),
@@ -184,6 +222,7 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                 // Location field
                 TextField(
                   controller: locationCtrl,
+                  maxLength: 255,
                   decoration: InputDecoration(
                     labelText: 'Location (optional)',
                     prefixIcon: const Icon(Icons.location_on_outlined),
@@ -202,7 +241,9 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text('Skip', style: GoogleFonts.outfit()),
@@ -221,12 +262,16 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text(
                           'Add to Album',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -249,27 +294,32 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
       appBar: AppBar(
         title: Text(
           widget.trip.destinationName.split(',')[0],
-          style: GoogleFonts.outfit(
-            fontWeight: FontWeight.bold,
-            fontSize: 22,
-          ),
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 22),
         ),
         actions: [
           // Quick-add button in AppBar too
           IconButton(
-            onPressed: _pickFromGallery,
+            onPressed: _isUploading || _isRefreshing ? null : _pickFromGallery,
             icon: const Icon(Icons.add_photo_alternate_rounded),
             tooltip: 'Add from Gallery',
           ),
         ],
       ),
-      body: _items.isEmpty
+      body: _isRefreshing && _items.isEmpty
+          ? const Center(child: CircularProgressIndicator())
+          : _items.isEmpty
           ? Center(
               child: EmptyState(
                 icon: Icons.photo_album_rounded,
                 iconColor: AppTheme.secondaryGreen,
-                title: 'Your travel album is empty.',
-                subtitle: 'Tap the + button to add photos from your gallery.',
+                title: _loadFailed
+                    ? 'Could not load this album.'
+                    : 'Your travel album is empty.',
+                subtitle: _loadFailed
+                    ? 'Check your connection and try again.'
+                    : 'Tap the + button to add photos from your gallery.',
+                ctaLabel: _loadFailed ? 'Retry' : null,
+                onCta: _loadFailed ? _refreshMemories : null,
               ),
             )
           : SingleChildScrollView(
@@ -280,7 +330,8 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                   _buildScrapbookHeader(context, isDark),
                   const SizedBox(height: AppConstants.spaceL),
 
-                  if (widget.trip.isGroup && widget.trip.members.isNotEmpty) ...[
+                  if (widget.trip.isGroup &&
+                      widget.trip.members.isNotEmpty) ...[
                     _buildGroupMembersRow(context, isDark),
                     const SizedBox(height: AppConstants.spaceL),
                   ],
@@ -292,11 +343,23 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
             ),
       // FAB to add from gallery
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: _pickFromGallery,
+        onPressed: _isUploading || _isRefreshing ? null : _pickFromGallery,
         backgroundColor: AppTheme.primaryBlue,
         foregroundColor: Colors.white,
-        icon: const Icon(Icons.add_photo_alternate_rounded),
-        label: Text('Add Photo', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        icon: _isUploading
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: Colors.white,
+                ),
+              )
+            : const Icon(Icons.add_photo_alternate_rounded),
+        label: Text(
+          _isUploading ? 'Saving...' : 'Add Photo',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+        ),
       ),
     );
   }
@@ -311,7 +374,9 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
         borderRadius: BorderRadius.circular(AppConstants.radiusXL),
         boxShadow: AppConstants.premiumShadow,
         border: Border.all(
-          color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+          color: isDark
+              ? Colors.white.withValues(alpha: 0.08)
+              : Colors.black.withValues(alpha: 0.04),
         ),
       ),
       child: Column(
@@ -320,7 +385,10 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: widget.trip.isGroup
                       ? AppTheme.primaryBlue.withValues(alpha: 0.1)
@@ -331,9 +399,13 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      widget.trip.isGroup ? Icons.people_rounded : Icons.person_rounded,
+                      widget.trip.isGroup
+                          ? Icons.people_rounded
+                          : Icons.person_rounded,
                       size: 14,
-                      color: widget.trip.isGroup ? AppTheme.primaryBlue : AppTheme.secondaryGreen,
+                      color: widget.trip.isGroup
+                          ? AppTheme.primaryBlue
+                          : AppTheme.secondaryGreen,
                     ),
                     const SizedBox(width: 4),
                     Text(
@@ -341,7 +413,9 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                       style: GoogleFonts.outfit(
                         fontSize: 11,
                         fontWeight: FontWeight.bold,
-                        color: widget.trip.isGroup ? AppTheme.primaryBlue : AppTheme.secondaryGreen,
+                        color: widget.trip.isGroup
+                            ? AppTheme.primaryBlue
+                            : AppTheme.secondaryGreen,
                       ),
                     ),
                   ],
@@ -353,7 +427,9 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
-                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  color: isDark
+                      ? AppTheme.textSecondaryDark
+                      : AppTheme.textSecondaryLight,
                 ),
               ),
               const Spacer(),
@@ -387,13 +463,19 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.calendar_today_rounded, size: 14, color: AppTheme.primaryBlue),
+              const Icon(
+                Icons.calendar_today_rounded,
+                size: 14,
+                color: AppTheme.primaryBlue,
+              ),
               const SizedBox(width: 6),
               Text(
                 widget.trip.dateRange,
                 style: GoogleFonts.outfit(
                   fontSize: 13,
-                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                  color: isDark
+                      ? AppTheme.textSecondaryDark
+                      : AppTheme.textSecondaryLight,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -415,7 +497,9 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
             style: GoogleFonts.outfit(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+              color: isDark
+                  ? AppTheme.textSecondaryDark
+                  : AppTheme.textSecondaryLight,
             ),
           ),
         ),
@@ -433,20 +517,29 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
 
               return Container(
                 margin: const EdgeInsets.only(right: AppConstants.spaceM),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.cardColorDark : Colors.white,
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: isDark ? Colors.white.withValues(alpha: 0.08) : Colors.black.withValues(alpha: 0.04),
+                    color: isDark
+                        ? Colors.white.withValues(alpha: 0.08)
+                        : Colors.black.withValues(alpha: 0.04),
                   ),
                 ),
                 child: Row(
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.15),
-                      backgroundImage: avatar.isNotEmpty ? NetworkImage(avatar) : null,
+                      backgroundColor: AppTheme.primaryBlue.withValues(
+                        alpha: 0.15,
+                      ),
+                      backgroundImage: avatar.isNotEmpty
+                          ? NetworkImage(avatar)
+                          : null,
                       child: avatar.isEmpty
                           ? Text(
                               name.isNotEmpty ? name[0].toUpperCase() : 'T',
@@ -463,13 +556,25 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(name, style: GoogleFonts.outfit(fontSize: 12, fontWeight: FontWeight.bold)),
+                        Text(
+                          name,
+                          style: GoogleFonts.outfit(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         Text(
                           role,
                           style: GoogleFonts.outfit(
                             fontSize: 10,
-                            color: isOrg ? AppTheme.secondaryGreen : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
-                            fontWeight: isOrg ? FontWeight.bold : FontWeight.normal,
+                            color: isOrg
+                                ? AppTheme.secondaryGreen
+                                : (isDark
+                                      ? AppTheme.textSecondaryDark
+                                      : AppTheme.textSecondaryLight),
+                            fontWeight: isOrg
+                                ? FontWeight.bold
+                                : FontWeight.normal,
                           ),
                         ),
                       ],
@@ -553,31 +658,38 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
               aspectRatio: 1.0,
               child: Container(
                 color: Colors.grey.shade100,
-                child: item.isLocal
-                    ? Image.file(item.localFile!, fit: BoxFit.cover)
-                    : () {
-                        final imgUrl = item.networkMemory?['image'] as String? ?? '';
-                        if (imgUrl.isEmpty) return Container(color: Colors.grey.shade200);
-                        if (imgUrl.startsWith('http://') || imgUrl.startsWith('https://')) {
-                          return Image.network(
-                            imgUrl,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, e, s) => Container(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                              child: const Icon(Icons.broken_image, color: Colors.grey),
-                            ),
-                          );
-                        } else {
-                          return Image.file(
-                            File(imgUrl),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, e, s) => Container(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                              child: const Icon(Icons.broken_image, color: Colors.grey),
-                            ),
-                          );
-                        }
-                      }(),
+                child: () {
+                  final imgUrl = item.networkMemory['image'] as String? ?? '';
+                  if (imgUrl.isEmpty) {
+                    return Container(color: Colors.grey.shade200);
+                  }
+                  if (imgUrl.startsWith('http://') ||
+                      imgUrl.startsWith('https://')) {
+                    return Image.network(
+                      imgUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, e, s) => Container(
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    );
+                  } else {
+                    return Image.file(
+                      File(imgUrl),
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, e, s) => Container(
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.grey,
+                        ),
+                      ),
+                    );
+                  }
+                }(),
               ),
             ),
             const SizedBox(height: 12),
@@ -610,7 +722,11 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                   if (item.location.isNotEmpty)
                     Row(
                       children: [
-                        const Icon(Icons.location_on_outlined, size: 10, color: Color(0xFF7F8C8D)),
+                        const Icon(
+                          Icons.location_on_outlined,
+                          size: 10,
+                          color: Color(0xFF7F8C8D),
+                        ),
                         const SizedBox(width: 2),
                         Expanded(
                           child: Text(
@@ -632,7 +748,10 @@ class _OpenedAlbumScreenState extends State<OpenedAlbumScreen> {
                     children: [
                       Text(
                         item.time,
-                        style: GoogleFonts.outfit(fontSize: 8, color: const Color(0xFFBDC3C7)),
+                        style: GoogleFonts.outfit(
+                          fontSize: 8,
+                          color: const Color(0xFFBDC3C7),
+                        ),
                       ),
                       if (widget.trip.isGroup)
                         Text(

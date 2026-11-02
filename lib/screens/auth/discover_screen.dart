@@ -43,8 +43,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       'image':
           'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
       'title': 'Discover Davao',
-      'subtitle':
-          'Explore the best destinations the region has to offer.',
+      'subtitle': 'Explore the best destinations the region has to offer.',
     },
     {
       'image':
@@ -57,8 +56,7 @@ class _DiscoverScreenState extends State<DiscoverScreen>
       'image':
           'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
       'title': 'Travel and Remember',
-      'subtitle':
-          'Capture memories and relive every journey.',
+      'subtitle': 'Capture memories and relive every journey.',
     },
   ];
 
@@ -111,8 +109,6 @@ class _DiscoverScreenState extends State<DiscoverScreen>
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-
     return Scaffold(
       body: FadeTransition(
         opacity: _loadFade,
@@ -163,11 +159,14 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                   padding: const EdgeInsets.all(AppConstants.spaceM),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                      horizontal: 12,
+                      vertical: 6,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius:
-                          BorderRadius.circular(AppConstants.radiusCircular),
+                      borderRadius: BorderRadius.circular(
+                        AppConstants.radiusCircular,
+                      ),
                       boxShadow: AppConstants.premiumShadow,
                     ),
                     child: Row(
@@ -262,7 +261,8 @@ class _DiscoverScreenState extends State<DiscoverScreen>
                           style: TextStyle(color: Colors.white70, fontSize: 13),
                         ),
                         GestureDetector(
-                          onTap: () => Navigator.pushNamed(context, AppRoutes.login),
+                          onTap: () =>
+                              Navigator.pushNamed(context, AppRoutes.login),
                           child: const Text(
                             'Sign In',
                             style: TextStyle(
@@ -330,10 +330,7 @@ class _OutlinedWhiteButton extends StatefulWidget {
   final String label;
   final VoidCallback onPressed;
 
-  const _OutlinedWhiteButton({
-    required this.label,
-    required this.onPressed,
-  });
+  const _OutlinedWhiteButton({required this.label, required this.onPressed});
 
   @override
   State<_OutlinedWhiteButton> createState() => _OutlinedWhiteButtonState();

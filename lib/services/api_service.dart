@@ -1,8 +1,14 @@
+import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import '../models/destination.dart';
+import '../models/catalog_rate.dart';
 import '../models/grouped_destinations.dart';
+import '../models/route_geometry.dart';
+import '../models/planning_feedback.dart';
 import '../models/trip.dart';
 import '../models/user_profile.dart';
 import '../core/config/api_config.dart';
@@ -24,12 +30,61 @@ Map<String, dynamic>? _decodeJwtPayload(String token) {
   }
 }
 
+Future<MediaType?> _memoryImageContentType(String filePath) async {
+  final file = await File(filePath).open();
+  try {
+    final header = await file.read(12);
+    if (header.length >= 3 &&
+        header[0] == 0xFF &&
+        header[1] == 0xD8 &&
+        header[2] == 0xFF) {
+      return MediaType('image', 'jpeg');
+    }
+    if (header.length >= 8 &&
+        header[0] == 0x89 &&
+        header[1] == 0x50 &&
+        header[2] == 0x4E &&
+        header[3] == 0x47 &&
+        header[4] == 0x0D &&
+        header[5] == 0x0A &&
+        header[6] == 0x1A &&
+        header[7] == 0x0A) {
+      return MediaType('image', 'png');
+    }
+    if (header.length >= 12 &&
+        header[0] == 0x52 &&
+        header[1] == 0x49 &&
+        header[2] == 0x46 &&
+        header[3] == 0x46 &&
+        header[8] == 0x57 &&
+        header[9] == 0x45 &&
+        header[10] == 0x42 &&
+        header[11] == 0x50) {
+      return MediaType('image', 'webp');
+    }
+    return null;
+  } finally {
+    await file.close();
+  }
+}
+
+class CatalogException implements Exception {
+  final String message;
+  final bool isOffline;
+  const CatalogException(this.message, {this.isOffline = false});
+  @override
+  String toString() => message;
+}
+
 class ApiService {
   static final ApiService _instance = ApiService._internal();
 
   factory ApiService() => _instance;
 
   ApiService._internal();
+
+  @visibleForTesting
+  ApiService.testing();
 
   static String baseUrl = ApiConfig.baseUrl;
 
@@ -60,14 +115,13 @@ class ApiService {
     };
   }
 
-  List<dynamic> _listFromBody(String body) {
+  List<Map<String, dynamic>> _collaborationListFromBody(String body) {
     final decoded = json.decode(body);
-    if (decoded is List) return decoded;
-    if (decoded is Map<String, dynamic>) {
-      final data = decoded['data'] ?? decoded['items'] ?? decoded['results'];
-      if (data is List) return data;
+    if (decoded is! List ||
+        decoded.any((item) => item is! Map<String, dynamic>)) {
+      throw const FormatException('The server returned an invalid list.');
     }
-    return [];
+    return decoded.cast<Map<String, dynamic>>();
   }
 
   String _errorFromResponse(http.Response response, String fallback) {
@@ -118,11 +172,14 @@ class ApiService {
       displayName: displayName,
       email: userEmail,
       username: userEmail.contains('@')
-          ? userEmail.split('@').first
-          : userEmail,
-      avatarUrl:
-          user['avatar_url']?.toString() ??
-          'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&q=80',
+          ? (user['username']?.toString() ?? userEmail.split('@').first)
+          : (user['username']?.toString() ?? userEmail),
+      phone: user['phone']?.toString() ?? '',
+      emergencyContact:
+          user['emergency_contact']?.toString() ??
+          user['emergencyContact']?.toString() ??
+          '',
+      avatarUrl: user['avatar_url']?.toString() ?? '',
       completedTripsCount: 0,
       sharedMemoriesCount: 0,
       travelerPoints: 100,
@@ -160,8 +217,9 @@ class ApiService {
     final startText = start?.toString() ?? '';
     final endText = end?.toString() ?? '';
     if (startText.isEmpty && endText.isEmpty) return 'Flexible Dates';
-    if (startText.isNotEmpty && endText.isNotEmpty)
+    if (startText.isNotEmpty && endText.isNotEmpty) {
       return '$startText - $endText';
+    }
     return startText.isNotEmpty ? startText : endText;
   }
 
@@ -189,11 +247,19 @@ class ApiService {
   }
 
   String _notificationTypeFromEvent(String eventType) {
-    if (eventType.contains('task')) return 'taskComplete';
-    if (eventType.contains('member')) return 'memberJoin';
-    if (eventType.contains('route') || eventType.contains('trip'))
+    final normalized = eventType.toLowerCase();
+    if (normalized.contains('task')) return 'taskComplete';
+    if (normalized.contains('member')) return 'memberJoin';
+    if (normalized.contains('memory') || normalized.contains('photo')) {
+      return 'memoryUpload';
+    }
+    if (normalized.contains('ai') || normalized.contains('plan')) {
+      return 'aiPlan';
+    }
+    if (normalized.contains('route') || normalized.contains('trip')) {
       return 'tripUpdate';
-    if (eventType.contains('expense')) return 'tripUpdate';
+    }
+    if (normalized.contains('expense')) return 'tripUpdate';
     return 'tripUpdate';
   }
 
@@ -360,8 +426,9 @@ class ApiService {
 
   Future<bool> refreshSession() async {
     final currentRefreshToken = refreshToken;
-    if (currentRefreshToken == null || currentRefreshToken.isEmpty)
+    if (currentRefreshToken == null || currentRefreshToken.isEmpty) {
       return false;
+    }
 
     try {
       final response = await http
@@ -413,24 +480,103 @@ class ApiService {
   }
 
   Future<List<Destination>> fetchDestinations() async {
+    const pageSize = 100;
+    final byId = <int, Destination>{};
+    for (var offset = 0; ; offset += pageSize) {
+      final page = await _catalogList(
+        '/destinations?limit=$pageSize&offset=$offset',
+      );
+      for (final row in page) {
+        if (row['is_active'] == false) continue;
+        final destination = Destination.fromJson(row);
+        byId[destination.id] = destination;
+      }
+      if (page.length < pageSize) return byId.values.toList();
+    }
+  }
+
+  Future<Destination> fetchDestination(int id) async {
+    final row = await _catalogObject('/destinations/$id');
+    if (row['is_active'] == false) {
+      throw const CatalogException('This destination is no longer available.');
+    }
+    return Destination.fromJson(row);
+  }
+
+  Future<List<CatalogRate>> fetchAccommodationRates(int destinationId) async {
+    final rows = await _catalogList(
+      '/destinations/$destinationId/accommodations',
+    );
+    return rows
+        .where((row) => row['is_available'] != false)
+        .map(CatalogRate.accommodation)
+        .where((rate) => rate.destinationId == destinationId)
+        .toList();
+  }
+
+  Future<List<CatalogRate>> fetchTransportationRates(int destinationId) async {
+    final rows = await _catalogList(
+      '/destinations/$destinationId/transportations',
+    );
+    return rows
+        .where((row) => row['is_available'] != false)
+        .map(CatalogRate.transportation)
+        .where((rate) => rate.destinationId == destinationId)
+        .toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _catalogList(String path) async {
+    final decoded = await _catalogRequest(path);
+    if (decoded is! List) {
+      throw const CatalogException('The catalog returned an invalid list.');
+    }
+    return decoded.map((item) {
+      if (item is! Map<String, dynamic>) {
+        throw const CatalogException('The catalog returned an invalid record.');
+      }
+      return item;
+    }).toList();
+  }
+
+  Future<Map<String, dynamic>> _catalogObject(String path) async {
+    final decoded = await _catalogRequest(path);
+    if (decoded is! Map<String, dynamic>) {
+      throw const CatalogException('The catalog returned an invalid record.');
+    }
+    return decoded;
+  }
+
+  Future<dynamic> _catalogRequest(String path) async {
     try {
       final response = await http
-          .get(Uri.parse('$baseUrl/destinations?limit=100'))
+          .get(Uri.parse('$baseUrl$path'))
           .timeout(const Duration(seconds: 30));
-
-      if (response.statusCode == 200) {
-        return _listFromBody(response.body)
-            .whereType<Map>()
-            .map((item) => Destination.fromJson(item.cast<String, dynamic>()))
-            .toList();
+      if (response.statusCode == 404) {
+        throw const CatalogException(
+          'This destination is no longer available.',
+        );
       }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error fetching destinations: $e');
+      if (response.statusCode != 200) {
+        throw CatalogException(
+          'The catalog could not be loaded (HTTP ${response.statusCode}).',
+        );
       }
+      return json.decode(response.body);
+    } on SocketException {
+      throw const CatalogException(
+        'You are offline. Connect to refresh the catalog.',
+        isOffline: true,
+      );
+    } on http.ClientException {
+      throw const CatalogException(
+        'Lakbay could not be reached. Check your connection and retry.',
+        isOffline: true,
+      );
+    } on TimeoutException {
+      throw const CatalogException('The catalog request timed out. Try again.');
+    } on FormatException {
+      throw const CatalogException('The catalog returned unreadable data.');
     }
-
-    return Destination.davaoDestinations;
   }
 
   Future<List<Destination>> fetchPopularDestinations({int limit = 10}) async {
@@ -439,7 +585,11 @@ class ApiService {
       ..sort((a, b) {
         final ratingCompare = b.rating.compareTo(a.rating);
         if (ratingCompare != 0) return ratingCompare;
-        return a.estimatedCost.compareTo(b.estimatedCost);
+        final aCost = a.estimatedCost;
+        final bCost = b.estimatedCost;
+        if (aCost == null) return bCost == null ? 0 : 1;
+        if (bCost == null) return -1;
+        return aCost.compareTo(bCost);
       });
     return sorted.take(limit).toList();
   }
@@ -544,15 +694,19 @@ class ApiService {
           .toList();
     }
     if (budget != null) {
-      filtered = filtered.where((d) => d.estimatedCost <= budget).toList();
+      filtered = filtered
+          .where((d) => d.estimatedCost != null && d.estimatedCost! <= budget)
+          .toList();
     }
 
-    if (filtered.isEmpty) filtered = destinations;
+    if (filtered.isEmpty && budget == null) filtered = destinations;
     return filtered.take(limit).toList();
   }
 
-  Future<List<GroupedDestinations>> fetchGroupedDestinations() async {
-    final destinations = await fetchDestinations();
+  Future<List<GroupedDestinations>> fetchGroupedDestinations({
+    List<Destination>? source,
+  }) async {
+    final destinations = source ?? await fetchDestinations();
     final groups = <String, List<Destination>>{};
     for (final dest in destinations) {
       groups
@@ -565,10 +719,13 @@ class ApiService {
 
     return groups.entries.map((entry) {
       final list = entry.value;
-      final averageCost = list.isEmpty
-          ? 0.0
-          : list.fold<double>(0, (sum, item) => sum + item.estimatedCost) /
-                list.length;
+      final knownCosts = list
+          .map((item) => item.estimatedCost)
+          .whereType<double>()
+          .toList();
+      final double? averageCost = knownCosts.isEmpty
+          ? null
+          : knownCosts.reduce((a, b) => a + b) / knownCosts.length;
       final averageRating = list.isEmpty
           ? 0.0
           : list.fold<double>(0, (sum, item) => sum + item.rating) /
@@ -626,6 +783,8 @@ class ApiService {
   Future<Map<String, dynamic>?> chatWithAI(
     String prompt, {
     List<Map<String, String>>? history,
+    Map<String, dynamic>? planningState,
+    int inputRevision = 0,
   }) async {
     if (token == null) {
       lastError = 'Please sign in to use Lakbay AI.';
@@ -667,23 +826,27 @@ class ApiService {
               'allow_fallback': true,
               'use_rag': true,
               'rag_limit': 6,
+              ...?(planningState == null
+                  ? null
+                  : {
+                      'planning_state': planningState,
+                      'input_revision': inputRevision,
+                    }),
             }),
           )
           .timeout(const Duration(seconds: 60));
 
       if (response.statusCode == 200) {
-        final decoded = json.decode(response.body) as Map<String, dynamic>;
-        return {
-          ...decoded,
-          'parsed_preferences':
-              decoded['parsed_preferences'] ??
-              _extractPreferencesFromPrompt(prompt),
-          'results': decoded['results'] ?? const [],
-        };
+        return json.decode(response.body) as Map<String, dynamic>;
       }
 
       if (response.statusCode == 401 && await refreshSession()) {
-        return chatWithAI(prompt, history: history);
+        return chatWithAI(
+          prompt,
+          history: history,
+          planningState: planningState,
+          inputRevision: inputRevision,
+        );
       }
 
       lastError = _errorFromResponse(
@@ -704,73 +867,186 @@ class ApiService {
     return null;
   }
 
-  Map<String, dynamic> _extractPreferencesFromPrompt(String prompt) {
-    final lower = prompt.toLowerCase();
-    final prefs = <String, dynamic>{};
-
-    final dayMatch = RegExp(r'(\d+)\s*(day|days)').firstMatch(lower);
-    if (dayMatch != null) {
-      prefs['duration_days'] = int.tryParse(dayMatch.group(1)!);
+  Future<Map<String, dynamic>?> previewPlanningState({
+    required Map<String, dynamic> state,
+    required int inputRevision,
+  }) async {
+    if (token == null) {
+      lastError = 'Please sign in to plan a trip.';
+      return null;
     }
+    try {
+      lastError = null;
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/planning/preview'),
+            headers: _headers(),
+            body: json.encode({
+              'state': state,
+              'input_revision': inputRevision,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      if (response.statusCode == 401 && await refreshSession()) {
+        return previewPlanningState(state: state, inputRevision: inputRevision);
+      }
+      lastError = _errorFromResponse(response, 'Could not review this plan.');
+    } catch (_) {
+      lastError = 'Could not review this plan. Please try again.';
+    }
+    return null;
+  }
 
-    final budgetMatch = RegExp(
-      r'(?:₱|php|budget)?\s*(\d{3,}(?:,\d{3})*)',
-    ).firstMatch(lower);
-    if (budgetMatch != null) {
-      prefs['total_budget'] = double.tryParse(
-        budgetMatch.group(1)!.replaceAll(',', ''),
+  Future<PlanningFeedback?> fetchPlanningFeedback({
+    required Map<String, dynamic> state,
+    required int inputRevision,
+    bool? travelingWithChildren,
+  }) async {
+    if (token == null) {
+      lastError = 'Please sign in to review this plan.';
+      return null;
+    }
+    try {
+      lastError = null;
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/planning/feedback'),
+            headers: _headers(),
+            body: json.encode({
+              'state': state,
+              'input_revision': inputRevision,
+              'traveling_with_children': travelingWithChildren,
+            }),
+          )
+          .timeout(const Duration(seconds: 30));
+      if (response.statusCode == 200) {
+        return PlanningFeedback.fromJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
+      }
+      if (response.statusCode == 401 && await refreshSession()) {
+        return fetchPlanningFeedback(
+          state: state,
+          inputRevision: inputRevision,
+          travelingWithChildren: travelingWithChildren,
+        );
+      }
+      lastError = _errorFromResponse(response, 'Could not check this plan.');
+    } catch (_) {
+      lastError = 'Could not check this plan. Please try again.';
+    }
+    return null;
+  }
+
+  Future<Map<String, dynamic>?> generatePlanningItinerary({
+    required Map<String, dynamic> state,
+    required int inputRevision,
+  }) async {
+    if (token == null) {
+      lastError = 'Please sign in to generate an itinerary.';
+      return null;
+    }
+    final destinationIds = (state['destination_ids'] as List? ?? const [])
+        .whereType<int>()
+        .toList();
+    final transportationIds =
+        (state['selected_transport_option_ids'] as List? ?? const [])
+            .map((id) => id.toString())
+            .where((id) => id.startsWith('transportation:'))
+            .map((id) => int.tryParse(id.split(':').last))
+            .whereType<int>()
+            .toList();
+    if (destinationIds.isEmpty ||
+        state['total_budget'] == null ||
+        state['traveler_count'] == null ||
+        state['day_count'] == null) {
+      lastError = 'Choose a destination and complete the trip details first.';
+      return null;
+    }
+    try {
+      lastError = null;
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/ai/itineraries/generate'),
+            headers: _headers(),
+            body: json.encode({
+              'total_budget': state['total_budget'],
+              'traveler_count': state['traveler_count'],
+              'day_count': state['day_count'],
+              'destination_ids': destinationIds,
+              'accommodation_ids':
+                  state['selected_accommodation_ids'] ?? const <int>[],
+              'transportation_ids': transportationIds,
+              'interests': state['interests'] ?? const <String>[],
+              'model_role': 'quality',
+              'compare_models': false,
+              'allow_fallback': true,
+              'planning_state': state,
+              'input_revision': inputRevision,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 200) {
+        return json.decode(response.body) as Map<String, dynamic>;
+      }
+      if (response.statusCode == 401 && await refreshSession()) {
+        return generatePlanningItinerary(
+          state: state,
+          inputRevision: inputRevision,
+        );
+      }
+      lastError = _errorFromResponse(
+        response,
+        'AI itinerary generation failed. Review your plan and retry.',
       );
+    } catch (_) {
+      lastError = 'AI itinerary generation timed out. Please try again.';
     }
+    return null;
+  }
 
-    final groupMatch = RegExp(
-      r'(\d+)\s*(people|persons|pax|travelers|travellers)',
-    ).firstMatch(lower);
-    if (groupMatch != null) {
-      prefs['group_size'] = int.tryParse(groupMatch.group(1)!);
+  Future<Trip?> savePlanningAIOption({
+    required int generationRunId,
+    required int optionNumber,
+  }) async {
+    if (token == null) {
+      lastError = 'Please sign in to save your trip.';
+      return null;
     }
-
-    const districts = [
-      'Davao City',
-      'Davao del Norte',
-      'Davao del Sur',
-      'Davao Oriental',
-      'Davao de Oro',
-      'Davao Occidental',
-      'Samal',
-      'Mati',
-      'Digos',
-    ];
-    for (final district in districts) {
-      if (lower.contains(district.toLowerCase())) {
-        prefs['location'] = district;
-        break;
+    try {
+      lastError = null;
+      final response = await http
+          .post(
+            Uri.parse('$baseUrl/trips/from-ai-option'),
+            headers: _headers(),
+            body: json.encode({
+              'generation_run_id': generationRunId,
+              'option_number': optionNumber,
+            }),
+          )
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 201) {
+        return _tripFromFinalJson(
+          json.decode(response.body) as Map<String, dynamic>,
+        );
       }
-    }
-
-    const vibes = [
-      'Nature',
-      'Beach',
-      'Mountain',
-      'Adventure',
-      'Culture',
-      'Food',
-      'Luxury',
-      'Family',
-      'Relaxation',
-      'Wildlife',
-    ];
-    for (final vibe in vibes) {
-      if (lower.contains(vibe.toLowerCase())) {
-        prefs['vibe'] = vibe;
-        break;
+      if (response.statusCode == 401 && await refreshSession()) {
+        return savePlanningAIOption(
+          generationRunId: generationRunId,
+          optionNumber: optionNumber,
+        );
       }
+      lastError = _errorFromResponse(
+        response,
+        'Could not save this itinerary.',
+      );
+    } catch (_) {
+      lastError = 'Could not save this itinerary. Please try again.';
     }
-
-    prefs.putIfAbsent('duration_days', () => 3);
-    prefs.putIfAbsent('total_budget', () => 5000.0);
-    prefs.putIfAbsent('group_size', () => 1);
-    prefs.putIfAbsent('vibe', () => 'Nature');
-    return prefs;
+    return null;
   }
 
   Future<Map<String, dynamic>?> generateAIItinerary({
@@ -787,7 +1063,10 @@ class ApiService {
         destinationName: destinationName,
         interests: interests,
       );
-      if (selected.isEmpty) return null;
+      if (selected.isEmpty) {
+        lastError = 'Choose an available catalog destination.';
+        return null;
+      }
       final weatherSummary = await _weatherSummaryForPlanning(selected.first);
 
       if (token != null) {
@@ -809,12 +1088,12 @@ class ApiService {
                 'special_requirements':
                     [
                       if (childAges.isNotEmpty) 'Children ages: $childAges',
-                      if (weatherSummary != null) weatherSummary,
+                      ?weatherSummary,
                     ].join('\n').trim().isEmpty
                     ? null
                     : [
                         if (childAges.isNotEmpty) 'Children ages: $childAges',
-                        if (weatherSummary != null) weatherSummary,
+                        ?weatherSummary,
                       ].join('\n'),
                 'model_role': 'quality',
                 'compare_models': false,
@@ -849,7 +1128,8 @@ class ApiService {
         }
       }
 
-      return _fallbackItinerary(destinationName, numDays, budget, selected);
+      lastError = 'AI itinerary generation failed. Please retry.';
+      return null;
     } catch (e) {
       if (kDebugMode) {
         print('Error generating itinerary: $e');
@@ -954,22 +1234,37 @@ class ApiService {
   }
 
   Future<List<Trip>> fetchUserTrips() async {
-    if (token == null) return [];
+    if (token == null) {
+      lastError = 'Sign in to load your trips.';
+      return [];
+    }
 
+    lastError = null;
     try {
       final response = await http
           .get(Uri.parse('$baseUrl/trips'), headers: _headers(jsonBody: false))
           .timeout(const Duration(seconds: 30));
 
       if (response.statusCode == 200) {
-        final list = _listFromBody(response.body);
+        final list = _collaborationListFromBody(response.body);
         final trips = <Trip>[];
         for (final item in list.whereType<Map>()) {
           final summary = item.cast<String, dynamic>();
           final tripId = _intValue(summary['trip_id']);
-          if (tripId == null) continue;
+          if (tripId == null) {
+            throw const FormatException(
+              'The server returned an invalid trip ID.',
+            );
+          }
           final details = await _fetchTripDetails(tripId);
-          trips.add(_tripFromFinalJson(details ?? summary));
+          if (details == null) {
+            lastError = 'Failed to load trip details.';
+            return [];
+          }
+          final trip = _tripFromFinalJson(details);
+          final memories = await fetchTripMemories(trip.id);
+          if (lastError != null) return [];
+          trips.add(trip.copyWith(memories: memories));
         }
         return trips;
       }
@@ -977,11 +1272,10 @@ class ApiService {
       if (response.statusCode == 401 && await refreshSession()) {
         return fetchUserTrips();
       }
+      lastError = _errorFromResponse(response, 'Failed to load trips.');
     } catch (e) {
       lastError = 'Failed to load trips.';
-      if (kDebugMode) {
-        print('Error fetching user trips: $e');
-      }
+      if (kDebugMode) print('Error fetching user trips: $e');
     }
 
     return [];
@@ -1052,6 +1346,13 @@ class ApiService {
           firstDestination?['name']?.toString() ??
           item['description']?.toString() ??
           '',
+      destinationIds: destinations is List
+          ? destinations
+                .whereType<Map>()
+                .map((entry) => _intValue(entry['destination_id']))
+                .whereType<int>()
+                .toList()
+          : const [],
       dateRange: _dateRangeFrom(item['start_date'], item['end_date']),
       budget: _doubleValue(item['total_budget']),
       imageUrl: '',
@@ -1243,7 +1544,11 @@ class ApiService {
 
   Future<List<Map<String, String>>> fetchTripMembers(String tripId) async {
     final id = _backendTripId(tripId);
-    if (id == null || token == null) return const [];
+    if (id == null) return const [];
+    if (token == null) {
+      lastError = 'Sign in to load trip data.';
+      return const [];
+    }
 
     try {
       lastError = null;
@@ -1255,7 +1560,7 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        return _membersFromFinalJson(_listFromBody(response.body));
+        return _membersFromFinalJson(_collaborationListFromBody(response.body));
       }
       if (response.statusCode == 401 && await refreshSession()) {
         return fetchTripMembers(tripId);
@@ -1375,7 +1680,11 @@ class ApiService {
     List<Map<String, String>> members = const [],
   }) async {
     final id = _backendTripId(tripId);
-    if (id == null || token == null) return const [];
+    if (id == null) return const [];
+    if (token == null) {
+      lastError = 'Sign in to load trip data.';
+      return const [];
+    }
 
     try {
       lastError = null;
@@ -1388,7 +1697,7 @@ class ApiService {
 
       if (response.statusCode == 200) {
         return _tasksFromFinalJson(
-          _listFromBody(response.body),
+          _collaborationListFromBody(response.body),
           members: members,
         );
       }
@@ -1476,12 +1785,12 @@ class ApiService {
             headers: _headers(),
             body: json.encode({
               if (title != null && title.isNotEmpty) 'title': title,
-              if (description != null) 'description': description,
+              'description': ?description,
               if (assignedTripMemberId != null)
                 'assigned_trip_member_id': _backendRecordId(
                   assignedTripMemberId,
                 ),
-              if (status != null) 'status': status,
+              'status': ?status,
             }),
           )
           .timeout(const Duration(seconds: 20));
@@ -1539,7 +1848,11 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchTripExpenses(String tripId) async {
     final id = _backendTripId(tripId);
-    if (id == null || token == null) return const [];
+    if (id == null) return const [];
+    if (token == null) {
+      lastError = 'Sign in to load trip data.';
+      return const [];
+    }
 
     try {
       lastError = null;
@@ -1551,7 +1864,7 @@ class ApiService {
           .timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
-        return _listFromBody(response.body)
+        return _collaborationListFromBody(response.body)
             .whereType<Map>()
             .map((item) => _expenseFromFinalJson(item.cast<String, dynamic>()))
             .toList();
@@ -1703,30 +2016,92 @@ class ApiService {
     return false;
   }
 
-  Future<List<Map<String, dynamic>>> fetchTripMemories(String tripId) async {
+  Future<List<int>?> downloadTripReportPdf(String tripId) async {
     final id = _backendTripId(tripId);
-    if (id == null || token == null) return const [];
+    if (id == null) {
+      lastError = 'Save this trip before exporting its report.';
+      return null;
+    }
+    if (token == null) {
+      lastError = 'Sign in to export a trip report.';
+      return null;
+    }
 
     try {
       lastError = null;
       final response = await http
           .get(
-            Uri.parse('$baseUrl/trips/$id/memories'),
+            Uri.parse('$baseUrl/trips/$id/reports/pdf'),
             headers: _headers(jsonBody: false),
           )
-          .timeout(const Duration(seconds: 20));
+          .timeout(const Duration(seconds: 60));
+      if (response.statusCode == 401 && await refreshSession()) {
+        return downloadTripReportPdf(tripId);
+      }
+      if (response.statusCode != 200) {
+        lastError = _errorFromResponse(
+          response,
+          'Could not generate the PDF report.',
+        );
+        return null;
+      }
+      final bytes = response.bodyBytes;
+      final isPdf =
+          bytes.length >= 5 &&
+          bytes[0] == 0x25 &&
+          bytes[1] == 0x50 &&
+          bytes[2] == 0x44 &&
+          bytes[3] == 0x46 &&
+          bytes[4] == 0x2D;
+      if (!isPdf) {
+        lastError = 'The server did not return a valid PDF report.';
+        return null;
+      }
+      return bytes;
+    } catch (e) {
+      lastError = 'Could not download the PDF report.';
+      if (kDebugMode) print('Error downloading trip report: $e');
+      return null;
+    }
+  }
 
-      if (response.statusCode == 200) {
-        return _listFromBody(response.body)
+  Future<List<Map<String, dynamic>>> fetchTripMemories(String tripId) async {
+    final id = _backendTripId(tripId);
+    if (id == null) return const [];
+    if (token == null) {
+      lastError = 'Sign in to load trip data.';
+      return const [];
+    }
+
+    try {
+      lastError = null;
+      const pageSize = 100;
+      final memories = <Map<String, dynamic>>[];
+      for (var offset = 0; ; offset += pageSize) {
+        final response = await http
+            .get(
+              Uri.parse(
+                '$baseUrl/trips/$id/memories?limit=$pageSize&offset=$offset',
+              ),
+              headers: _headers(jsonBody: false),
+            )
+            .timeout(const Duration(seconds: 20));
+
+        if (response.statusCode == 401 && await refreshSession()) {
+          return fetchTripMemories(tripId);
+        }
+        if (response.statusCode != 200) {
+          lastError = _errorFromResponse(response, 'Failed to load memories.');
+          return const [];
+        }
+        final page = _collaborationListFromBody(response.body)
             .whereType<Map>()
             .map((item) => _memoryFromFinalJson(item.cast<String, dynamic>()))
             .where((item) => item['image'].toString().isNotEmpty)
             .toList();
+        memories.addAll(page);
+        if (page.length < pageSize) return memories;
       }
-      if (response.statusCode == 401 && await refreshSession()) {
-        return fetchTripMemories(tripId);
-      }
-      lastError = _errorFromResponse(response, 'Failed to load memories.');
     } catch (e) {
       lastError = 'Failed to load memories.';
       if (kDebugMode) print('Error fetching trip memories: $e');
@@ -1743,12 +2118,23 @@ class ApiService {
 
     try {
       lastError = null;
+      final imageType = await _memoryImageContentType(filePath);
+      if (imageType == null) {
+        lastError = 'Only JPEG, PNG, or WebP images are allowed.';
+        return null;
+      }
       final request = http.MultipartRequest(
         'POST',
         Uri.parse('$baseUrl/trips/$id/memories/upload'),
       );
       request.headers.addAll(_headers(jsonBody: false));
-      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+      request.files.add(
+        await http.MultipartFile.fromPath(
+          'file',
+          filePath,
+          contentType: imageType,
+        ),
+      );
 
       final response = await http.Response.fromStream(
         await request.send().timeout(const Duration(seconds: 60)),
@@ -1881,7 +2267,9 @@ class ApiService {
         print('Failed to save trip: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
-      lastError = e.toString().contains('TimeoutException')
+      lastError = e is StateError
+          ? e.message.toString()
+          : e.toString().contains('TimeoutException')
           ? 'Connection timed out. Please check your internet and try again.'
           : 'Failed to save trip. Please try again.';
       if (kDebugMode) {
@@ -1907,8 +2295,8 @@ class ApiService {
             body: json.encode({
               if (trip.title.trim().length >= 2) 'title': trip.title.trim(),
               'description': trip.destinationName,
-              if (startDate != null) 'start_date': startDate,
-              if (endDate != null) 'end_date': endDate,
+              'start_date': ?startDate,
+              'end_date': ?endDate,
               'traveler_count': trip.numTravelers < 1 ? 1 : trip.numTravelers,
               'total_budget': trip.budget.toStringAsFixed(2),
               'notes': trip.notes,
@@ -2005,7 +2393,6 @@ class ApiService {
       }
     }
 
-    if (ids.isEmpty && destinations.isNotEmpty) ids.add(destinations.first.id);
     return ids.take(25).toList();
   }
 
@@ -2035,8 +2422,8 @@ class ApiService {
     String? startName,
     bool returnToStart = false,
     bool useLiveTraffic = true,
+    String travelMode = 'driving',
   }) async {
-    Map<String, dynamic>? decodedResponse;
     try {
       final destinationIds = destinations
           .map((d) => _intValue(d['destination_id'] ?? d['id']))
@@ -2052,7 +2439,7 @@ class ApiService {
               headers: _headers(),
               body: json.encode({
                 'destination_ids': destinationIds,
-                'travel_mode': 'driving',
+                'travel_mode': travelMode,
                 'origin': startLat != null && startLng != null
                     ? {
                         'label': startName ?? 'Start Point',
@@ -2062,15 +2449,14 @@ class ApiService {
                     : null,
                 'return_to_origin': returnToStart,
                 'preserve_first_destination': true,
-                'use_live_traffic': useLiveTraffic,
+                'use_live_traffic': useLiveTraffic && travelMode == 'driving',
               }),
             )
             .timeout(const Duration(seconds: 15));
 
         if (response.statusCode == 200) {
           final finalRoute = json.decode(response.body) as Map<String, dynamic>;
-          decodedResponse = _legacyRouteFromFinalRoute(finalRoute);
-          if (decodedResponse['geometry'] != null) return decodedResponse;
+          return _legacyRouteFromFinalRoute(finalRoute);
         } else if (response.statusCode == 401 && await refreshSession()) {
           return optimizeRoute(
             destinations: destinations,
@@ -2079,27 +2465,26 @@ class ApiService {
             startName: startName,
             returnToStart: returnToStart,
             useLiveTraffic: useLiveTraffic,
+            travelMode: travelMode,
           );
         }
       }
     } catch (e) {
       if (kDebugMode) {
-        print(
-          'Error optimizing route from backend: $e. Attempting OSRM fallback.',
-        );
+        print('Error optimizing route from backend: $e');
       }
     }
 
-    return _fetchOsrmFallback(
-      destinations: destinations,
-      decodedResponse: decodedResponse,
-      startLat: startLat,
-      startLng: startLng,
-    );
+    return null;
   }
 
   Map<String, dynamic> _legacyRouteFromFinalRoute(Map<String, dynamic> route) {
     final stops = route['stops'] is List ? route['stops'] as List : const [];
+    final encoded = route['polyline']?.toString();
+    final coordinates =
+        route['polyline_encoding'] == 'polyline5' && encoded != null
+        ? decodePolyline5(encoded)
+        : <List<double>>[];
     return {
       'optimized_route': stops
           .whereType<Map>()
@@ -2111,81 +2496,21 @@ class ApiService {
               'name': item['name'],
               'lat': item['lat'],
               'lng': item['lng'],
+              'coordinate_basis': item['coordinate_basis'],
             },
           )
           .toList(),
       'total_distance_km': _doubleValue(route['total_distance_km']),
       'total_duration_minutes': _intValue(route['total_duration_minutes']) ?? 0,
       'legs': route['legs'] ?? const [],
+      'stops': stops,
+      'route_provider': route['route_provider'],
+      'is_estimated': route['is_estimated'] == true,
+      'arrival_points_verified': route['arrival_points_verified'] == true,
       'traffic': route['traffic'],
       'warnings': route['warnings'] ?? const [],
-      'geometry': null,
+      'geometry': coordinates.isEmpty ? null : {'coordinates': coordinates},
     };
-  }
-
-  Future<Map<String, dynamic>?> _fetchOsrmFallback({
-    required List<Map<String, dynamic>> destinations,
-    required Map<String, dynamic>? decodedResponse,
-    double? startLat,
-    double? startLng,
-  }) async {
-    try {
-      final coordStrings = <String>[];
-      if (startLng != null && startLat != null) {
-        coordStrings.add('$startLng,$startLat');
-      }
-
-      final pathDests = decodedResponse?['optimized_route'] ?? destinations;
-      for (final d in pathDests) {
-        if (d is! Map) continue;
-        final lat = _doubleValue(
-          d['lat'] ?? d['latitude'],
-          fallback: double.nan,
-        );
-        final lng = _doubleValue(
-          d['lng'] ?? d['longitude'],
-          fallback: double.nan,
-        );
-        if (!lat.isNaN && !lng.isNaN) {
-          coordStrings.add('$lng,$lat');
-        }
-      }
-
-      if (coordStrings.length >= 2) {
-        final coordsQuery = coordStrings.join(';');
-        final fallbackUrl =
-            'http://router.project-osrm.org/route/v1/driving/$coordsQuery?overview=full&geometries=geojson';
-
-        final fallbackRes = await http
-            .get(Uri.parse(fallbackUrl))
-            .timeout(const Duration(seconds: 10));
-
-        if (fallbackRes.statusCode == 200) {
-          final decodedFallback = json.decode(fallbackRes.body);
-          if (decodedFallback['code'] == 'Ok' &&
-              decodedFallback['routes'] != null &&
-              decodedFallback['routes'].isNotEmpty) {
-            final routeData = decodedFallback['routes'][0];
-            final result =
-                decodedResponse ??
-                {
-                  'optimized_route': destinations,
-                  'total_distance_km': double.parse(
-                    (routeData['distance'] / 1000).toStringAsFixed(2),
-                  ),
-                };
-            result['geometry'] = routeData['geometry'];
-            return result;
-          }
-        }
-      }
-    } catch (fallbackError) {
-      if (kDebugMode) {
-        print('Client-side OSRM fallback failed: $fallbackError');
-      }
-    }
-
-    return decodedResponse;
   }
 
   Future<bool> deleteTrip(String tripId) async {
@@ -2277,7 +2602,7 @@ class ApiService {
           .timeout(const Duration(seconds: 15));
 
       if (response.statusCode == 200) {
-        final list = _listFromBody(response.body);
+        final list = _collaborationListFromBody(response.body);
         return list.whereType<Map>().map((item) {
           final raw = item.cast<String, dynamic>();
           final type = _notificationTypeFromEvent(
@@ -2291,6 +2616,7 @@ class ApiService {
             'icon': _iconFromNotificationType(type),
             'isNew': !(raw['is_read'] == true),
             'type': type,
+            'tripId': (raw['trip_id'] ?? raw['related_trip_id'])?.toString(),
           };
         }).toList();
       }
@@ -2376,7 +2702,6 @@ class ApiService {
       }).toList();
     }
 
-    if (selected.isEmpty) selected = all.take(3).toList();
     return selected.take(10).toList();
   }
 
@@ -2423,71 +2748,6 @@ class ApiService {
       'itinerary': itinerary,
       'explanation': option['summary']?.toString(),
       'budget': budget,
-    };
-  }
-
-  Map<String, dynamic> _fallbackItinerary(
-    String destinationName,
-    int numDays,
-    double budget,
-    List<Destination> selected,
-  ) {
-    final itinerary = <String, dynamic>{};
-    for (int day = 1; day <= numDays; day++) {
-      final dest = selected[(day - 1) % selected.length];
-      itinerary[day.toString()] = [
-        {
-          'time': '09:00 AM',
-          'title': 'Explore ${dest.name}',
-          'description': dest.description,
-          'cost': _formatCurrency(dest.estimatedCost),
-          'location': dest.location,
-        },
-        {
-          'time': '02:00 PM',
-          'title': 'Local free time',
-          'description': 'Enjoy nearby food, photos, and a slower-paced break.',
-          'cost': 'Free',
-          'location': dest.district,
-        },
-      ];
-    }
-
-    return {
-      'title': 'Custom Trip to $destinationName',
-      'destination': destinationName,
-      'num_days': numDays,
-      'projected_cost': budget,
-      'budget_status': 'estimated',
-      'itinerary': itinerary,
-    };
-  }
-
-  Map<String, dynamic> _destinationToJson(Destination dest) {
-    return {
-      'id': dest.id,
-      'destination_id': dest.id,
-      'name': dest.name,
-      'description': dest.description,
-      'rating': dest.rating,
-      'estimated_cost': dest.estimatedCost,
-      'cost': dest.estimatedCost,
-      'district': dest.district,
-      'location': dest.location,
-      'category': dest.category,
-      'imageUrl': dest.imageUrl,
-      'image_url': dest.imageUrl,
-      'entranceFee': dest.entranceFee,
-      'operatingHours': dest.operatingHours,
-      'activities': dest.activities,
-      'is_kid_friendly': dest.isKidFriendly,
-      'is_wheelchair_accessible': dest.isWheelchairAccessible,
-      'is_pet_friendly': dest.isPetFriendly,
-      'is_elderly_friendly': dest.isElderlyFriendly,
-      'latitude': dest.latitude,
-      'longitude': dest.longitude,
-      'lat': dest.latitude,
-      'lng': dest.longitude,
     };
   }
 }

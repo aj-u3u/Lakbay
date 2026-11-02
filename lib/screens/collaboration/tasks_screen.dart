@@ -25,22 +25,42 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final provider = context.read<TripProvider>();
-      final trips = provider.userTrips;
-      final trip = widget.trip ??
-          (trips.isNotEmpty ? trips.first : null);
-      if (trip != null) {
+      final trip = widget.trip;
+      if (trip != null && provider.isPersistedTrip(trip)) {
         provider.refreshTripCollaboration(trip);
       }
     });
   }
 
-  Trip _getTrip(BuildContext context) {
-    if (widget.trip != null) {
-      final trips = context.watch<TripProvider>().userTrips;
-      return trips.firstWhere((t) => t.id == widget.trip!.id, orElse: () => widget.trip!);
+  Trip? _getTrip(BuildContext context) {
+    final requestedTrip = widget.trip;
+    if (requestedTrip == null) return null;
+
+    for (final trip in context.watch<TripProvider>().userTrips) {
+      if (trip.id == requestedTrip.id) return trip;
     }
-    final trips = context.watch<TripProvider>().userTrips;
-    return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
+    return null;
+  }
+
+  Widget _buildSavedTripRequiredState(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Trip Tasks'),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(AppConstants.spaceXL),
+          child: Text(
+            'Open tasks from a saved trip to view or update its checklist.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _toggleTask(Trip activeTrip, int index) async {
@@ -54,7 +74,9 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
       SnackBar(
         content: Text(
           success
-              ? (isDone ? 'Task marked as completed!' : 'Task marked as incomplete.')
+              ? (isDone
+                    ? 'Task marked as completed!'
+                    : 'Task marked as incomplete.')
               : (provider.errorMessage ?? 'Task update failed.'),
         ),
         backgroundColor: success
@@ -68,7 +90,7 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
   void _showAddTaskSheet(BuildContext context, Trip activeTrip) {
     final taskController = TextEditingController();
     String selectedCategory = 'Booking';
-    
+
     // Dynamic assignees list based on backend members or trip travelers.
     final List<String> assignees = activeTrip.members
         .map((member) => member['name'] ?? '')
@@ -85,9 +107,15 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     } else if (assignees.isEmpty) {
       assignees.add('Arjane');
     }
-    
+
     String selectedAssignee = assignees.first;
-    final categories = ['Booking', 'Packing', 'Research', 'Transport', 'Finance'];
+    final categories = [
+      'Booking',
+      'Packing',
+      'Research',
+      'Transport',
+      'Finance',
+    ];
 
     showModalBottomSheet(
       context: context,
@@ -99,7 +127,9 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
           builder: (context, setSheetState) {
             return Container(
               padding: EdgeInsets.only(
-                left: 24, right: 24, top: 20,
+                left: 24,
+                right: 24,
+                top: 20,
                 bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
               ),
               decoration: BoxDecoration(
@@ -115,7 +145,8 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                 children: [
                   Center(
                     child: Container(
-                      width: 50, height: 5,
+                      width: 50,
+                      height: 5,
                       decoration: BoxDecoration(
                         color: isDark ? Colors.grey[800] : Colors.grey[300],
                         borderRadius: BorderRadius.circular(10),
@@ -125,25 +156,42 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                   const SizedBox(height: 16),
                   Text(
                     'Create Group Task',
-                    style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.primaryBlue),
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      color: AppTheme.primaryBlue,
+                    ),
                   ),
                   const SizedBox(height: 16),
                   TextField(
                     controller: taskController,
                     style: TextStyle(
                       fontSize: 14,
-                      color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                      color: isDark
+                          ? AppTheme.textPrimaryDark
+                          : AppTheme.textPrimaryLight,
                     ),
                     decoration: const InputDecoration(
                       labelText: 'Task Title',
                       hintText: 'e.g. Confirm hotel shuttle timing',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.all(Radius.circular(12)),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Category Chips
-                  Text('Category', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
+                  Text(
+                    'Category',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Wrap(
                     spacing: 8,
@@ -152,15 +200,21 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                       final isSelected = selectedCategory == cat;
                       return ChoiceChip(
                         label: Text(
-                          cat, 
+                          cat,
                           style: TextStyle(
-                            color: isSelected ? Colors.white : (isDark ? AppTheme.textSecondaryDark : AppTheme.primaryBlue), 
+                            color: isSelected
+                                ? Colors.white
+                                : (isDark
+                                      ? AppTheme.textSecondaryDark
+                                      : AppTheme.primaryBlue),
                             fontSize: 11,
                           ),
                         ),
                         selected: isSelected,
                         selectedColor: AppTheme.primaryBlue,
-                        backgroundColor: isDark ? Colors.white10 : AppTheme.primaryBlue.withValues(alpha: 0.05),
+                        backgroundColor: isDark
+                            ? Colors.white10
+                            : AppTheme.primaryBlue.withValues(alpha: 0.05),
                         onSelected: (val) {
                           if (val) setSheetState(() => selectedCategory = cat);
                         },
@@ -168,14 +222,28 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                     }).toList(),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Assignee Dropdown
-                  Text('Assign to Member', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight)),
+                  Text(
+                    'Assign to Member',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 13,
+                      color: isDark
+                          ? AppTheme.textSecondaryDark
+                          : AppTheme.textSecondaryLight,
+                    ),
+                  ),
                   const SizedBox(height: 6),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      border: Border.all(color: isDark ? Colors.white24 : Colors.grey[300]!),
+                      border: Border.all(
+                        color: isDark ? Colors.white24 : Colors.grey[300]!,
+                      ),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: DropdownButtonHideUnderline(
@@ -183,16 +251,22 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                         value: selectedAssignee,
                         isExpanded: true,
                         dropdownColor: Theme.of(ctx).colorScheme.surface,
-                        items: assignees.map((name) => DropdownMenuItem(
-                          value: name,
-                          child: Text(
-                            name, 
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
-                            ),
-                          ),
-                        )).toList(),
+                        items: assignees
+                            .map(
+                              (name) => DropdownMenuItem(
+                                value: name,
+                                child: Text(
+                                  name,
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: isDark
+                                        ? AppTheme.textPrimaryDark
+                                        : AppTheme.textPrimaryLight,
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(),
                         onChanged: (val) {
                           if (val != null) {
                             setSheetState(() => selectedAssignee = val);
@@ -202,26 +276,31 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  
+
                   // Save Button
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.secondaryGreen,
                       foregroundColor: Colors.white,
                       padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
                     ),
                     onPressed: () async {
                       if (taskController.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Please enter a task title.'), backgroundColor: Colors.red),
+                          const SnackBar(
+                            content: Text('Please enter a task title.'),
+                            backgroundColor: Colors.red,
+                          ),
                         );
                         return;
                       }
                       final provider = context.read<TripProvider>();
                       final navigator = Navigator.of(ctx);
                       final messenger = ScaffoldMessenger.of(context);
-                      
+
                       final newTask = {
                         'task': taskController.text.trim(),
                         'assignee': selectedAssignee,
@@ -229,7 +308,10 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                         'category': selectedCategory,
                       };
 
-                      final success = await provider.addTaskToTrip(activeTrip, newTask);
+                      final success = await provider.addTaskToTrip(
+                        activeTrip,
+                        newTask,
+                      );
                       if (!mounted) return;
 
                       if (success) {
@@ -240,14 +322,22 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                           content: Text(
                             success
                                 ? 'Task added successfully!'
-                                : (provider.errorMessage ?? 'Failed to add task.'),
+                                : (provider.errorMessage ??
+                                      'Failed to add task.'),
                           ),
-                          backgroundColor:
-                              success ? AppTheme.secondaryGreen : Colors.redAccent,
+                          backgroundColor: success
+                              ? AppTheme.secondaryGreen
+                              : Colors.redAccent,
                         ),
                       );
                     },
-                    child: Text('Add Task', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 15)),
+                    child: Text(
+                      'Add Task',
+                      style: GoogleFonts.outfit(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -260,10 +350,16 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<TripProvider>();
     final activeTrip = _getTrip(context);
+    if (activeTrip == null || !provider.isPersistedTrip(activeTrip)) {
+      return _buildSavedTripRequiredState(context);
+    }
     final tasksList = activeTrip.tasks;
     final int completed = tasksList.where((t) => t['done'] == true).length;
-    final double completionRate = tasksList.isNotEmpty ? completed / tasksList.length : 0.0;
+    final double completionRate = tasksList.isNotEmpty
+        ? completed / tasksList.length
+        : 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -271,10 +367,17 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(activeTrip.isGroup ? 'Group Tasks' : 'My Tasks', style: GoogleFonts.outfit(fontWeight: FontWeight.bold)),
+        title: Text(
+          activeTrip.isGroup ? 'Group Tasks' : 'My Tasks',
+          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_rounded, color: AppTheme.secondaryGreen, size: 28),
+            icon: const Icon(
+              Icons.add_rounded,
+              color: AppTheme.secondaryGreen,
+              size: 28,
+            ),
             onPressed: () => _showAddTaskSheet(context, activeTrip),
           ),
         ],
@@ -285,14 +388,35 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(color: AppTheme.primaryBlue.withValues(alpha: 0.05), shape: BoxShape.circle),
-                    child: const Icon(Icons.playlist_add_check_rounded, color: AppTheme.primaryBlue, size: 36),
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppTheme.primaryBlue.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.playlist_add_check_rounded,
+                      color: AppTheme.primaryBlue,
+                      size: 36,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Text('No tasks created yet.', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
+                  Text(
+                    'No tasks created yet.',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  const Text('Click the "+" button to add your first checklist item.', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
+                  const Text(
+                    'Click the "+" button to add your first checklist item.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryLight,
+                    ),
+                  ),
                 ],
               ),
             )
@@ -312,21 +436,38 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                     children: [
                       Row(
                         children: [
-                          Text('Progress', style: GoogleFonts.outfit(
-                            fontWeight: FontWeight.bold, color: AppTheme.primaryBlue, fontSize: 16)),
+                          Text(
+                            'Progress',
+                            style: GoogleFonts.outfit(
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryBlue,
+                              fontSize: 16,
+                            ),
+                          ),
                           const Spacer(),
-                          Text('$completed/${tasksList.length} done',
-                            style: const TextStyle(color: AppTheme.textSecondaryLight, fontSize: 13)),
+                          Text(
+                            '$completed/${tasksList.length} done',
+                            style: const TextStyle(
+                              color: AppTheme.textSecondaryLight,
+                              fontSize: 13,
+                            ),
+                          ),
                         ],
                       ),
                       const SizedBox(height: AppConstants.spaceM),
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusCircular,
+                        ),
                         child: LinearProgressIndicator(
                           value: completionRate,
                           minHeight: 10,
-                          backgroundColor: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                          valueColor: const AlwaysStoppedAnimation<Color>(AppTheme.secondaryGreen),
+                          backgroundColor: AppTheme.primaryBlue.withValues(
+                            alpha: 0.1,
+                          ),
+                          valueColor: const AlwaysStoppedAnimation<Color>(
+                            AppTheme.secondaryGreen,
+                          ),
                         ),
                       ),
                     ],
@@ -335,7 +476,9 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
 
                 Expanded(
                   child: ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: AppConstants.spaceM,
+                    ),
                     itemCount: tasksList.length,
                     itemBuilder: (_, i) {
                       final task = tasksList[i];
@@ -344,16 +487,24 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                         onTap: () => _toggleTask(activeTrip, i),
                         child: AnimatedContainer(
                           duration: AppConstants.animDurationFast,
-                          margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
+                          margin: const EdgeInsets.only(
+                            bottom: AppConstants.spaceM,
+                          ),
                           padding: const EdgeInsets.all(AppConstants.spaceM),
                           decoration: BoxDecoration(
                             color: isDone
-                                ? AppTheme.secondaryGreen.withValues(alpha: 0.06)
+                                ? AppTheme.secondaryGreen.withValues(
+                                    alpha: 0.06,
+                                  )
                                 : Theme.of(context).colorScheme.surface,
-                            borderRadius: BorderRadius.circular(AppConstants.radiusL),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusL,
+                            ),
                             border: Border.all(
                               color: isDone
-                                  ? AppTheme.secondaryGreen.withValues(alpha: 0.3)
+                                  ? AppTheme.secondaryGreen.withValues(
+                                      alpha: 0.3,
+                                    )
                                   : Colors.transparent,
                             ),
                             boxShadow: isDone ? [] : AppConstants.cardShadow,
@@ -365,17 +516,24 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                 width: 26,
                                 height: 26,
                                 decoration: BoxDecoration(
-                                  color: isDone ? AppTheme.secondaryGreen : Colors.transparent,
+                                  color: isDone
+                                      ? AppTheme.secondaryGreen
+                                      : Colors.transparent,
                                   shape: BoxShape.circle,
                                   border: Border.all(
                                     color: isDone
                                         ? AppTheme.secondaryGreen
-                                        : AppTheme.textSecondaryLight.withValues(alpha: 0.4),
+                                        : AppTheme.textSecondaryLight
+                                              .withValues(alpha: 0.4),
                                     width: 2,
                                   ),
                                 ),
                                 child: isDone
-                                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 14)
+                                    ? const Icon(
+                                        Icons.check_rounded,
+                                        color: Colors.white,
+                                        size: 14,
+                                      )
                                     : null,
                               ),
                               const SizedBox(width: AppConstants.spaceM),
@@ -391,26 +549,51 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
                                         color: isDone
                                             ? AppTheme.textSecondaryLight
                                             : AppTheme.primaryBlue,
-                                        decoration: isDone ? TextDecoration.lineThrough : null,
+                                        decoration: isDone
+                                            ? TextDecoration.lineThrough
+                                            : null,
                                       ),
                                     ),
                                     const SizedBox(height: 3),
                                     Row(
                                       children: [
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primaryBlue.withValues(alpha: 0.07),
-                                            borderRadius: BorderRadius.circular(AppConstants.radiusCircular),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 7,
+                                            vertical: 2,
                                           ),
-                                          child: Text(task['category'] ?? 'General',
-                                            style: const TextStyle(fontSize: 10, color: AppTheme.primaryBlue, fontWeight: FontWeight.w600)),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryBlue
+                                                .withValues(alpha: 0.07),
+                                            borderRadius: BorderRadius.circular(
+                                              AppConstants.radiusCircular,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            task['category'] ?? 'General',
+                                            style: const TextStyle(
+                                              fontSize: 10,
+                                              color: AppTheme.primaryBlue,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
                                         ),
-                                        const SizedBox(width: AppConstants.spaceS),
-                                        const Icon(Icons.person_outline, size: 12, color: AppTheme.textSecondaryLight),
+                                        const SizedBox(
+                                          width: AppConstants.spaceS,
+                                        ),
+                                        const Icon(
+                                          Icons.person_outline,
+                                          size: 12,
+                                          color: AppTheme.textSecondaryLight,
+                                        ),
                                         const SizedBox(width: 3),
-                                        Text(task['assignee'] ?? 'Unassigned',
-                                          style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                                        Text(
+                                          task['assignee'] ?? 'Unassigned',
+                                          style: const TextStyle(
+                                            fontSize: 11,
+                                            color: AppTheme.textSecondaryLight,
+                                          ),
+                                        ),
                                       ],
                                     ),
                                   ],
@@ -428,4 +611,3 @@ class _GroupTasksScreenState extends State<GroupTasksScreen> {
     );
   }
 }
-

@@ -8,10 +8,13 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../models/destination.dart';
+import '../../models/catalog_rate.dart';
 import '../../models/trip.dart';
+import '../../providers/auth_provider.dart';
 import '../../providers/trip_provider.dart';
 import '../../providers/nav_provider.dart';
 import '../../widgets/buttons/custom_button.dart';
+import '../../core/routes/app_routes.dart';
 
 import '../../services/api_service.dart';
 
@@ -65,6 +68,13 @@ class DestinationDetailsScreen extends StatefulWidget {
 }
 
 class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
+  late Destination _destination;
+  List<CatalogRate> _accommodations = [];
+  List<CatalogRate> _transportations = [];
+  bool _catalogLoading = true;
+  String? _catalogError;
+  bool _catalogOffline = false;
+  int _catalogRequest = 0;
   Position? _userPosition;
   bool _loadingLocation = false;
   String? _locationError;
@@ -76,10 +86,13 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
   List<Destination> _nearbyDestinations = [];
   bool _loadingNearby = false;
   late final Future<Map<String, dynamic>?> _weatherFuture;
+  final GlobalKey _mapSectionKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _destination = widget.destination;
+    _refreshCatalog();
     _weatherFuture = ApiService().fetchDestinationWeather(
       widget.destination.id,
     );
@@ -87,6 +100,51 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     ApiService().recordInteraction(widget.destination.id, 'view');
     _checkPermissionAndGetLocation();
     _fetchNearbyPlaces();
+  }
+
+  Future<void> _refreshCatalog() async {
+    if (!widget.destination.isCatalogRecord) {
+      setState(() => _catalogLoading = false);
+      return;
+    }
+    final request = ++_catalogRequest;
+    setState(() {
+      _catalogLoading = true;
+      _catalogError = null;
+      _catalogOffline = false;
+    });
+    try {
+      final api = ApiService();
+      final destination = await api.fetchDestination(widget.destination.id);
+      final rates = await Future.wait<List<CatalogRate>>([
+        api.fetchAccommodationRates(destination.id),
+        api.fetchTransportationRates(destination.id),
+      ]);
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _destination = destination;
+        _accommodations = rates[0];
+        _transportations = rates[1];
+        _catalogLoading = false;
+      });
+    } on CatalogException catch (error) {
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _accommodations = [];
+        _transportations = [];
+        _catalogError = error.message;
+        _catalogOffline = error.isOffline;
+        _catalogLoading = false;
+      });
+    } catch (_) {
+      if (!mounted || request != _catalogRequest) return;
+      setState(() {
+        _accommodations = [];
+        _transportations = [];
+        _catalogError = 'Destination details could not be read.';
+        _catalogLoading = false;
+      });
+    }
   }
 
   Future<void> _fetchNearbyPlaces() async {
@@ -422,46 +480,27 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         dest.longitude,
       );
 
-      // Fetch OSRM street road geometry
-      List<Map<String, dynamic>> destinationsList = [];
-      final isSamal =
-          dest.name.toLowerCase().contains('samal') ||
-          dest.location.toLowerCase().contains('samal') ||
-          dest.name.toLowerCase().contains('pearl farm') ||
-          dest.name.toLowerCase().contains('hagimit');
-
-      if (isSamal) {
-        destinationsList.add({
-          "destination_id": -1,
-          "name": "Sasa Wharf",
-          "lat": 7.1017,
-          "lng": 125.6601,
-        });
-        destinationsList.add({
-          "destination_id": -2,
-          "name": "Babak Port",
-          "lat": 7.1189,
-          "lng": 125.6822,
-        });
-      }
-
-      destinationsList.add({
-        "destination_id": dest.id,
-        "name": dest.name,
-        "lat": dest.latitude,
-        "lng": dest.longitude,
-      });
+      final destinationsList = <Map<String, dynamic>>[
+        {
+          "destination_id": dest.id,
+          "name": dest.name,
+          "lat": dest.latitude,
+          "lng": dest.longitude,
+        },
+      ];
 
       List<LatLng> roadPoints = [];
       Map<String, dynamic>? trafficSummary;
       try {
-        final response = await ApiService().optimizeRoute(
-          destinations: destinationsList,
-          startLat: position.latitude,
-          startLng: position.longitude,
-          startName: 'Your Location',
-          returnToStart: false,
-        );
+        final response = !dest.isCatalogRecord
+            ? null
+            : await ApiService().optimizeRoute(
+                destinations: destinationsList,
+                startLat: position.latitude,
+                startLng: position.longitude,
+                startName: 'Your Location',
+                returnToStart: false,
+              );
         final trafficRaw = response?['traffic'];
         trafficSummary = trafficRaw is Map
             ? trafficRaw.cast<String, dynamic>()
@@ -519,15 +558,104 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     }
   }
 
+  void _openPlannerFor(Destination destination) {
+    if (!context.read<AuthProvider>().isAuthenticated) {
+      Navigator.pushNamed(context, AppRoutes.signup);
+      return;
+    }
+
+    context.read<TripProvider>().setActivePlanDestination(destination);
+    context.read<NavProvider>().setIndex(1);
+    Navigator.of(context).popUntil((route) => route.isFirst);
+  }
+
+  void _addToTrip(Destination destination) {
+    if (!context.read<AuthProvider>().isAuthenticated) {
+      Navigator.pushNamed(context, AppRoutes.signup);
+      return;
+    }
+    _showAddToTripBottomSheet(context, destination);
+  }
+
+  void _scrollToMap() {
+    final mapContext = _mapSectionKey.currentContext;
+    if (mapContext == null) return;
+    Scrollable.ensureVisible(
+      mapContext,
+      duration: AppConstants.animDurationMedium,
+      curve: Curves.easeInOut,
+      alignment: 0.08,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    final dest = widget.destination;
+    if (_catalogLoading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (_catalogError != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text('Destination')),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppConstants.spaceXL),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  _catalogOffline
+                      ? Icons.wifi_off_rounded
+                      : Icons.error_outline_rounded,
+                  size: 42,
+                ),
+                const SizedBox(height: AppConstants.spaceM),
+                Text(_catalogError!, textAlign: TextAlign.center),
+                const SizedBox(height: AppConstants.spaceM),
+                FilledButton.icon(
+                  onPressed: _refreshCatalog,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    final dest = _destination;
+    final accommodationTypes = dest.isCatalogRecord
+        ? _accommodations
+              .map(
+                (rate) => {
+                  'id': rate.id.toString(),
+                  'type': '${rate.title} · ${rate.subtitle}',
+                  'price': rate.priceWithUnit,
+                },
+              )
+              .toList()
+        : dest.extra.accommodationTypes;
+    final transportOptions = dest.isCatalogRecord
+        ? _transportations
+              .map(
+                (rate) => {
+                  'id': rate.id.toString(),
+                  'vehicle': rate.title,
+                  'from': rate.routeFrom ?? '',
+                  'to': rate.routeTo ?? '',
+                  'price': rate.priceWithUnit,
+                  'duration': rate.durationMinutes == null
+                      ? ''
+                      : '${rate.durationMinutes} min',
+                },
+              )
+              .toList()
+        : dest.extra.transportOptions;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    double displayCost = dest.estimatedCost;
-    String labelText = 'Est. Cost';
+    double? displayCost = dest.estimatedCost;
+    String labelText = 'Estimated cost';
 
-    if (_userPosition != null) {
+    if (_userPosition != null && !dest.isCatalogRecord) {
       final firstMile = _calculateFirstMile(_userPosition!);
       final hub = firstMile['nearestHub'] as TransitHub;
       final double firstCost = firstMile['cost'] as double;
@@ -543,1362 +671,1447 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
       final double environmentalFee = double.tryParse(cleanEnv) ?? 0.0;
 
       displayCost = firstCost + hubToDestCost + entranceFee + environmentalFee;
-      labelText = 'Your Cost';
+      labelText = 'Estimated cost from you';
     }
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            pinned: true,
-            expandedHeight: 300,
-            backgroundColor: AppTheme.primaryBlue,
-            leading: IconButton(
-              icon: Container(
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(10),
+      body: RefreshIndicator(
+        onRefresh: _refreshCatalog,
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              expandedHeight: 350,
+              backgroundColor: AppTheme.primaryBlue,
+              leading: IconButton(
+                tooltip: 'Back to destinations',
+                icon: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.black26,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.arrow_back_ios_new_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                 ),
-                child: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white,
-                  size: 18,
-                ),
+                onPressed: () => Navigator.pop(context),
               ),
-              onPressed: () => Navigator.pop(context),
-            ),
-            actions: [
-              Consumer<TripProvider>(
-                builder: (context, tripProvider, _) {
-                  final isSaved = tripProvider.isBookmarked(dest.id);
-                  return IconButton(
-                    icon: PulseHeartIcon(isSaved: isSaved),
-                    onPressed: () {
-                      tripProvider.toggleBookmark(dest.id);
-                      ScaffoldMessenger.of(context).clearSnackBars();
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            isSaved
-                                ? 'Removed ${dest.name} from Wishlist'
-                                : 'Saved ${dest.name} to Wishlist! ❤️',
+              actions: [
+                IconButton(
+                  onPressed: _refreshCatalog,
+                  tooltip: 'Refresh destination and rates',
+                  icon: const Icon(Icons.refresh_rounded, color: Colors.white),
+                ),
+                Consumer<TripProvider>(
+                  builder: (context, tripProvider, _) {
+                    final isSaved = tripProvider.isBookmarked(dest.id);
+                    return TextButton.icon(
+                      icon: PulseHeartIcon(isSaved: isSaved),
+                      label: Text(isSaved ? 'Saved' : 'Save'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.white,
+                        backgroundColor: Colors.black38,
+                        shape: const StadiumBorder(),
+                      ),
+                      onPressed: () async {
+                        if (!context.read<AuthProvider>().isAuthenticated) {
+                          Navigator.pushNamed(context, AppRoutes.signup);
+                          return;
+                        }
+                        final success = await tripProvider.toggleBookmark(
+                          dest.id,
+                        );
+                        if (!context.mounted) return;
+                        ScaffoldMessenger.of(context).clearSnackBars();
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              success
+                                  ? (isSaved
+                                        ? 'Removed ${dest.name} from Wishlist'
+                                        : 'Saved ${dest.name} to Wishlist! ❤️')
+                                  : (tripProvider.errorMessage ??
+                                        'Could not update your wishlist.'),
+                            ),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: success
+                                ? (isSaved
+                                      ? Colors.grey[800]
+                                      : AppTheme.secondaryGreen)
+                                : Colors.redAccent,
                           ),
-                          duration: const Duration(seconds: 2),
-                          backgroundColor: isSaved
-                              ? Colors.grey[800]
-                              : AppTheme.secondaryGreen,
+                        );
+                      },
+                    );
+                  },
+                ),
+                const SizedBox(width: AppConstants.spaceS),
+              ],
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Destination.loadImage(
+                      dest.imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => Container(
+                        decoration: const BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppTheme.primaryBlue,
+                              AppTheme.secondaryGreen,
+                            ],
+                          ),
                         ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ],
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Destination.loadImage(
-                    dest.imageUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => Container(
-                      decoration: const BoxDecoration(
+                        child: const Icon(
+                          Icons.landscape,
+                          size: 80,
+                          color: Colors.white30,
+                        ),
+                      ),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
                         gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
                           colors: [
-                            AppTheme.primaryBlue,
-                            AppTheme.secondaryGreen,
+                            Colors.black.withValues(alpha: 0.36),
+                            Colors.transparent,
+                            Colors.black.withValues(alpha: 0.82),
                           ],
+                          stops: const [0, 0.35, 1],
                         ),
-                      ),
-                      child: const Icon(
-                        Icons.landscape,
-                        size: 80,
-                        color: Colors.white30,
                       ),
                     ),
-                  ),
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [
-                          Colors.transparent,
-                          Colors.black.withValues(alpha: 0.7),
-                        ],
-                        stops: const [0.4, 1.0],
-                      ),
-                    ),
-                  ),
-                  Positioned(
-                    bottom: AppConstants.spaceL,
-                    left: AppConstants.spaceL,
-                    right: AppConstants.spaceL,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppTheme.secondaryGreen,
-                            borderRadius: BorderRadius.circular(
-                              AppConstants.radiusCircular,
-                            ),
-                          ),
-                          child: Text(
-                            dest.category,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: AppConstants.spaceS),
-                        Text(
-                          dest.name,
-                          style: GoogleFonts.outfit(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            const Icon(
-                              Icons.location_on_rounded,
-                              color: AppTheme.secondaryGreen,
-                              size: 14,
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: Text(
-                                dest.location,
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.all(AppConstants.spaceL),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Quick info row
-                  Row(
-                    children: [
-                      _infoBox(
-                        Icons.star_rounded,
-                        '${dest.rating}',
-                        'Rating',
-                        const Color(0xFFFBBC04),
-                      ),
-                      const SizedBox(width: AppConstants.spaceM),
-                      _infoBox(
-                        Icons.payments_outlined,
-                        '₱${displayCost.toStringAsFixed(0)}',
-                        labelText,
-                        AppTheme.secondaryGreen,
-                      ),
-                      const SizedBox(width: AppConstants.spaceM),
-                      _infoBox(
-                        Icons.schedule_rounded,
-                        dest.entranceFee,
-                        'Entrance',
-                        AppTheme.primaryBlue,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
-
-                  _buildWeatherCard(),
-                  const SizedBox(height: AppConstants.spaceXL),
-
-                  // Description
-                  Text(
-                    'About',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceS),
-                  Text(
-                    dest.description,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyLarge?.copyWith(height: 1.6),
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
-
-                  // Operating hours
-                  _infoSection(
-                    context,
-                    'Operating Hours',
-                    Icons.access_time_rounded,
-                    dest.operatingHours,
-                    AppTheme.accentTeal,
-                  ),
-                  const SizedBox(height: AppConstants.spaceL),
-
-                  // Activities
-                  Text(
-                    'Activities',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Wrap(
-                    spacing: AppConstants.spaceS,
-                    runSpacing: AppConstants.spaceS,
-                    children: dest.activities.map((a) {
-                      return Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: AppTheme.primaryBlue.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(
-                            AppConstants.radiusCircular,
-                          ),
-                          border: Border.all(
-                            color: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.check_circle_outline_rounded,
-                              size: 13,
-                              color: AppTheme.secondaryGreen,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              a,
-                              style: const TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.primaryBlue,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
-
-                  // Accessibility badges
-                  Text(
-                    'Traveler Info',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Wrap(
-                    spacing: AppConstants.spaceS,
-                    runSpacing: AppConstants.spaceS,
-                    children: [
-                      _badge(
-                        'Kid-Friendly',
-                        Icons.child_care_rounded,
-                        dest.isKidFriendly,
-                      ),
-                      _badge(
-                        'Wheelchair Access',
-                        Icons.accessible_rounded,
-                        dest.isWheelchairAccessible,
-                      ),
-                      _badge(
-                        'Pet-Friendly',
-                        Icons.pets_rounded,
-                        dest.isPetFriendly,
-                      ),
-                      _badge(
-                        'Senior-Friendly',
-                        Icons.elderly_rounded,
-                        dest.isElderlyFriendly,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppConstants.spaceXL),
-
-                  // Fees & Rates
-                  Text(
-                    'Fees & Rates',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Container(
-                    padding: const EdgeInsets.all(AppConstants.spaceM),
-                    decoration: BoxDecoration(
-                      color: AppTheme.primaryBlue.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                      border: Border.all(
-                        color: AppTheme.primaryBlue.withValues(alpha: 0.2),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        _feeRow(
-                          Icons.confirmation_num_rounded,
-                          'Entrance Fee',
-                          dest.entranceFee,
-                        ),
-                        const Divider(
-                          height: 20,
-                          thickness: 1,
-                          color: Colors.black12,
-                        ),
-                        _feeRow(
-                          Icons.eco_rounded,
-                          'Environmental Fee',
-                          dest.extra.environmentalFee,
-                        ),
-                        const Divider(
-                          height: 20,
-                          thickness: 1,
-                          color: Colors.black12,
-                        ),
-                        _feeRow(
-                          Icons.hotel_rounded,
-                          'Overnight Fee',
-                          dest.extra.overnightFee,
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Activity Pricing
-                  Builder(
-                    builder: (context) {
-                      final unifiedPrices = _getUnifiedActivityPrices(dest);
-                      if (unifiedPrices.isEmpty) return const SizedBox.shrink();
-
-                      return Column(
+                    Positioned(
+                      bottom: AppConstants.spaceL,
+                      left: AppConstants.spaceL,
+                      right: AppConstants.spaceL,
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const SizedBox(height: AppConstants.spaceXL),
-                          Text(
-                            'Activity Pricing',
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primaryBlue,
-                                ),
+                          const Text(
+                            'LAKBAY+ FIELD GUIDE  /  DAVAO REGION',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.3,
+                            ),
                           ),
-                          const SizedBox(height: AppConstants.spaceM),
-                          ListView.separated(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: unifiedPrices.length,
-                            separatorBuilder: (_, _) =>
-                                const SizedBox(height: AppConstants.spaceS),
-                            itemBuilder: (context, index) {
-                              final entry = unifiedPrices[index];
-                              final key = entry.key;
-                              final price = entry.value;
-                              final isFree = price.toLowerCase().contains(
-                                'free',
-                              );
-
-                              return Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: AppConstants.spaceM,
-                                  vertical: AppConstants.spaceS + 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isDark
-                                      ? Theme.of(context).cardColor
-                                      : Colors.white,
-                                  borderRadius: BorderRadius.circular(
-                                    AppConstants.radiusM,
+                          const SizedBox(height: AppConstants.spaceS),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondaryGreen,
+                              borderRadius: BorderRadius.circular(
+                                AppConstants.radiusCircular,
+                              ),
+                            ),
+                            child: Text(
+                              dest.category,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppConstants.spaceS),
+                          Text(
+                            dest.name,
+                            style: GoogleFonts.outfit(
+                              fontSize: 29,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              height: 1.1,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: AppConstants.spaceS),
+                          Row(
+                            children: [
+                              const Icon(
+                                Icons.location_on_rounded,
+                                color: AppTheme.secondaryGreen,
+                                size: 14,
+                              ),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  dest.location,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
                                   ),
-                                  border: Border.all(
-                                    color: isDark
-                                        ? Colors.white10
-                                        : Colors.grey.withValues(alpha: 0.3),
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isFree
-                                          ? Icons.check_circle_outline_rounded
-                                          : Icons.local_activity_rounded,
-                                      color: isFree
-                                          ? AppTheme.secondaryGreen
-                                          : AppTheme.accentTeal,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: AppConstants.spaceM),
-                                    Expanded(
-                                      child: Text(
-                                        key,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 13,
-                                          color: isDark
-                                              ? AppTheme.textPrimaryDark
-                                              : AppTheme.textPrimaryLight,
-                                        ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    const SizedBox(width: AppConstants.spaceM),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isFree
-                                            ? AppTheme.secondaryGreen
-                                                  .withValues(alpha: 0.1)
-                                            : AppTheme.accentTeal.withValues(
-                                                alpha: 0.1,
-                                              ),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        price,
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 12,
-                                          color: isFree
-                                              ? AppTheme.secondaryGreen
-                                              : AppTheme.accentTeal,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              );
-                            },
+                              ),
+                            ],
                           ),
                         ],
-                      );
-                    },
-                  ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
-                  // Accommodation Options
-                  if (dest.extra.accommodationTypes.isNotEmpty) ...[
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.all(AppConstants.spaceL),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTravelEssentials(
+                      dest,
+                      displayCost: displayCost,
+                      costLabel: labelText,
+                    ),
+                    if (!widget.isFromRecommendation) ...[
+                      const SizedBox(height: AppConstants.spaceM),
+                      _buildLakbayPlanPrompt(dest),
+                    ],
+                    const SizedBox(height: AppConstants.spaceL),
+
+                    _buildWeatherCard(),
                     const SizedBox(height: AppConstants.spaceXL),
+
+                    // Description
                     Text(
-                      'Accommodation Options',
+                      'About',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: AppConstants.spaceS),
+                    Text(
+                      dest.description,
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyLarge?.copyWith(height: 1.6),
+                    ),
+                    const SizedBox(height: AppConstants.spaceXL),
+
+                    // Operating hours
+                    _infoSection(
+                      context,
+                      'Operating Hours',
+                      Icons.access_time_rounded,
+                      dest.operatingHours,
+                      AppTheme.accentTeal,
+                    ),
+                    const SizedBox(height: AppConstants.spaceL),
+
+                    // Activities
+                    Text(
+                      'Activities',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryBlue,
                       ),
                     ),
                     const SizedBox(height: AppConstants.spaceM),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: dest.extra.accommodationTypes.length,
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppConstants.spaceS),
-                      itemBuilder: (context, index) {
-                        final acc = dest.extra.accommodationTypes[index];
-                        final type = acc['type'] ?? 'Standard Room';
-                        final price = acc['price'] ?? 'Contact for rates';
+                    Wrap(
+                      spacing: AppConstants.spaceS,
+                      runSpacing: AppConstants.spaceS,
+                      children: dest.activities.map((a) {
                         return Container(
-                          padding: const EdgeInsets.all(AppConstants.spaceM),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? Theme.of(context).cardColor
-                                : Colors.white,
+                            color: AppTheme.primaryBlue.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(
-                              AppConstants.radiusL,
+                              AppConstants.radiusCircular,
                             ),
                             border: Border.all(
-                              color: isDark
-                                  ? Colors.white12
-                                  : Colors.grey.withValues(alpha: 0.3),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
+                              color: AppTheme.primaryBlue.withValues(
+                                alpha: 0.2,
                               ),
-                            ],
+                            ),
                           ),
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: const Icon(
-                                  Icons.king_bed_rounded,
-                                  color: AppTheme.primaryBlue,
-                                  size: 22,
-                                ),
+                              const Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 13,
+                                color: AppTheme.secondaryGreen,
                               ),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      type,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: isDark
-                                            ? AppTheme.textPrimaryDark
-                                            : AppTheme.textPrimaryLight,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Available for overnight stay',
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: isDark
-                                            ? AppTheme.textSecondaryDark
-                                            : AppTheme.textSecondaryLight,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
+                              const SizedBox(width: 5),
                               Text(
-                                price,
+                                a,
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 13,
-                                  color: AppTheme.secondaryGreen,
+                                  fontSize: 12,
+                                  color: AppTheme.primaryBlue,
+                                  fontWeight: FontWeight.w600,
                                 ),
                               ),
                             ],
                           ),
                         );
-                      },
+                      }).toList(),
                     ),
-                  ],
-
-                  // Meal Inclusions
-                  if (dest.extra.mealInclusions.isNotEmpty) ...[
                     const SizedBox(height: AppConstants.spaceXL),
+
+                    // Accessibility badges
                     Text(
-                      'Meal Inclusions',
+                      'Traveler Info',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.primaryBlue,
                       ),
                     ),
                     const SizedBox(height: AppConstants.spaceM),
-                    Container(
-                      padding: const EdgeInsets.all(AppConstants.spaceM),
-                      decoration: BoxDecoration(
-                        color: AppTheme.secondaryGreen.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(
-                          AppConstants.radiusL,
+                    Wrap(
+                      spacing: AppConstants.spaceS,
+                      runSpacing: AppConstants.spaceS,
+                      children: [
+                        _badge(
+                          'Kid-Friendly',
+                          Icons.child_care_rounded,
+                          dest.isKidFriendly,
                         ),
-                        border: Border.all(
-                          color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
+                        _badge(
+                          'Wheelchair Access',
+                          Icons.accessible_rounded,
+                          dest.isWheelchairAccessible,
                         ),
-                      ),
-                      child: Column(
-                        children: dest.extra.mealInclusions.map((meal) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.restaurant_rounded,
-                                  color: AppTheme.secondaryGreen,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: AppConstants.spaceM),
-                                Expanded(
-                                  child: Text(
-                                    meal,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.4,
-                                      color: isDark
-                                          ? AppTheme.textPrimaryDark
-                                          : AppTheme.textPrimaryLight,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-
-                  // Travel Notes
-                  if (dest.extra.travelNotes.isNotEmpty) ...[
-                    const SizedBox(height: AppConstants.spaceXL),
-                    Text(
-                      'Travel Notes & Tips',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    Container(
-                      padding: const EdgeInsets.all(AppConstants.spaceM),
-                      decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(
-                          AppConstants.radiusL,
+                        _badge(
+                          'Pet-Friendly',
+                          Icons.pets_rounded,
+                          dest.isPetFriendly,
                         ),
-                        border: Border.all(
-                          color: Colors.amber.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Column(
-                        children: dest.extra.travelNotes.map((note) {
-                          return Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 4.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(
-                                  Icons.lightbulb_rounded,
-                                  color: Colors.amber,
-                                  size: 16,
-                                ),
-                                const SizedBox(width: AppConstants.spaceM),
-                                Expanded(
-                                  child: Text(
-                                    note,
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      height: 1.4,
-                                      color: isDark
-                                          ? AppTheme.textPrimaryDark
-                                          : AppTheme.textPrimaryLight,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-                  ],
-
-                  // Location & Route Map
-                  const SizedBox(height: AppConstants.spaceXL),
-                  Text(
-                    'Location & Route',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.primaryBlue,
-                    ),
-                  ),
-                  const SizedBox(height: AppConstants.spaceM),
-                  Container(
-                    height: 280,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? Theme.of(context).cardColor
-                          : Colors.white,
-                      borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                      border: Border.all(
-                        color: isDark
-                            ? Colors.white10
-                            : Colors.grey.withValues(alpha: 0.3),
-                      ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 6,
-                          offset: const Offset(0, 3),
+                        _badge(
+                          'Senior-Friendly',
+                          Icons.elderly_rounded,
+                          dest.isElderlyFriendly,
                         ),
                       ],
                     ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      children: [
-                        // Map Section
-                        Expanded(
-                          child: Stack(
-                            children: [
-                              FlutterMap(
-                                mapController: _mapController,
-                                options: MapOptions(
-                                  initialCenter: LatLng(
-                                    dest.latitude,
-                                    dest.longitude,
+                    const SizedBox(height: AppConstants.spaceXL),
+
+                    // Fees & Rates
+                    Text(
+                      'Fees & Rates',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: AppConstants.spaceM),
+                    Container(
+                      padding: const EdgeInsets.all(AppConstants.spaceM),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryBlue.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusL,
+                        ),
+                        border: Border.all(
+                          color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          _feeRow(
+                            Icons.confirmation_num_rounded,
+                            'Entrance Fee',
+                            dest.entranceFee,
+                          ),
+                          const Divider(
+                            height: 20,
+                            thickness: 1,
+                            color: Colors.black12,
+                          ),
+                          _feeRow(
+                            Icons.eco_rounded,
+                            'Environmental Fee',
+                            dest.extra.environmentalFee,
+                          ),
+                          const Divider(
+                            height: 20,
+                            thickness: 1,
+                            color: Colors.black12,
+                          ),
+                          _feeRow(
+                            Icons.hotel_rounded,
+                            'Overnight Fee',
+                            dest.extra.overnightFee,
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Activity Pricing
+                    Builder(
+                      builder: (context) {
+                        final unifiedPrices = _getUnifiedActivityPrices(dest);
+                        if (unifiedPrices.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const SizedBox(height: AppConstants.spaceXL),
+                            Text(
+                              'Activity Pricing',
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.primaryBlue,
                                   ),
-                                  initialZoom: 16.5,
-                                ),
-                                children: [
-                                  TileLayer(
-                                    urlTemplate:
-                                        AppConstants
-                                                .mapboxAccessToken
-                                                .isEmpty ||
-                                            AppConstants.mapboxAccessToken ==
-                                                'YOUR_MAPBOX_ACCESS_TOKEN'
-                                        ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
-                                        : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
-                                    userAgentPackageName: 'com.lakbay.plus',
+                            ),
+                            const SizedBox(height: AppConstants.spaceM),
+                            ListView.separated(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              itemCount: unifiedPrices.length,
+                              separatorBuilder: (_, _) =>
+                                  const SizedBox(height: AppConstants.spaceS),
+                              itemBuilder: (context, index) {
+                                final entry = unifiedPrices[index];
+                                final key = entry.key;
+                                final price = entry.value;
+                                final isFree = price.toLowerCase().contains(
+                                  'free',
+                                );
+
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppConstants.spaceM,
+                                    vertical: AppConstants.spaceS + 2,
                                   ),
-                                  if (_userPosition != null)
-                                    PolylineLayer(
-                                      polylines: [
-                                        Polyline(
-                                          points: _roadGeometryPoints.isNotEmpty
-                                              ? _roadGeometryPoints
-                                              : [
-                                                  LatLng(
-                                                    _userPosition!.latitude,
-                                                    _userPosition!.longitude,
-                                                  ),
-                                                  LatLng(
-                                                    dest.latitude,
-                                                    dest.longitude,
-                                                  ),
-                                                ],
-                                          color: AppTheme.primaryBlue,
-                                          strokeWidth: 4,
-                                        ),
-                                      ],
+                                  decoration: BoxDecoration(
+                                    color: isDark
+                                        ? Theme.of(context).cardColor
+                                        : Colors.white,
+                                    borderRadius: BorderRadius.circular(
+                                      AppConstants.radiusM,
                                     ),
-                                  MarkerLayer(
-                                    markers: [
-                                      // Destination Marker
-                                      Marker(
-                                        point: LatLng(
-                                          dest.latitude,
-                                          dest.longitude,
+                                    border: Border.all(
+                                      color: isDark
+                                          ? Colors.white10
+                                          : Colors.grey.withValues(alpha: 0.3),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
                                         ),
-                                        width: 40,
-                                        height: 40,
-                                        child: const Icon(
-                                          Icons.location_on_rounded,
-                                          color: Colors.redAccent,
-                                          size: 40,
+                                        blurRadius: 4,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        isFree
+                                            ? Icons.check_circle_outline_rounded
+                                            : Icons.local_activity_rounded,
+                                        color: isFree
+                                            ? AppTheme.secondaryGreen
+                                            : AppTheme.accentTeal,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(
+                                        width: AppConstants.spaceM,
+                                      ),
+                                      Expanded(
+                                        child: Text(
+                                          key,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: isDark
+                                                ? AppTheme.textPrimaryDark
+                                                : AppTheme.textPrimaryLight,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
                                       ),
-                                      // Nearby Place Markers
-                                      ..._nearbyDestinations.map((nearby) {
-                                        return Marker(
-                                          point: LatLng(
-                                            nearby.latitude,
-                                            nearby.longitude,
-                                          ),
-                                          width: 36,
-                                          height: 36,
-                                          child: GestureDetector(
-                                            onTap: () {
-                                              Navigator.push(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      DestinationDetailsScreen(
-                                                        destination: nearby,
-                                                      ),
+                                      const SizedBox(
+                                        width: AppConstants.spaceM,
+                                      ),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: isFree
+                                              ? AppTheme.secondaryGreen
+                                                    .withValues(alpha: 0.1)
+                                              : AppTheme.accentTeal.withValues(
+                                                  alpha: 0.1,
                                                 ),
-                                              );
-                                            },
+                                          borderRadius: BorderRadius.circular(
+                                            6,
+                                          ),
+                                        ),
+                                        child: Text(
+                                          price,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                            color: isFree
+                                                ? AppTheme.secondaryGreen
+                                                : AppTheme.accentTeal,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
+
+                    // Accommodation Options
+                    if (accommodationTypes.isNotEmpty) ...[
+                      const SizedBox(height: AppConstants.spaceXL),
+                      Text(
+                        'Accommodation Options',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: accommodationTypes.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppConstants.spaceS),
+                        itemBuilder: (context, index) {
+                          final acc = accommodationTypes[index];
+                          final type = acc['type'] ?? 'Standard Room';
+                          final price = acc['price'] ?? 'Contact for rates';
+                          return Container(
+                            padding: const EdgeInsets.all(AppConstants.spaceM),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? Theme.of(context).cardColor
+                                  : Colors.white,
+                              borderRadius: BorderRadius.circular(
+                                AppConstants.radiusL,
+                              ),
+                              border: Border.all(
+                                color: isDark
+                                    ? Colors.white12
+                                    : Colors.grey.withValues(alpha: 0.3),
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.05),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 2),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryBlue.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: const Icon(
+                                        Icons.king_bed_rounded,
+                                        color: AppTheme.primaryBlue,
+                                        size: 22,
+                                      ),
+                                    ),
+                                    const SizedBox(width: AppConstants.spaceM),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            type,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                              color: isDark
+                                                  ? AppTheme.textPrimaryDark
+                                                  : AppTheme.textPrimaryLight,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 2),
+                                          Text(
+                                            'Rate ID ${acc['id']} · Available for overnight stay',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              color: isDark
+                                                  ? AppTheme.textSecondaryDark
+                                                  : AppTheme.textSecondaryLight,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: AppConstants.spaceS),
+                                Text(
+                                  price,
+                                  textAlign: TextAlign.end,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: AppTheme.secondaryGreen,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+
+                    // Meal Inclusions
+                    if (dest.extra.mealInclusions.isNotEmpty) ...[
+                      const SizedBox(height: AppConstants.spaceXL),
+                      Text(
+                        'Meal Inclusions',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      Container(
+                        padding: const EdgeInsets.all(AppConstants.spaceM),
+                        decoration: BoxDecoration(
+                          color: AppTheme.secondaryGreen.withValues(
+                            alpha: 0.08,
+                          ),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusL,
+                          ),
+                          border: Border.all(
+                            color: AppTheme.secondaryGreen.withValues(
+                              alpha: 0.2,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          children: dest.extra.mealInclusions.map((meal) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.restaurant_rounded,
+                                    color: AppTheme.secondaryGreen,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: AppConstants.spaceM),
+                                  Expanded(
+                                    child: Text(
+                                      meal,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.4,
+                                        color: isDark
+                                            ? AppTheme.textPrimaryDark
+                                            : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+
+                    // Travel Notes
+                    if (dest.extra.travelNotes.isNotEmpty) ...[
+                      const SizedBox(height: AppConstants.spaceXL),
+                      Text(
+                        'Travel Notes & Tips',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      Container(
+                        padding: const EdgeInsets.all(AppConstants.spaceM),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusL,
+                          ),
+                          border: Border.all(
+                            color: Colors.amber.withValues(alpha: 0.2),
+                          ),
+                        ),
+                        child: Column(
+                          children: dest.extra.travelNotes.map((note) {
+                            return Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 4.0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Icon(
+                                    Icons.lightbulb_rounded,
+                                    color: Colors.amber,
+                                    size: 16,
+                                  ),
+                                  const SizedBox(width: AppConstants.spaceM),
+                                  Expanded(
+                                    child: Text(
+                                      note,
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        height: 1.4,
+                                        color: isDark
+                                            ? AppTheme.textPrimaryDark
+                                            : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ),
+                    ],
+
+                    // Location & Route Map
+                    const SizedBox(height: AppConstants.spaceXL),
+                    Text(
+                      'Location & Route',
+                      key: _mapSectionKey,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: AppConstants.spaceM),
+                    Container(
+                      height: 280,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Theme.of(context).cardColor
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusL,
+                        ),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white10
+                              : Colors.grey.withValues(alpha: 0.3),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        children: [
+                          // Map Section
+                          Expanded(
+                            child: Stack(
+                              children: [
+                                FlutterMap(
+                                  mapController: _mapController,
+                                  options: MapOptions(
+                                    initialCenter: LatLng(
+                                      dest.latitude,
+                                      dest.longitude,
+                                    ),
+                                    initialZoom: 16.5,
+                                  ),
+                                  children: [
+                                    TileLayer(
+                                      urlTemplate:
+                                          AppConstants
+                                                  .mapboxAccessToken
+                                                  .isEmpty ||
+                                              AppConstants.mapboxAccessToken ==
+                                                  'YOUR_MAPBOX_ACCESS_TOKEN'
+                                          ? 'https://tile.openstreetmap.org/{z}/{x}/{y}.png'
+                                          : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
+                                      userAgentPackageName: 'com.lakbay.plus',
+                                    ),
+                                    if (_userPosition != null &&
+                                        _roadGeometryPoints.length >= 2)
+                                      PolylineLayer(
+                                        polylines: [
+                                          Polyline(
+                                            points: _roadGeometryPoints,
+                                            color: AppTheme.primaryBlue,
+                                            strokeWidth: 4,
+                                          ),
+                                        ],
+                                      ),
+                                    MarkerLayer(
+                                      markers: [
+                                        // Destination Marker
+                                        Marker(
+                                          point: LatLng(
+                                            dest.latitude,
+                                            dest.longitude,
+                                          ),
+                                          width: 40,
+                                          height: 40,
+                                          child: const Icon(
+                                            Icons.location_on_rounded,
+                                            color: Colors.redAccent,
+                                            size: 40,
+                                          ),
+                                        ),
+                                        if (dest.routeReady &&
+                                            dest.arrivalLatitude != null &&
+                                            dest.arrivalLongitude != null)
+                                          Marker(
+                                            point: LatLng(
+                                              dest.arrivalLatitude!,
+                                              dest.arrivalLongitude!,
+                                            ),
+                                            width: 38,
+                                            height: 38,
+                                            child: const Tooltip(
+                                              message:
+                                                  'Reviewed visitor arrival point',
+                                              child: Icon(
+                                                Icons.directions_rounded,
+                                                color: AppTheme.primaryBlue,
+                                                size: 34,
+                                              ),
+                                            ),
+                                          ),
+                                        // Nearby Place Markers
+                                        ..._nearbyDestinations.map((nearby) {
+                                          return Marker(
+                                            point: LatLng(
+                                              nearby.latitude,
+                                              nearby.longitude,
+                                            ),
+                                            width: 36,
+                                            height: 36,
+                                            child: GestureDetector(
+                                              onTap: () {
+                                                Navigator.push(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        DestinationDetailsScreen(
+                                                          destination: nearby,
+                                                        ),
+                                                  ),
+                                                );
+                                              },
+                                              child: Container(
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      AppTheme.secondaryGreen,
+                                                  shape: BoxShape.circle,
+                                                  border: Border.all(
+                                                    color: Colors.white,
+                                                    width: 2,
+                                                  ),
+                                                  boxShadow: const [
+                                                    BoxShadow(
+                                                      color: Colors.black26,
+                                                      blurRadius: 4,
+                                                      offset: Offset(0, 2),
+                                                    ),
+                                                  ],
+                                                ),
+                                                child: const Center(
+                                                  child: Icon(
+                                                    Icons.place_rounded,
+                                                    color: Colors.white,
+                                                    size: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          );
+                                        }),
+                                        // User Location Marker
+                                        if (_userPosition != null)
+                                          Marker(
+                                            point: LatLng(
+                                              _userPosition!.latitude,
+                                              _userPosition!.longitude,
+                                            ),
+                                            width: 40,
+                                            height: 40,
                                             child: Container(
                                               decoration: BoxDecoration(
-                                                color: AppTheme.secondaryGreen,
+                                                color: AppTheme.primaryBlue
+                                                    .withValues(alpha: 0.2),
                                                 shape: BoxShape.circle,
                                                 border: Border.all(
                                                   color: Colors.white,
                                                   width: 2,
                                                 ),
-                                                boxShadow: const [
-                                                  BoxShadow(
-                                                    color: Colors.black26,
-                                                    blurRadius: 4,
-                                                    offset: Offset(0, 2),
-                                                  ),
-                                                ],
                                               ),
                                               child: const Center(
                                                 child: Icon(
-                                                  Icons.place_rounded,
-                                                  color: Colors.white,
+                                                  Icons.my_location_rounded,
+                                                  color: AppTheme.primaryBlue,
                                                   size: 16,
                                                 ),
                                               ),
                                             ),
                                           ),
-                                        );
-                                      }),
-                                      // User Location Marker
-                                      if (_userPosition != null)
-                                        Marker(
-                                          point: LatLng(
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                                // Refresh / Recenter Controls Overlay
+                                Positioned(
+                                  right: 10,
+                                  bottom: 10,
+                                  child: FloatingActionButton.small(
+                                    heroTag: 'recenter_btn',
+                                    tooltip: 'Center map on this destination',
+                                    onPressed: () {
+                                      if (_userPosition != null) {
+                                        final bounds = LatLngBounds.fromPoints([
+                                          LatLng(
                                             _userPosition!.latitude,
                                             _userPosition!.longitude,
                                           ),
-                                          width: 40,
-                                          height: 40,
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.primaryBlue
-                                                  .withValues(alpha: 0.2),
-                                              shape: BoxShape.circle,
-                                              border: Border.all(
-                                                color: Colors.white,
-                                                width: 2,
-                                              ),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.my_location_rounded,
+                                          LatLng(dest.latitude, dest.longitude),
+                                        ]);
+                                        _mapController.fitCamera(
+                                          CameraFit.bounds(
+                                            bounds: bounds,
+                                            padding: const EdgeInsets.all(40),
+                                          ),
+                                        );
+                                      } else {
+                                        _mapController.move(
+                                          LatLng(dest.latitude, dest.longitude),
+                                          13.0,
+                                        );
+                                      }
+                                    },
+                                    backgroundColor: Colors.white,
+                                    child: const Icon(
+                                      Icons.gps_fixed_rounded,
+                                      color: AppTheme.primaryBlue,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          // Location Info Bar / Call-to-action
+                          Container(
+                            padding: const EdgeInsets.all(AppConstants.spaceM),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.05)
+                                : Colors.grey.withValues(alpha: 0.1),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _userPosition == null
+                                      ? Text(
+                                          dest.routeReady
+                                              ? 'Blue pin: visitor arrival • Red pin: attraction'
+                                              : 'Attraction pin shown. Confirm arrival before travel.',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isDark
+                                                ? AppTheme.textSecondaryDark
+                                                : AppTheme.textSecondaryLight,
+                                          ),
+                                        )
+                                      : Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              dest.routeReady
+                                                  ? 'Route preview to visitor arrival'
+                                                  : 'Route preview to attraction',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold,
                                                 color: AppTheme.primaryBlue,
-                                                size: 16,
                                               ),
                                             ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              'Distance: ${_distanceToDestination!.toStringAsFixed(1)} km away',
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.secondaryGreen,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                ),
+                                _loadingLocation
+                                    ? const SizedBox(
+                                        width: 20,
+                                        height: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor:
+                                              AlwaysStoppedAnimation<Color>(
+                                                AppTheme.primaryBlue,
+                                              ),
+                                        ),
+                                      )
+                                    : TextButton.icon(
+                                        onPressed: () =>
+                                            _requestLocationAndRoute(
+                                              fitMapCamera: true,
+                                            ),
+                                        icon: Icon(
+                                          _userPosition == null
+                                              ? Icons.directions_rounded
+                                              : Icons.refresh_rounded,
+                                          size: 16,
+                                          color: AppTheme.primaryBlue,
+                                        ),
+                                        label: Text(
+                                          _userPosition == null
+                                              ? 'Get directions'
+                                              : 'Recalculate',
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.primaryBlue,
                                           ),
                                         ),
-                                    ],
+                                      ),
+                              ],
+                            ),
+                          ),
+                          if (_trafficSummary != null)
+                            Padding(
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                              child: _buildTrafficSummaryBanner(isDark),
+                            ),
+                        ],
+                      ),
+                    ),
+
+                    // Transportation
+                    if (transportOptions.isNotEmpty) ...[
+                      const SizedBox(height: AppConstants.spaceXL),
+                      Text(
+                        'Transportation & Fare',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryBlue,
+                        ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount:
+                            transportOptions.length +
+                            (_userPosition != null && !dest.isCatalogRecord
+                                ? 1
+                                : 0),
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppConstants.spaceS),
+                        itemBuilder: (context, index) {
+                          if (_userPosition != null &&
+                              !dest.isCatalogRecord &&
+                              index == 0) {
+                            final firstMile = _calculateFirstMile(
+                              _userPosition!,
+                            );
+                            final hub = firstMile['nearestHub'] as TransitHub;
+                            final costText = firstMile['cost'] == 0.0
+                                ? 'Free'
+                                : '₱${firstMile['cost'].toStringAsFixed(0)}';
+                            final vehicle = firstMile['vehicle'] as String;
+                            final distance = firstMile['distance'] as double;
+                            final duration = firstMile['duration'] as String;
+
+                            return Container(
+                              padding: const EdgeInsets.all(
+                                AppConstants.spaceM,
+                              ),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Theme.of(context).cardColor
+                                    : AppTheme.secondaryGreen.withValues(
+                                        alpha: 0.06,
+                                      ),
+                                borderRadius: BorderRadius.circular(
+                                  AppConstants.radiusL,
+                                ),
+                                border: Border.all(
+                                  color: AppTheme.secondaryGreen.withValues(
+                                    alpha: 0.3,
+                                  ),
+                                  width: 1.5,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 4,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              // Refresh / Recenter Controls Overlay
-                              Positioned(
-                                right: 10,
-                                bottom: 10,
-                                child: FloatingActionButton.small(
-                                  heroTag: 'recenter_btn',
-                                  onPressed: () {
-                                    if (_userPosition != null) {
-                                      final bounds = LatLngBounds.fromPoints([
-                                        LatLng(
-                                          _userPosition!.latitude,
-                                          _userPosition!.longitude,
-                                        ),
-                                        LatLng(dest.latitude, dest.longitude),
-                                      ]);
-                                      _mapController.fitCamera(
-                                        CameraFit.bounds(
-                                          bounds: bounds,
-                                          padding: const EdgeInsets.all(40),
-                                        ),
-                                      );
-                                    } else {
-                                      _mapController.move(
-                                        LatLng(dest.latitude, dest.longitude),
-                                        13.0,
-                                      );
-                                    }
-                                  },
-                                  backgroundColor: Colors.white,
-                                  child: const Icon(
-                                    Icons.gps_fixed_rounded,
-                                    color: AppTheme.primaryBlue,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.secondaryGreen.withValues(
+                                        alpha: 0.15,
+                                      ),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      vehicle.toLowerCase().contains('walking')
+                                          ? Icons.directions_walk_rounded
+                                          : vehicle.toLowerCase().contains(
+                                              'tricycle',
+                                            )
+                                          ? Icons.motorcycle_rounded
+                                          : Icons.directions_transit_rounded,
+                                      color: AppTheme.secondaryGreen,
+                                      size: 22,
+                                    ),
                                   ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // Location Info Bar / Call-to-action
-                        Container(
-                          padding: const EdgeInsets.all(AppConstants.spaceM),
-                          color: isDark
-                              ? Colors.white.withValues(alpha: 0.05)
-                              : Colors.grey.withValues(alpha: 0.1),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                child: _userPosition == null
-                                    ? Text(
-                                        'Visualize location & plan your route',
+                                  const SizedBox(width: AppConstants.spaceM),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                '📍 Doorstep to ${hub.city} Hub',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 13,
+                                                  color: isDark
+                                                      ? AppTheme.textPrimaryDark
+                                                      : AppTheme
+                                                            .textPrimaryLight,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 5,
+                                                    vertical: 2,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.secondaryGreen,
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: const Text(
+                                                'CUSTOM',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 8,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Take $vehicle from your current location → ${hub.name} (${distance.toStringAsFixed(1)} km).',
+                                          style: TextStyle(
+                                            fontSize: 11,
+                                            color: isDark
+                                                ? AppTheme.textSecondaryDark
+                                                : AppTheme.textSecondaryLight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: AppConstants.spaceM),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        costText,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: AppTheme.secondaryGreen,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        duration,
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 10,
                                           color: isDark
                                               ? AppTheme.textSecondaryDark
                                               : AppTheme.textSecondaryLight,
                                         ),
-                                      )
-                                    : Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        children: [
-                                          const Text(
-                                            'Shortest Route to Destination',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.primaryBlue,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            'Distance: ${_distanceToDestination!.toStringAsFixed(1)} km away',
-                                            style: const TextStyle(
-                                              fontSize: 13,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppTheme.secondaryGreen,
-                                            ),
-                                          ),
-                                        ],
                                       ),
+                                    ],
+                                  ),
+                                ],
                               ),
-                              _loadingLocation
-                                  ? const SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              AppTheme.primaryBlue,
-                                            ),
-                                      ),
-                                    )
-                                  : TextButton.icon(
-                                      onPressed: () => _requestLocationAndRoute(
-                                        fitMapCamera: true,
-                                      ),
-                                      icon: Icon(
-                                        _userPosition == null
-                                            ? Icons.directions_rounded
-                                            : Icons.refresh_rounded,
-                                        size: 16,
-                                        color: AppTheme.primaryBlue,
-                                      ),
-                                      label: Text(
-                                        _userPosition == null
-                                            ? 'Get Route'
-                                            : 'Recalculate',
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppTheme.primaryBlue,
-                                        ),
-                                      ),
-                                    ),
-                            ],
-                          ),
-                        ),
-                        if (_trafficSummary != null)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: _buildTrafficSummaryBanner(isDark),
-                          ),
-                      ],
-                    ),
-                  ),
+                            );
+                          }
 
-                  // Transportation
-                  if (dest.extra.transportOptions.isNotEmpty) ...[
-                    const SizedBox(height: AppConstants.spaceXL),
-                    Text(
-                      'Transportation & Fare',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primaryBlue,
-                      ),
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                    ListView.separated(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount:
-                          dest.extra.transportOptions.length +
-                          (_userPosition != null ? 1 : 0),
-                      separatorBuilder: (_, _) =>
-                          const SizedBox(height: AppConstants.spaceS),
-                      itemBuilder: (context, index) {
-                        if (_userPosition != null && index == 0) {
-                          final firstMile = _calculateFirstMile(_userPosition!);
-                          final hub = firstMile['nearestHub'] as TransitHub;
-                          final costText = firstMile['cost'] == 0.0
-                              ? 'Free'
-                              : '₱${firstMile['cost'].toStringAsFixed(0)}';
-                          final vehicle = firstMile['vehicle'] as String;
-                          final distance = firstMile['distance'] as double;
-                          final duration = firstMile['duration'] as String;
+                          final actualIndex =
+                              _userPosition != null && !dest.isCatalogRecord
+                              ? index - 1
+                              : index;
+                          final option = transportOptions[actualIndex];
+                          final vehicle =
+                              option['vehicle'] ?? 'Standard Transit';
+                          final price = option['price'] ?? 'Varies';
+                          final from = option['from'];
+                          final to = option['to'];
+                          final duration = option['duration'];
+
+                          // Decide which icon to show based on keywords
+                          IconData transportIcon = Icons.directions_bus_rounded;
+                          if (vehicle.toLowerCase().contains('taxi') ||
+                              vehicle.toLowerCase().contains('grab')) {
+                            transportIcon = Icons.local_taxi_rounded;
+                          } else if (vehicle.toLowerCase().contains('ferry') ||
+                              vehicle.toLowerCase().contains('boat') ||
+                              vehicle.toLowerCase().contains('speedboat')) {
+                            transportIcon = Icons.directions_boat_rounded;
+                          } else if (vehicle.toLowerCase().contains(
+                                'jeepney',
+                              ) ||
+                              vehicle.toLowerCase().contains('van')) {
+                            transportIcon = Icons.directions_transit_rounded;
+                          } else if (vehicle.toLowerCase().contains(
+                                'tricycle',
+                              ) ||
+                              vehicle.toLowerCase().contains('habal') ||
+                              vehicle.toLowerCase().contains('motorcycle')) {
+                            transportIcon = Icons.motorcycle_rounded;
+                          }
 
                           return Container(
                             padding: const EdgeInsets.all(AppConstants.spaceM),
                             decoration: BoxDecoration(
                               color: isDark
                                   ? Theme.of(context).cardColor
-                                  : AppTheme.secondaryGreen.withValues(
-                                      alpha: 0.06,
-                                    ),
+                                  : Colors.white,
                               borderRadius: BorderRadius.circular(
                                 AppConstants.radiusL,
                               ),
                               border: Border.all(
-                                color: AppTheme.secondaryGreen.withValues(
-                                  alpha: 0.3,
-                                ),
-                                width: 1.5,
+                                color: isDark
+                                    ? Colors.white10
+                                    : Colors.grey.withValues(alpha: 0.3),
                               ),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.04),
+                                  color: Colors.black.withValues(alpha: 0.05),
                                   blurRadius: 4,
                                   offset: const Offset(0, 2),
                                 ),
                               ],
                             ),
-                            child: Row(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.all(8),
-                                  decoration: BoxDecoration(
-                                    color: AppTheme.secondaryGreen.withValues(
-                                      alpha: 0.15,
-                                    ),
-                                    borderRadius: BorderRadius.circular(10),
-                                  ),
-                                  child: Icon(
-                                    vehicle.toLowerCase().contains('walking')
-                                        ? Icons.directions_walk_rounded
-                                        : vehicle.toLowerCase().contains(
-                                            'tricycle',
-                                          )
-                                        ? Icons.motorcycle_rounded
-                                        : Icons.directions_transit_rounded,
-                                    color: AppTheme.secondaryGreen,
-                                    size: 22,
-                                  ),
-                                ),
-                                const SizedBox(width: AppConstants.spaceM),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Flexible(
-                                            child: Text(
-                                              '📍 Doorstep to ${hub.city} Hub',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                                color: isDark
-                                                    ? AppTheme.textPrimaryDark
-                                                    : AppTheme.textPrimaryLight,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 5,
-                                              vertical: 2,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: AppTheme.secondaryGreen,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: const Text(
-                                              'CUSTOM',
-                                              style: TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 8,
-                                                fontWeight: FontWeight.bold,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        'Take $vehicle from your current location → ${hub.name} (${distance.toStringAsFixed(1)} km).',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isDark
-                                              ? AppTheme.textSecondaryDark
-                                              : AppTheme.textSecondaryLight,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: AppConstants.spaceM),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                Row(
                                   children: [
-                                    Text(
-                                      costText,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        color: AppTheme.secondaryGreen,
-                                        fontSize: 14,
+                                    Container(
+                                      padding: const EdgeInsets.all(8),
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryBlue.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Icon(
+                                        transportIcon,
+                                        color: AppTheme.primaryBlue,
+                                        size: 22,
                                       ),
                                     ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      duration,
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: isDark
-                                            ? AppTheme.textSecondaryDark
-                                            : AppTheme.textSecondaryLight,
+                                    const SizedBox(width: AppConstants.spaceM),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            vehicle,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13,
+                                              color: isDark
+                                                  ? AppTheme.textPrimaryDark
+                                                  : AppTheme.textPrimaryLight,
+                                            ),
+                                          ),
+                                          if (dest.isCatalogRecord)
+                                            Text(
+                                              'Rate ID ${option['id']}',
+                                              style: TextStyle(
+                                                fontSize: 11,
+                                                color: isDark
+                                                    ? AppTheme.textSecondaryDark
+                                                    : AppTheme
+                                                          .textSecondaryLight,
+                                              ),
+                                            ),
+                                          const SizedBox(height: 3),
+                                          if (from != null && to != null) ...[
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.navigation_rounded,
+                                                  size: 10,
+                                                  color: AppTheme.primaryBlue,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    '$from to $to',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: isDark
+                                                          ? AppTheme
+                                                                .textSecondaryDark
+                                                          : AppTheme
+                                                                .textSecondaryLight,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            const SizedBox(height: 2),
+                                          ],
+                                          if (duration != null &&
+                                              duration.isNotEmpty) ...[
+                                            Row(
+                                              children: [
+                                                const Icon(
+                                                  Icons.timer_outlined,
+                                                  size: 10,
+                                                  color: AppTheme.accentTeal,
+                                                ),
+                                                const SizedBox(width: 4),
+                                                Expanded(
+                                                  child: Text(
+                                                    'Duration: $duration',
+                                                    style: TextStyle(
+                                                      fontSize: 11,
+                                                      color: isDark
+                                                          ? AppTheme
+                                                                .textSecondaryDark
+                                                          : AppTheme
+                                                                .textSecondaryLight,
+                                                    ),
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ],
                                       ),
                                     ),
                                   ],
+                                ),
+                                const SizedBox(height: AppConstants.spaceS),
+                                Align(
+                                  alignment: Alignment.centerRight,
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.secondaryGreen.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      price,
+                                      textAlign: TextAlign.end,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: AppTheme.secondaryGreen,
+                                      ),
+                                    ),
+                                  ),
                                 ),
                               ],
                             ),
                           );
-                        }
-
-                        final actualIndex = _userPosition != null
-                            ? index - 1
-                            : index;
-                        final option = dest.extra.transportOptions[actualIndex];
-                        final vehicle = option['vehicle'] ?? 'Standard Transit';
-                        final price = option['price'] ?? 'Varies';
-                        final from = option['from'];
-                        final to = option['to'];
-                        final duration = option['duration'];
-
-                        // Decide which icon to show based on keywords
-                        IconData transportIcon = Icons.directions_bus_rounded;
-                        if (vehicle.toLowerCase().contains('taxi') ||
-                            vehicle.toLowerCase().contains('grab')) {
-                          transportIcon = Icons.local_taxi_rounded;
-                        } else if (vehicle.toLowerCase().contains('ferry') ||
-                            vehicle.toLowerCase().contains('boat') ||
-                            vehicle.toLowerCase().contains('speedboat')) {
-                          transportIcon = Icons.directions_boat_rounded;
-                        } else if (vehicle.toLowerCase().contains('jeepney') ||
-                            vehicle.toLowerCase().contains('van')) {
-                          transportIcon = Icons.directions_transit_rounded;
-                        } else if (vehicle.toLowerCase().contains('tricycle') ||
-                            vehicle.toLowerCase().contains('habal') ||
-                            vehicle.toLowerCase().contains('motorcycle')) {
-                          transportIcon = Icons.motorcycle_rounded;
-                        }
-
-                        return Container(
-                          padding: const EdgeInsets.all(AppConstants.spaceM),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? Theme.of(context).cardColor
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(
-                              AppConstants.radiusL,
-                            ),
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.white10
-                                  : Colors.grey.withValues(alpha: 0.3),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
-                                blurRadius: 4,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(8),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryBlue.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                                child: Icon(
-                                  transportIcon,
-                                  color: AppTheme.primaryBlue,
-                                  size: 22,
-                                ),
-                              ),
-                              const SizedBox(width: AppConstants.spaceM),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      vehicle,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 13,
-                                        color: isDark
-                                            ? AppTheme.textPrimaryDark
-                                            : AppTheme.textPrimaryLight,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    if (from != null && to != null) ...[
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.navigation_rounded,
-                                            size: 10,
-                                            color: AppTheme.primaryBlue,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              '$from to $to',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                                color: isDark
-                                                    ? AppTheme.textSecondaryDark
-                                                    : AppTheme
-                                                          .textSecondaryLight,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 2),
-                                    ],
-                                    if (duration != null) ...[
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.timer_outlined,
-                                            size: 10,
-                                            color: AppTheme.accentTeal,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Expanded(
-                                            child: Text(
-                                              'Duration: $duration',
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                color: isDark
-                                                    ? AppTheme.textSecondaryDark
-                                                    : AppTheme
-                                                          .textSecondaryLight,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ] else ...[
-                                      Text(
-                                        'Estimated average fare',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          color: isDark
-                                              ? AppTheme.textSecondaryDark
-                                              : AppTheme.textSecondaryLight,
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.secondaryGreen.withValues(
-                                    alpha: 0.1,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  price,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12,
-                                    color: AppTheme.secondaryGreen,
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                    _buildNearbyCarousel(),
-                  ],
-                  const SizedBox(height: AppConstants.spaceXXL),
-
-                  // Action buttons
-                  if (!widget.isFromRecommendation) ...[
-                    CustomButton(
-                      label: 'Plan with AI',
-                      onPressed: () {
-                        // Store the destination context in provider
-                        context.read<TripProvider>().setActivePlanDestination(
-                          dest,
-                        );
-                        // Switch bottom nav to Planner tab (index 1)
-                        context.read<NavProvider>().setIndex(1);
-                        // Pop back to the navigation shell
-                        Navigator.of(context).pop();
-                      },
-                      variant: ButtonVariant.ghost,
-                      width: double.infinity,
-                      leadingWidget: const ImageIcon(
-                        AssetImage('assets/icons/ai_planner.png'),
-                        size: 18,
+                        },
                       ),
-                    ),
+                      _buildNearbyCarousel(),
+                    ],
                     const SizedBox(height: AppConstants.spaceXL),
                   ],
-                ],
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       bottomNavigationBar: Container(
         padding: EdgeInsets.only(
@@ -1926,8 +2139,10 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           ),
         ),
         child: CustomButton(
-          label: '+ Add to My Trip',
-          onPressed: () => _showAddToTripBottomSheet(context, dest),
+          label: context.watch<AuthProvider>().isAuthenticated
+              ? 'Add to My Trip'
+              : 'Sign Up to Save',
+          onPressed: () => _addToTrip(dest),
           variant: ButtonVariant.secondary, // Coral background color
           width: double.infinity,
         ),
@@ -1935,17 +2150,17 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     );
   }
 
-  void _showAddToTripBottomSheet(BuildContext context, Destination dest) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+  void _showAddToTripBottomSheet(BuildContext pageContext, Destination dest) {
+    final isDark = Theme.of(pageContext).brightness == Brightness.dark;
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      context: pageContext,
+      backgroundColor: Theme.of(pageContext).colorScheme.surface,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (sheetContext) {
         return Consumer<TripProvider>(
-          builder: (context, provider, _) {
+          builder: (_, provider, _) {
             final trips = provider.userTrips;
             return Container(
               padding: const EdgeInsets.all(AppConstants.spaceL),
@@ -2026,7 +2241,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                     ),
                     onTap: () {
                       Navigator.pop(sheetContext);
-                      _showCreateTripDialog(context, dest);
+                      _showCreateTripDialog(pageContext, dest);
                     },
                   ),
                   const Divider(height: 24, thickness: 1),
@@ -2128,7 +2343,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                               );
                               Navigator.pop(sheetContext);
 
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(pageContext).showSnackBar(
                                 SnackBar(
                                   content: Text(
                                     '${dest.name} added to "${trip.title}"!',
@@ -2223,7 +2438,10 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                   title: title,
                   destinationName: dest.location,
                   dateRange: 'Flexible Dates',
-                  budget: dest.estimatedCost,
+                  budget: dest.estimatedCost ?? 0.0,
+                  notes: dest.estimatedCost == null
+                      ? 'Destination cost is not listed. Set a trip budget after confirming rates.'
+                      : '',
                   imageUrl: dest.imageUrl,
                   itinerary: {
                     1: [
@@ -2242,7 +2460,7 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
 
                 final provider = context.read<TripProvider>();
                 provider.addNewTrip(newTrip).then((success) {
-                  if (mounted) {
+                  if (mounted && context.mounted && dialogContext.mounted) {
                     Navigator.pop(dialogContext);
                     if (success) {
                       ApiService().recordInteraction(dest.id, 'itinerary_add');
@@ -2296,18 +2514,22 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
           child: Icon(icon, color: AppTheme.primaryBlue, size: 18),
         ),
         const SizedBox(width: AppConstants.spaceM),
-        Text(
-          label,
-          style: TextStyle(
-            fontWeight: FontWeight.w600,
-            fontSize: 13,
-            color: isDark
-                ? AppTheme.textPrimaryDark
-                : AppTheme.textPrimaryLight,
+        Expanded(
+          flex: 3,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+              color: isDark
+                  ? AppTheme.textPrimaryDark
+                  : AppTheme.textPrimaryLight,
+            ),
           ),
         ),
         const SizedBox(width: AppConstants.spaceM),
         Expanded(
+          flex: 2,
           child: Text(
             value,
             textAlign: TextAlign.end,
@@ -2322,44 +2544,175 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
     );
   }
 
-  Widget _infoBox(IconData icon, String value, String label, Color color) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(AppConstants.spaceM),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 22),
-            const SizedBox(height: 5),
-            Text(
+  Widget _buildTravelEssentials(
+    Destination destination, {
+    required double? displayCost,
+    required String costLabel,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+        border: Border.all(color: theme.dividerColor),
+        boxShadow: AppConstants.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'GOOD TO KNOW BEFORE YOU GO',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: AppTheme.primaryBlue,
+              fontSize: 11,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.1,
+            ),
+          ),
+          const SizedBox(height: AppConstants.spaceS),
+          _essentialLine(
+            Icons.star_rounded,
+            'Traveler rating',
+            destination.rating > 0
+                ? '${destination.rating.toStringAsFixed(1)} out of 5'
+                : 'Not rated yet',
+          ),
+          Divider(color: theme.dividerColor),
+          _essentialLine(
+            Icons.payments_outlined,
+            costLabel,
+            displayCost == null
+                ? 'Cost not listed'
+                : '₱${displayCost.toStringAsFixed(0)}',
+          ),
+          Divider(color: theme.dividerColor),
+          _essentialLine(
+            Icons.confirmation_number_outlined,
+            'Entrance fee',
+            destination.entranceFee.trim().isEmpty
+                ? 'Check before visiting'
+                : destination.entranceFee,
+          ),
+          const SizedBox(height: AppConstants.spaceS),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _scrollToMap,
+              icon: const Icon(Icons.map_outlined, size: 18),
+              label: const Text('See map & directions'),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceS,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _essentialLine(IconData icon, String label, String value) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceS),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: AppTheme.secondaryGreen, size: 20),
+          const SizedBox(width: AppConstants.spaceS),
+          Expanded(child: Text(label, style: theme.textTheme.bodyMedium)),
+          const SizedBox(width: AppConstants.spaceS),
+          Flexible(
+            child: Text(
               value,
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: color,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
               ),
             ),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark
-                    ? AppTheme.textSecondaryDark
-                    : AppTheme.textSecondaryLight,
-              ),
-            ),
-          ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLakbayPlanPrompt(Destination destination) {
+    final isAuthenticated = context.watch<AuthProvider>().isAuthenticated;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppConstants.spaceL),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [AppTheme.primaryBlue, Color(0xFF104B50)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(AppConstants.radiusL),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.route_rounded,
+                color: Color(0xFFFFD2B0),
+                size: 20,
+              ),
+              const SizedBox(width: AppConstants.spaceS),
+              Expanded(
+                child: Text(
+                  'LAKBAY+ TRIP STARTER',
+                  style: const TextStyle(
+                    color: Color(0xFFFFD2B0),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 1.2,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          const Text(
+            'One stop. A whole journey.',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: AppConstants.spaceS),
+          Text(
+            isAuthenticated
+                ? 'Start an AI itinerary with ${destination.name} already selected.'
+                : 'Create an account to plan around ${destination.name}, save places, and travel together.',
+            style: const TextStyle(color: Colors.white, height: 1.45),
+          ),
+          const SizedBox(height: AppConstants.spaceM),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => _openPlannerFor(destination),
+              icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+              label: Text(
+                isAuthenticated ? 'Plan this place' : 'Sign Up to Plan',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white70),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AppConstants.spaceM,
+                  vertical: AppConstants.spaceM,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -2713,6 +3066,16 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             Destination.loadImage(
                               nearby.imageUrl,
                               fit: BoxFit.cover,
+                              errorBuilder: (_, _, _) => Container(
+                                color: AppTheme.primaryBlue.withValues(
+                                  alpha: 0.1,
+                                ),
+                                child: const Icon(
+                                  Icons.landscape_rounded,
+                                  color: AppTheme.primaryBlue,
+                                  size: 32,
+                                ),
+                              ),
                             ),
                             // Rating Badge
                             Positioned(
@@ -2794,7 +3157,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              '₱${nearby.estimatedCost.toStringAsFixed(0)}',
+                              nearby.estimatedCost == null
+                                  ? 'Cost not listed'
+                                  : '₱${nearby.estimatedCost!.toStringAsFixed(0)}',
                               style: const TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 11,

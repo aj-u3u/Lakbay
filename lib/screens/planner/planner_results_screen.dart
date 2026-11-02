@@ -70,9 +70,11 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
   String _commuterStartPoint = 'Current Location';
   List<LatLng> _roadGeometryPoints = [];
   Map<String, dynamic>? _trafficSummary;
+  Map<String, dynamic>? _routeSummary;
+  String? _lastRouteKey;
+  String? _routeError;
+  String _selectedTravelMode = 'driving';
   bool _isLoadingRoute = false;
-  LatLng? _lastStartLoc;
-  int? _lastDestId;
   bool _isLoadingFeedback = false;
   Map<String, dynamic>? _feedbackData;
 
@@ -108,92 +110,170 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     }
   }
 
-  Future<void> _fetchRoadRoute(LatLng startLocation, Destination dest) async {
-    if (_lastStartLoc == startLocation && _lastDestId == dest.id) {
-      return;
-    }
-    _lastStartLoc = startLocation;
-    _lastDestId = dest.id;
+  Future<void> _fetchRoadRoute(
+    LatLng startLocation,
+    List<int> destinationIds,
+  ) async {
+    final routeKey =
+        '${startLocation.latitude},${startLocation.longitude}|${destinationIds.join(',')}|$_selectedTravelMode';
+    if (_lastRouteKey == routeKey) return;
+    _lastRouteKey = routeKey;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingRoute = true;
-        });
-      }
+    // This method is triggered from build; update loading state after the frame.
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted || _lastRouteKey != routeKey) return;
+    setState(() {
+      _isLoadingRoute = destinationIds.isNotEmpty;
+      _routeError = destinationIds.isEmpty
+          ? 'Route preview requires a destination from the live catalog.'
+          : null;
+      _routeSummary = null;
+      _roadGeometryPoints = [];
+      _trafficSummary = null;
     });
+    if (destinationIds.isEmpty) return;
 
     try {
-      final isSamal =
-          dest.name.toLowerCase().contains('samal') ||
-          dest.location.toLowerCase().contains('samal') ||
-          widget.trip?.destinationName.toLowerCase().contains('samal') == true;
-
-      List<Map<String, dynamic>> destinationsList = [];
-      if (isSamal) {
-        destinationsList.add({
-          "destination_id": -1,
-          "name": "Sasa Wharf",
-          "lat": 7.1017,
-          "lng": 125.6601,
-        });
-        destinationsList.add({
-          "destination_id": -2,
-          "name": "Babak Port",
-          "lat": 7.1189,
-          "lng": 125.6822,
-        });
-      }
-      destinationsList.add({
-        "destination_id": dest.id,
-        "name": dest.name,
-        "lat": dest.latitude,
-        "lng": dest.longitude,
-      });
-
       final response = await ApiService().optimizeRoute(
-        destinations: destinationsList,
+        destinations: destinationIds
+            .map((id) => <String, dynamic>{'destination_id': id})
+            .toList(),
         startLat: startLocation.latitude,
         startLng: startLocation.longitude,
         startName: 'Start Point',
         returnToStart: false,
+        travelMode: _selectedTravelMode,
       );
-      final trafficRaw = response?['traffic'];
-      final trafficSummary = trafficRaw is Map
-          ? trafficRaw.cast<String, dynamic>()
-          : null;
-
-      if (response != null && response['geometry'] != null) {
-        final geometry = response['geometry'];
-        if (geometry['coordinates'] != null) {
-          final List<dynamic> coords = geometry['coordinates'];
-          final List<LatLng> points = coords.map((c) {
-            final double lng = (c[0] as num).toDouble();
-            final double lat = (c[1] as num).toDouble();
-            return LatLng(lat, lng);
-          }).toList();
-
-          if (mounted) {
-            setState(() {
-              _roadGeometryPoints = points;
-              _trafficSummary = trafficSummary;
-              _isLoadingRoute = false;
-            });
-          }
-          return;
-        }
-      }
-    } catch (e) {
-      debugPrint('Error fetching road route: $e');
-    }
-
-    if (mounted) {
+      if (!mounted || _lastRouteKey != routeKey) return;
+      final geometry = response?['geometry'];
+      final coordinates = geometry is Map ? geometry['coordinates'] : null;
+      final points = coordinates is List
+          ? coordinates.whereType<List>().map((item) {
+              return LatLng(
+                (item[1] as num).toDouble(),
+                (item[0] as num).toDouble(),
+              );
+            }).toList()
+          : <LatLng>[];
+      final traffic = response?['traffic'];
       setState(() {
-        _roadGeometryPoints = [];
-        _trafficSummary = null;
+        _roadGeometryPoints = points;
+        _trafficSummary = traffic is Map
+            ? traffic.cast<String, dynamic>()
+            : null;
+        _routeSummary = response;
+        _routeError = response == null
+            ? 'Route preview is unavailable right now.'
+            : null;
         _isLoadingRoute = false;
       });
+    } catch (error) {
+      if (!mounted || _lastRouteKey != routeKey) return;
+      setState(() {
+        _routeError = 'Route preview is unavailable right now.';
+        _isLoadingRoute = false;
+      });
+      debugPrint('Error fetching route preview: $error');
     }
+  }
+
+  Widget _buildRouteDetails(bool isDark) {
+    if (_isLoadingRoute) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final route = _routeSummary;
+    if (route == null) {
+      return Text(
+        _routeError ?? 'Loading route preview...',
+        style: Theme.of(context).textTheme.bodyMedium,
+      );
+    }
+
+    final legs = route['legs'] is List ? route['legs'] as List : const [];
+    final warnings = route['warnings'] is List
+        ? route['warnings'] as List
+        : const [];
+    final provider = route['route_provider']?.toString() ?? 'unknown';
+    final estimated = route['is_estimated'] == true;
+    final verified = route['arrival_points_verified'] == true;
+    final distance = route['total_distance_km']?.toString() ?? '0';
+    final minutes = route['total_duration_minutes']?.toString() ?? '0';
+
+    return Container(
+      padding: const EdgeInsets.all(AppConstants.spaceM),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(AppConstants.radiusM),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '$distance km • $minutes min${estimated ? ' estimated' : ''}',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Route source: $provider',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+          if (!verified) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Arrival points need confirmation. This is a planning preview.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: isDark ? Colors.amber[200] : Colors.deepOrange[700],
+              ),
+            ),
+          ],
+          for (final warning in warnings.take(2))
+            Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Text(
+                warning.toString(),
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ),
+          for (final legRaw in legs.whereType<Map>())
+            Builder(
+              builder: (context) {
+                final leg = legRaw.cast<String, dynamic>();
+                final steps = leg['steps'] is List
+                    ? leg['steps'] as List
+                    : const [];
+                return ExpansionTile(
+                  tilePadding: EdgeInsets.zero,
+                  title: Text(
+                    '${leg['from_name'] ?? 'Start'} ➔ ${leg['to_name'] ?? 'Stop'}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text(
+                    '${leg['distance_km'] ?? 0} km • ${leg['duration_minutes'] ?? 0} min',
+                  ),
+                  children: steps.isEmpty
+                      ? [
+                          const ListTile(
+                            title: Text(
+                              'Turn directions are unavailable for this leg.',
+                            ),
+                          ),
+                        ]
+                      : steps.whereType<Map>().map((step) {
+                          return ListTile(
+                            dense: true,
+                            title: Text(
+                              step['instruction']?.toString() ?? 'Continue',
+                            ),
+                            subtitle: Text('${step['distance_meters'] ?? 0} m'),
+                          );
+                        }).toList(),
+                );
+              },
+            ),
+        ],
+      ),
+    );
   }
 
   Color _trafficColor(String level) {
@@ -1136,23 +1216,14 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
               : 'Davao City Center';
         }
 
-        // Trigger road route fetching from OSRM
-        _fetchRoadRoute(startLocation, dest);
-
-        // Generate optimized route coordinates with barge crossing if destination is in Samal Island
-        final isSamal =
-            lowerSearch.contains('samal') ||
-            dest.location.toLowerCase().contains('samal') ||
-            dest.name.toLowerCase().contains('pearl farm') ||
-            dest.name.toLowerCase().contains('hagimit');
-
-        final List<LatLng> routePoints = [startLocation];
-        if (isSamal) {
-          // Commuter Barge Crossing points: start -> Sasa Wharf -> Babak Port -> Samal Destination
-          routePoints.add(const LatLng(7.1017, 125.6601)); // Sasa Wharf
-          routePoints.add(const LatLng(7.1189, 125.6822)); // Babak Port
-        }
-        routePoints.add(LatLng(dest.latitude, dest.longitude));
+        final routeDestinationIds = trip.destinationIds.isNotEmpty
+            ? trip.destinationIds
+            : (dest.isCatalogRecord ? <int>[dest.id] : <int>[]);
+        unawaited(_fetchRoadRoute(startLocation, routeDestinationIds));
+        final routeStops = (_routeSummary?['stops'] as List? ?? const [])
+            .whereType<Map>()
+            .where((stop) => stop['is_origin'] != true)
+            .toList();
 
         final double minLowCostPerPerson = _calculateOptionCost(
           dest,
@@ -1474,13 +1545,38 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        'AI optimized paths calculated for your journey.',
+                        'Road routes and estimates for your selected stops.',
                         style: GoogleFonts.outfit(
                           fontSize: 12,
                           color: isDark
                               ? AppTheme.textSecondaryDark
                               : AppTheme.textSecondaryLight,
                         ),
+                      ),
+                      const SizedBox(height: AppConstants.spaceS),
+                      Wrap(
+                        spacing: 8,
+                        children:
+                            const [
+                              ('driving', 'Drive'),
+                              ('walking', 'Walk'),
+                              ('public_transport', 'Bus estimate'),
+                            ].map((option) {
+                              return ChoiceChip(
+                                label: Text(option.$2),
+                                selected: _selectedTravelMode == option.$1,
+                                onSelected: (_) {
+                                  setState(() {
+                                    _selectedTravelMode = option.$1;
+                                    _lastRouteKey = null;
+                                    _routeSummary = null;
+                                    _roadGeometryPoints = [];
+                                    _trafficSummary = null;
+                                    _routeError = null;
+                                  });
+                                },
+                              );
+                            }).toList(),
                       ),
                       if (_trafficSummary != null) ...[
                         const SizedBox(height: AppConstants.spaceS),
@@ -1522,15 +1618,15 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                   userAgentPackageName: 'com.lakbay.plus',
                                 ),
                                 PolylineLayer(
-                                  polylines: [
-                                    Polyline(
-                                      points: _roadGeometryPoints.isNotEmpty
-                                          ? _roadGeometryPoints
-                                          : routePoints,
-                                      color: AppTheme.primaryBlue,
-                                      strokeWidth: 4,
-                                    ),
-                                  ],
+                                  polylines: _roadGeometryPoints.length < 2
+                                      ? <Polyline<Object>>[]
+                                      : <Polyline<Object>>[
+                                          Polyline<Object>(
+                                            points: _roadGeometryPoints,
+                                            color: AppTheme.primaryBlue,
+                                            strokeWidth: 4,
+                                          ),
+                                        ],
                                 ),
                                 MarkerLayer(
                                   markers: [
@@ -1545,48 +1641,44 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                         size: 28,
                                       ),
                                     ),
-                                    if (isSamal) ...[
-                                      // Sasa Wharf Barge Crossing Marker
+                                    if (routeStops.isEmpty)
                                       Marker(
-                                        point: const LatLng(7.1017, 125.6601),
-                                        width: 32,
-                                        height: 32,
-                                        child: Container(
-                                          decoration: const BoxDecoration(
-                                            color: Colors.white,
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black26,
-                                                blurRadius: 3,
-                                                offset: Offset(0, 1),
-                                              ),
-                                            ],
+                                        point: LatLng(
+                                          dest.latitude,
+                                          dest.longitude,
+                                        ),
+                                        width: 45,
+                                        height: 45,
+                                        child: const Icon(
+                                          Icons.location_on_rounded,
+                                          color: Colors.redAccent,
+                                          size: 38,
+                                        ),
+                                      )
+                                    else
+                                      ...routeStops.asMap().entries.map((
+                                        entry,
+                                      ) {
+                                        final stop = entry.value;
+                                        return Marker(
+                                          point: LatLng(
+                                            (stop['lat'] as num).toDouble(),
+                                            (stop['lng'] as num).toDouble(),
                                           ),
-                                          child: const Center(
-                                            child: Icon(
-                                              Icons.directions_boat_rounded,
-                                              color: AppTheme.primaryBlue,
-                                              size: 18,
+                                          width: 40,
+                                          height: 40,
+                                          child: CircleAvatar(
+                                            backgroundColor:
+                                                AppTheme.primaryBlue,
+                                            child: Text(
+                                              '${entry.key + 1}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      ),
-                                    ],
-                                    // Destination Marker
-                                    Marker(
-                                      point: LatLng(
-                                        dest.latitude,
-                                        dest.longitude,
-                                      ),
-                                      width: 45,
-                                      height: 45,
-                                      child: const Icon(
-                                        Icons.location_on_rounded,
-                                        color: Colors.redAccent,
-                                        size: 38,
-                                      ),
-                                    ),
+                                        );
+                                      }),
                                   ],
                                 ),
                               ],
@@ -1628,7 +1720,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                     const SizedBox(width: 8),
                                     Expanded(
                                       child: Text(
-                                        'Optimized Route: $startName ➔ ${dest.name}',
+                                        'Route: $startName ➔ ${routeStops.isEmpty ? dest.name : routeStops.map((stop) => stop['name']).join(' ➔ ')}',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: GoogleFonts.outfit(
@@ -1672,6 +1764,8 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: AppConstants.spaceM),
+                      _buildRouteDetails(isDark),
 
                       // 3. Accommodation & Transportation details
                       const SizedBox(height: AppConstants.spaceXL),

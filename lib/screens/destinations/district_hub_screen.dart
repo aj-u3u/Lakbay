@@ -38,20 +38,23 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
   ];
 
   List<Destination> _getFiltered(List<Destination> all) {
-    final districtDests =
-        all.where((d) => d.district == widget.districtName).toList();
+    final districtDests = all
+        .where((d) => d.district == widget.districtName)
+        .toList();
     if (_selectedCategory == 'All') return districtDests;
     return districtDests
-        .where((d) =>
-            d.category
-                .toLowerCase()
-                .contains(_selectedCategory.toLowerCase()))
+        .where(
+          (d) => d.category.toLowerCase().contains(
+            _selectedCategory.toLowerCase(),
+          ),
+        )
         .toList();
   }
 
   List<Destination> _getTopRated(List<Destination> all) {
-    final districtDests =
-        all.where((d) => d.district == widget.districtName).toList();
+    final districtDests = all
+        .where((d) => d.district == widget.districtName)
+        .toList();
     final sorted = List<Destination>.from(districtDests)
       ..sort((a, b) => b.rating.compareTo(a.rating));
     return sorted.take(6).toList();
@@ -60,14 +63,34 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<TripProvider>();
-    final allDests = provider.destinations.isNotEmpty
-        ? provider.destinations
-        : Destination.davaoDestinations;
+    final allDests = provider.destinations;
+    if (provider.catalogLoading && !provider.catalogLoaded) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+    if (provider.catalogError != null) {
+      return Scaffold(
+        appBar: AppBar(title: Text(widget.districtName)),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(provider.catalogError!, textAlign: TextAlign.center),
+              const SizedBox(height: 12),
+              FilledButton(
+                onPressed: context.read<TripProvider>().refreshDestinations,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
 
     final filtered = _getFiltered(allDests);
     final topRated = _getTopRated(allDests);
-    final totalCount =
-        allDests.where((d) => d.district == widget.districtName).length;
+    final totalCount = allDests
+        .where((d) => d.district == widget.districtName)
+        .length;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -106,9 +129,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                   Image.network(
                     widget.heroImageUrl,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      color: widget.accentColor,
-                    ),
+                    errorBuilder: (_, _, _) =>
+                        Container(color: widget.accentColor),
                   ),
                   // Gradient overlay
                   DecoratedBox(
@@ -137,7 +159,9 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                         // Province badge
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 4),
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
                             color: widget.accentColor.withValues(alpha: 0.85),
                             borderRadius: BorderRadius.circular(20),
@@ -166,8 +190,11 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                         // Stats row
                         Row(
                           children: [
-                            const Icon(Icons.place_rounded,
-                                color: Colors.white70, size: 14),
+                            const Icon(
+                              Icons.place_rounded,
+                              color: Colors.white70,
+                              size: 14,
+                            ),
                             const SizedBox(width: 4),
                             Text(
                               '$totalCount destinations to explore',
@@ -196,19 +223,21 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(
-                      horizontal: AppConstants.spaceM),
+                    horizontal: AppConstants.spaceM,
+                  ),
                   itemCount: _categories.length,
                   itemBuilder: (_, i) {
                     final cat = _categories[i];
                     final isSelected = cat == _selectedCategory;
                     return GestureDetector(
-                      onTap: () =>
-                          setState(() => _selectedCategory = cat),
+                      onTap: () => setState(() => _selectedCategory = cat),
                       child: AnimatedContainer(
                         duration: AppConstants.animDurationFast,
                         margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 16, vertical: 6),
+                          horizontal: 16,
+                          vertical: 6,
+                        ),
                         decoration: BoxDecoration(
                           color: isSelected
                               ? widget.accentColor
@@ -217,9 +246,7 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                           border: Border.all(
                             color: isSelected
                                 ? widget.accentColor
-                                : (isDark
-                                    ? Colors.white24
-                                    : Colors.black12),
+                                : (isDark ? Colors.white24 : Colors.black12),
                           ),
                         ),
                         child: Text(
@@ -228,8 +255,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                             color: isSelected
                                 ? Colors.white
                                 : (isDark
-                                    ? AppTheme.textSecondaryDark
-                                    : AppTheme.textSecondaryLight),
+                                      ? AppTheme.textSecondaryDark
+                                      : AppTheme.textSecondaryLight),
                             fontWeight: isSelected
                                 ? FontWeight.bold
                                 : FontWeight.normal,
@@ -253,7 +280,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                   const SizedBox(height: AppConstants.spaceL),
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppConstants.spaceM),
+                      horizontal: AppConstants.spaceM,
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -278,7 +306,9 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                         const SizedBox(width: 8),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 8, vertical: 2),
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: widget.accentColor.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(10),
@@ -301,7 +331,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: AppConstants.spaceM),
+                        horizontal: AppConstants.spaceM,
+                      ),
                       itemCount: topRated.length,
                       itemBuilder: (context, i) {
                         final dest = topRated[i];
@@ -324,7 +355,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                   const SizedBox(height: AppConstants.spaceL),
                   Padding(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: AppConstants.spaceM),
+                      horizontal: AppConstants.spaceM,
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -359,8 +391,11 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(
-                    AppConstants.spaceM, AppConstants.spaceL,
-                    AppConstants.spaceM, AppConstants.spaceS),
+                  AppConstants.spaceM,
+                  AppConstants.spaceL,
+                  AppConstants.spaceM,
+                  AppConstants.spaceS,
+                ),
                 child: Row(
                   children: [
                     Container(
@@ -395,9 +430,11 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.search_off_rounded,
-                            size: 56,
-                            color: widget.accentColor.withValues(alpha: 0.4)),
+                        Icon(
+                          Icons.search_off_rounded,
+                          size: 56,
+                          color: widget.accentColor.withValues(alpha: 0.4),
+                        ),
                         const SizedBox(height: 12),
                         Text(
                           'No $_selectedCategory spots found',
@@ -425,16 +462,19 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                 )
               : SliverPadding(
                   padding: const EdgeInsets.fromLTRB(
-                      AppConstants.spaceM, 0,
-                      AppConstants.spaceM, AppConstants.spaceM),
+                    AppConstants.spaceM,
+                    0,
+                    AppConstants.spaceM,
+                    AppConstants.spaceM,
+                  ),
                   sliver: SliverGrid(
                     gridDelegate:
                         const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      childAspectRatio: 0.72,
-                      crossAxisSpacing: AppConstants.spaceM,
-                      mainAxisSpacing: AppConstants.spaceM,
-                    ),
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.72,
+                          crossAxisSpacing: AppConstants.spaceM,
+                          mainAxisSpacing: AppConstants.spaceM,
+                        ),
                     delegate: SliverChildBuilderDelegate(
                       (context, i) => DestinationCard(
                         destination: filtered[i],
@@ -452,7 +492,8 @@ class _DistrictHubScreenState extends State<DistrictHubScreen> {
                 ),
 
           const SliverToBoxAdapter(
-              child: SizedBox(height: AppConstants.spaceXL)),
+            child: SizedBox(height: AppConstants.spaceXL),
+          ),
         ],
       ),
     );
@@ -472,6 +513,8 @@ class _CategoryFilterDelegate extends SliverPersistentHeaderDelegate {
   bool shouldRebuild(covariant SliverPersistentHeaderDelegate old) => true;
   @override
   Widget build(
-          BuildContext context, double shrinkOffset, bool overlapsContent) =>
-      child;
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) => child;
 }

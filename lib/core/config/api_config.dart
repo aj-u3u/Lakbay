@@ -1,6 +1,15 @@
+import 'package:flutter/foundation.dart';
+
 class ApiConfig {
-  static const String baseUrl = String.fromEnvironment(
+  static const String _configuredBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'http://127.0.0.1:8000/api/v1',
   );
+
+  static String get baseUrl {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      return 'https://lakbay-backend-final.onrender.com/api/v1';
+    }
+    return 'https://lakbay-backend-final.onrender.com/api/v1';
+  }
 }

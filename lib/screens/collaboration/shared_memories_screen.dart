@@ -8,7 +8,6 @@ import '../../core/constants/app_constants.dart';
 import '../../models/trip.dart';
 import '../../providers/trip_provider.dart';
 
-
 class SharedMemoriesScreen extends StatefulWidget {
   final Trip? trip;
   const SharedMemoriesScreen({super.key, this.trip});
@@ -20,23 +19,35 @@ class SharedMemoriesScreen extends StatefulWidget {
 class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
   bool _requestedBackendRefresh = false;
 
-  // Random pool of beautiful travel stock photos in Davao Region
-  final List<String> _stockImages = [
-    'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
-    'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
-    'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
-    'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80',
-    'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
-    'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
-  ];
+  Trip? _getTrip(BuildContext context) {
+    final requestedTrip = widget.trip;
+    if (requestedTrip == null) return null;
 
-  Trip _getTrip(BuildContext context) {
-    if (widget.trip != null) {
-      final trips = context.watch<TripProvider>().userTrips;
-      return trips.firstWhere((t) => t.id == widget.trip!.id, orElse: () => widget.trip!);
+    for (final trip in context.watch<TripProvider>().userTrips) {
+      if (trip.id == requestedTrip.id) return trip;
     }
-    final trips = context.watch<TripProvider>().userTrips;
-    return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
+    return null;
+  }
+
+  Widget _buildSavedTripRequiredState(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Trip Memories'),
+      ),
+      body: const Center(
+        child: Padding(
+          padding: EdgeInsets.all(AppConstants.spaceXL),
+          child: Text(
+            'Open memories from a saved trip to view or upload photos.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -47,22 +58,28 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final provider = context.read<TripProvider>();
-      final trips = provider.userTrips;
-      final trip = widget.trip ?? (trips.isNotEmpty ? trips.first : null);
-      if (trip != null) {
+      final trip = widget.trip;
+      if (trip != null && provider.isPersistedTrip(trip)) {
         provider.refreshTripCollaboration(trip);
       }
     });
   }
 
-  Future<void> _showAddMemorySheet(BuildContext context, Trip activeTrip) async {
+  Future<void> _showAddMemorySheet(
+    BuildContext context,
+    Trip activeTrip,
+  ) async {
     final picker = ImagePicker();
-    final XFile? pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+    final XFile? pickedFile = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
     if (pickedFile == null) return;
 
     final file = File(pickedFile.path);
     final result = await _showAddPhotoDialog(file, activeTrip.destinationName);
     if (result == null) return;
+    if (!context.mounted) return;
 
     final caption = result['caption'] ?? '';
     final location = result['location'] ?? '';
@@ -76,7 +93,7 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
           ? location
           : activeTrip.destinationName.split(',').first,
     );
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -90,9 +107,14 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     );
   }
 
-  Future<Map<String, String>?> _showAddPhotoDialog(File imageFile, String defaultLocation) async {
+  Future<Map<String, String>?> _showAddPhotoDialog(
+    File imageFile,
+    String defaultLocation,
+  ) async {
     final captionCtrl = TextEditingController();
-    final locationCtrl = TextEditingController(text: defaultLocation.split(',').first);
+    final locationCtrl = TextEditingController(
+      text: defaultLocation.split(',').first,
+    );
 
     return showModalBottomSheet<Map<String, String>>(
       context: context,
@@ -101,11 +123,15 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
       builder: (ctx) {
         final isDark = Theme.of(ctx).brightness == Brightness.dark;
         return Padding(
-          padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: isDark ? AppTheme.cardColorDark : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(24),
+              ),
             ),
             padding: const EdgeInsets.all(AppConstants.spaceL),
             child: Column(
@@ -172,7 +198,9 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text('Cancel', style: GoogleFonts.outfit()),
@@ -191,12 +219,16 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(AppConstants.radiusM),
+                            borderRadius: BorderRadius.circular(
+                              AppConstants.radiusM,
+                            ),
                           ),
                         ),
                         child: Text(
                           'Upload',
-                          style: GoogleFonts.outfit(fontWeight: FontWeight.bold),
+                          style: GoogleFonts.outfit(
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
                       ),
                     ),
@@ -214,8 +246,16 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete Memory?', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.red)),
-        content: const Text('Are you sure you want to remove this photo from your travel memories?'),
+        title: Text(
+          'Delete Memory?',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: Colors.red,
+          ),
+        ),
+        content: const Text(
+          'Are you sure you want to remove this photo from your travel memories?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
@@ -227,7 +267,10 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
               final provider = context.read<TripProvider>();
               final navigator = Navigator.of(ctx);
               final messenger = ScaffoldMessenger.of(context);
-              final success = await provider.deleteMemoryFromTrip(activeTrip, index);
+              final success = await provider.deleteMemoryFromTrip(
+                activeTrip,
+                index,
+              );
               if (!mounted) return;
               navigator.pop();
               messenger.showSnackBar(
@@ -237,8 +280,9 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                         ? 'Memory deleted.'
                         : (provider.errorMessage ?? 'Failed to delete memory.'),
                   ),
-                  backgroundColor:
-                      success ? AppTheme.secondaryGreen : Colors.redAccent,
+                  backgroundColor: success
+                      ? AppTheme.secondaryGreen
+                      : Colors.redAccent,
                 ),
               );
             },
@@ -251,7 +295,11 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<TripProvider>();
     final activeTrip = _getTrip(context);
+    if (activeTrip == null || !provider.isPersistedTrip(activeTrip)) {
+      return _buildSavedTripRequiredState(context);
+    }
     final memoriesList = activeTrip.memories;
 
     return Scaffold(
@@ -266,7 +314,11 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_photo_alternate_rounded, color: AppTheme.secondaryGreen, size: 28),
+            icon: const Icon(
+              Icons.add_photo_alternate_rounded,
+              color: AppTheme.secondaryGreen,
+              size: 28,
+            ),
             onPressed: () => _showAddMemorySheet(context, activeTrip),
           ),
           const SizedBox(width: 8),
@@ -278,14 +330,35 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Container(
-                    width: 72, height: 72,
-                    decoration: BoxDecoration(color: AppTheme.accentTeal.withValues(alpha: 0.05), shape: BoxShape.circle),
-                    child: const Icon(Icons.add_a_photo_rounded, color: AppTheme.accentTeal, size: 32),
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppTheme.accentTeal.withValues(alpha: 0.05),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.add_a_photo_rounded,
+                      color: AppTheme.accentTeal,
+                      size: 32,
+                    ),
                   ),
                   const SizedBox(height: 16),
-                  Text('No memories captured yet.', style: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 16, color: AppTheme.primaryBlue)),
+                  Text(
+                    'No memories captured yet.',
+                    style: GoogleFonts.outfit(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.primaryBlue,
+                    ),
+                  ),
                   const SizedBox(height: 6),
-                  const Text('Capture and upload your first photo of the trip!', style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight)),
+                  const Text(
+                    'Capture and upload your first photo of the trip!',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textSecondaryLight,
+                    ),
+                  ),
                 ],
               ),
             )
@@ -310,33 +383,72 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                         child: Row(
                           children: [
                             ClipOval(
-                              child: Image.network(post['avatar']!, width: 40, height: 40, fit: BoxFit.cover,
+                              child: Image.network(
+                                post['avatar']!,
+                                width: 40,
+                                height: 40,
+                                fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => Container(
-                                  width: 40, height: 40,
-                                  color: AppTheme.secondaryGreen.withValues(alpha: 0.2),
-                                  child: const Icon(Icons.person, color: AppTheme.primaryBlue, size: 20),
-                                )),
+                                  width: 40,
+                                  height: 40,
+                                  color: AppTheme.secondaryGreen.withValues(
+                                    alpha: 0.2,
+                                  ),
+                                  child: const Icon(
+                                    Icons.person,
+                                    color: AppTheme.primaryBlue,
+                                    size: 20,
+                                  ),
+                                ),
+                              ),
                             ),
                             const SizedBox(width: AppConstants.spaceM),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(post['user']!, style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14, color: AppTheme.primaryBlue)),
-                                Text(post['time']!, style: const TextStyle(
-                                  fontSize: 11, color: AppTheme.textSecondaryLight)),
+                                Text(
+                                  post['user']!,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                    color: AppTheme.primaryBlue,
+                                  ),
+                                ),
+                                Text(
+                                  post['time']!,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.textSecondaryLight,
+                                  ),
+                                ),
                               ],
                             ),
                             const Spacer(),
-                            if (post['location'] != null && post['location'].toString().isNotEmpty) ...[
-                              const Icon(Icons.pin_drop_rounded, size: 14, color: Colors.redAccent),
+                            if (post['location'] != null &&
+                                post['location'].toString().isNotEmpty) ...[
+                              const Icon(
+                                Icons.pin_drop_rounded,
+                                size: 14,
+                                color: Colors.redAccent,
+                              ),
                               const SizedBox(width: 3),
-                              Text(post['location'], style: const TextStyle(fontSize: 11, color: AppTheme.textSecondaryLight)),
+                              Text(
+                                post['location'],
+                                style: const TextStyle(
+                                  fontSize: 11,
+                                  color: AppTheme.textSecondaryLight,
+                                ),
+                              ),
                               const SizedBox(width: 8),
                             ],
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent, size: 20),
-                              onPressed: () => _confirmDeleteMemory(context, activeTrip, i),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                color: Colors.redAccent,
+                                size: 20,
+                              ),
+                              onPressed: () =>
+                                  _confirmDeleteMemory(context, activeTrip, i),
                               constraints: const BoxConstraints(),
                               padding: EdgeInsets.zero,
                             ),
@@ -354,7 +466,9 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => Container(
                                   height: 220,
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
                                 ),
                               )
                             : Image.network(
@@ -364,7 +478,9 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => Container(
                                   height: 220,
-                                  color: AppTheme.primaryBlue.withValues(alpha: 0.1),
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
                                 ),
                               ),
                       ),
@@ -374,16 +490,34 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(post['caption']!, style: const TextStyle(
-                              fontSize: 13, color: AppTheme.textSecondaryLight, height: 1.5)),
+                            Text(
+                              post['caption']!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppTheme.textSecondaryLight,
+                                height: 1.5,
+                              ),
+                            ),
                             const SizedBox(height: AppConstants.spaceM),
                             Row(
                               children: [
-                                _actionButton(Icons.favorite_border_rounded, post['likes'] ?? '0', Colors.red),
+                                _actionButton(
+                                  Icons.favorite_border_rounded,
+                                  post['likes'] ?? '0',
+                                  Colors.red,
+                                ),
                                 const SizedBox(width: AppConstants.spaceL),
-                                _actionButton(Icons.chat_bubble_outline_rounded, post['comments'] ?? '0', AppTheme.primaryBlue),
+                                _actionButton(
+                                  Icons.chat_bubble_outline_rounded,
+                                  post['comments'] ?? '0',
+                                  AppTheme.primaryBlue,
+                                ),
                                 const Spacer(),
-                                const Icon(Icons.share_outlined, size: 20, color: AppTheme.textSecondaryLight),
+                                const Icon(
+                                  Icons.share_outlined,
+                                  size: 20,
+                                  color: AppTheme.textSecondaryLight,
+                                ),
                               ],
                             ),
                           ],
@@ -402,7 +536,14 @@ class _SharedMemoriesScreenState extends State<SharedMemoriesScreen> {
       children: [
         Icon(icon, size: 20, color: color),
         const SizedBox(width: 4),
-        Text(count, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w600)),
+        Text(
+          count,
+          style: TextStyle(
+            fontSize: 12,
+            color: color,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }

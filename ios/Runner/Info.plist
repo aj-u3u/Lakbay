@@ -4,6 +4,8 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>This app needs access to your location to show the path to travel destinations.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Choose a photo from your library for your Lakbay+ profile.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>This app needs access to your location to show the path to travel destinations.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>

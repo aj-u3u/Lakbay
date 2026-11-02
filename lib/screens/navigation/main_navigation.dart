@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../providers/nav_provider.dart';
 import '../home/home_screen.dart';
-import '../planner/planner_screen.dart';
+import '../planner/conversational_planner_screen.dart';
 import '../trips/trips_screen.dart';
 import '../memories/memories_screen.dart';
 import '../profile/profile_screen.dart';
@@ -13,7 +13,7 @@ class MainNavigation extends StatelessWidget {
 
   static const List<Widget> _screens = [
     HomeScreen(),
-    PlannerScreen(),
+    ConversationalPlannerScreen(),
     TripsScreen(),
     MemoriesScreen(),
     ProfileScreen(),
@@ -24,10 +24,7 @@ class MainNavigation extends StatelessWidget {
     return Consumer<NavProvider>(
       builder: (context, nav, _) {
         return Scaffold(
-          body: IndexedStack(
-            index: nav.currentIndex,
-            children: _screens,
-          ),
+          body: IndexedStack(index: nav.currentIndex, children: _screens),
           bottomNavigationBar: Container(
             decoration: BoxDecoration(
               boxShadow: [
@@ -49,7 +46,9 @@ class MainNavigation extends StatelessWidget {
                 ),
                 BottomNavigationBarItem(
                   icon: ImageIcon(AssetImage('assets/icons/ai_planner.png')),
-                  activeIcon: ImageIcon(AssetImage('assets/icons/ai_planner.png')),
+                  activeIcon: ImageIcon(
+                    AssetImage('assets/icons/ai_planner.png'),
+                  ),
                   label: 'Planner',
                 ),
                 BottomNavigationBarItem(
@@ -75,4 +74,3 @@ class MainNavigation extends StatelessWidget {
     );
   }
 }
-

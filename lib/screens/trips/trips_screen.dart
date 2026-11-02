@@ -17,7 +17,8 @@ class TripsScreen extends StatefulWidget {
   State<TripsScreen> createState() => _TripsScreenState();
 }
 
-class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStateMixin {
+class _TripsScreenState extends State<TripsScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabCtrl;
   String _selectedFilter = 'All'; // 'All', 'Solo', 'Group'
 
@@ -34,18 +35,31 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
   }
 
   bool _isTripCompleted(Trip trip) {
-    if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
+    if (trip.dateRange.contains('Flexible') ||
+        trip.dateRange.contains('AI Generated')) {
       return false; // Drafts/flexible are upcoming
     }
     try {
       final parts = trip.dateRange.split(RegExp(r'\s*[-–]\s*'));
-      final String endDateStr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
-      
+      final String endDateStr = parts.length > 1
+          ? parts[1].trim()
+          : parts[0].trim();
+
       final months = {
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        'jan': 1,
+        'feb': 2,
+        'mar': 3,
+        'apr': 4,
+        'may': 5,
+        'jun': 6,
+        'jul': 7,
+        'aug': 8,
+        'sep': 9,
+        'oct': 10,
+        'nov': 11,
+        'dec': 12,
       };
-      
+
       final cleanStr = endDateStr.toLowerCase().replaceAll(',', '');
       final strParts = cleanStr.split(RegExp(r'\s+'));
       if (strParts.length >= 3) {
@@ -94,7 +108,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 ),
               ),
               const SizedBox(height: AppConstants.spaceM),
-              
+
               // Option 1: Manual Trip
               ListTile(
                 leading: Container(
@@ -103,21 +117,29 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                     color: AppTheme.primaryBlue.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.edit_note_rounded, color: AppTheme.primaryBlue, size: 24),
+                  child: const Icon(
+                    Icons.edit_note_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 24,
+                  ),
                 ),
                 title: Text(
                   'Manual Trip',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    color: isDark
+                        ? AppTheme.textPrimaryDark
+                        : AppTheme.textPrimaryLight,
                   ),
                 ),
                 subtitle: Text(
                   'Create a customized trip manually with your own details',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
                   ),
                 ),
                 onTap: () {
@@ -131,7 +153,7 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 },
               ),
               const Divider(),
-              
+
               // Option 2: AI Planner
               ListTile(
                 leading: Container(
@@ -140,141 +162,40 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                     color: AppTheme.secondaryGreen.withValues(alpha: 0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: const ImageIcon(AssetImage('assets/icons/ai_planner.png'), color: AppTheme.secondaryGreen, size: 24),
+                  child: const ImageIcon(
+                    AssetImage('assets/icons/ai_planner.png'),
+                    color: AppTheme.secondaryGreen,
+                    size: 24,
+                  ),
                 ),
                 title: Text(
                   'AI Trip Planner',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
-                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                    color: isDark
+                        ? AppTheme.textPrimaryDark
+                        : AppTheme.textPrimaryLight,
                   ),
                 ),
                 subtitle: Text(
                   'Let our intelligent chatbot map out a custom itinerary',
                   style: TextStyle(
                     fontSize: 11,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                    color: isDark
+                        ? AppTheme.textSecondaryDark
+                        : AppTheme.textSecondaryLight,
                   ),
                 ),
                 onTap: () {
                   Navigator.pop(sheetContext);
-                  context.read<NavProvider>().setIndex(1); // Swaps tab to Planner
-                },
-              ),
-              const Divider(),
-              
-              // Option 3: Join via Link
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withValues(alpha: 0.1),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.link_rounded, color: Colors.amber, size: 24),
-                ),
-                title: Text(
-                  'Join via Link',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                    color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
-                  ),
-                ),
-                subtitle: Text(
-                  'Paste a shared group link to join an existing group itinerary',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                  ),
-                ),
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  _showJoinLinkDialog(context);
+                  context.read<NavProvider>().setIndex(
+                    1,
+                  ); // Swaps tab to Planner
                 },
               ),
             ],
           ),
-        );
-      },
-    );
-  }
-
-  void _showJoinLinkDialog(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final TextEditingController linkController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Join Group Trip',
-            style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: AppTheme.primaryBlue),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Paste the shared group invite link below to sync this trip to your dashboard.',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: AppConstants.spaceM),
-              TextField(
-                controller: linkController,
-                autofocus: true,
-                decoration: InputDecoration(
-                  labelText: 'Invite Link',
-                  hintText: 'e.g. lakbay://trip/join?code=123',
-                  labelStyle: const TextStyle(color: AppTheme.primaryBlue),
-                  enabledBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppTheme.primaryBlue.withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderSide: const BorderSide(color: AppTheme.primaryBlue),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final link = linkController.text.trim();
-                if (link.isEmpty) return;
-
-                Navigator.pop(dialogContext);
-                
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Successfully joined the group trip! syncing... 👥'),
-                    backgroundColor: AppTheme.secondaryGreen,
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.secondaryGreen,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child: const Text('Join'),
-            ),
-          ],
         );
       },
     );
@@ -289,7 +210,10 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
     ];
 
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceS, horizontal: AppConstants.spaceM),
+      padding: const EdgeInsets.symmetric(
+        vertical: AppConstants.spaceS,
+        horizontal: AppConstants.spaceM,
+      ),
       color: Theme.of(context).colorScheme.surface,
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -311,25 +235,34 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                 child: AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
                   curve: Curves.easeInOut,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: isSelected
                         ? AppTheme.primaryBlue
-                        : (isDark ? Colors.grey.withValues(alpha: 0.1) : Colors.grey.withValues(alpha: 0.06)),
+                        : (isDark
+                              ? Colors.grey.withValues(alpha: 0.1)
+                              : Colors.grey.withValues(alpha: 0.06)),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isSelected
                           ? AppTheme.primaryBlue
-                          : (isDark ? Colors.grey.withValues(alpha: 0.2) : Colors.grey.withValues(alpha: 0.15)),
+                          : (isDark
+                                ? Colors.grey.withValues(alpha: 0.2)
+                                : Colors.grey.withValues(alpha: 0.15)),
                       width: 1,
                     ),
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                              color: AppTheme.primaryBlue.withValues(
+                                alpha: 0.3,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 3),
-                            )
+                            ),
                           ]
                         : null,
                   ),
@@ -340,17 +273,25 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                         size: 14,
                         color: isSelected
                             ? Colors.white
-                            : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                            : (isDark
+                                  ? AppTheme.textSecondaryDark
+                                  : AppTheme.textSecondaryLight),
                       ),
                       const SizedBox(width: 6),
                       Text(
-                        label == 'All' ? 'All Trips' : (label == 'Solo' ? 'Solo Trips' : 'Group Trips'),
+                        label == 'All'
+                            ? 'All Trips'
+                            : (label == 'Solo' ? 'Solo Trips' : 'Group Trips'),
                         style: GoogleFonts.outfit(
                           fontSize: 12,
-                          fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
                           color: isSelected
                               ? Colors.white
-                              : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
+                              : (isDark
+                                    ? AppTheme.textPrimaryDark
+                                    : AppTheme.textPrimaryLight),
                         ),
                       ),
                     ],
@@ -369,14 +310,34 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: Text('My Trips', style: GoogleFonts.outfit(
-          fontWeight: FontWeight.bold, fontSize: 24, color: AppTheme.primaryBlue)),
+        title: Text(
+          'My Trips',
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 24,
+            color: AppTheme.primaryBlue,
+          ),
+        ),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh trips',
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              context.read<TripProvider>().loadInitialData();
+            },
+          ),
+        ],
         bottom: TabBar(
           controller: _tabCtrl,
           indicatorColor: AppTheme.primaryBlue,
           labelColor: AppTheme.primaryBlue,
-          unselectedLabelColor: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55),
-          labelStyle: GoogleFonts.outfit(fontWeight: FontWeight.bold, fontSize: 13),
+          unselectedLabelColor: Theme.of(
+            context,
+          ).colorScheme.onSurface.withValues(alpha: 0.55),
+          labelStyle: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            fontSize: 13,
+          ),
           tabs: const [
             Tab(text: 'Upcoming'),
             Tab(text: 'Completed'),
@@ -389,10 +350,30 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
           Expanded(
             child: Consumer<TripProvider>(
               builder: (_, provider, _) {
-                if (provider.isLoading) return const LoadingIndicator(message: 'Loading your trips...');
-                
+                if (provider.isLoading) {
+                  return const LoadingIndicator(
+                    message: 'Loading your trips...',
+                  );
+                }
+                if (provider.tripsError != null) {
+                  return Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(provider.tripsError!, textAlign: TextAlign.center),
+                        TextButton(
+                          onPressed: () {
+                            provider.loadInitialData();
+                          },
+                          child: const Text('Retry'),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
                 final trips = provider.userTrips;
-                
+
                 List<Trip> filterByStyle(List<Trip> list) {
                   if (_selectedFilter == 'Solo') {
                     return list.where((t) => !t.isGroup).toList();
@@ -402,23 +383,33 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
                   return list;
                 }
 
-                final upcomingTrips = filterByStyle(trips.where((t) => !_isTripCompleted(t)).toList());
-                final completedTrips = filterByStyle(trips.where((t) => _isTripCompleted(t)).toList());
+                final upcomingTrips = filterByStyle(
+                  trips.where((t) => !_isTripCompleted(t)).toList(),
+                );
+                final completedTrips = filterByStyle(
+                  trips.where((t) => _isTripCompleted(t)).toList(),
+                );
 
                 return TabBarView(
                   controller: _tabCtrl,
                   children: [
                     upcomingTrips.isEmpty
                         ? _buildEmptyState(
-                            _selectedFilter == 'All' ? 'No upcoming trips' : 'No upcoming $_selectedFilter trips',
+                            _selectedFilter == 'All'
+                                ? 'No upcoming trips'
+                                : 'No upcoming $_selectedFilter trips',
                             Icons.flight_takeoff_rounded,
-                            'Plan a new trip to get started!')
+                            'Plan a new trip to get started!',
+                          )
                         : _buildTripList(upcomingTrips),
                     completedTrips.isEmpty
                         ? _buildEmptyState(
-                            _selectedFilter == 'All' ? 'No completed trips yet' : 'No completed $_selectedFilter trips yet',
+                            _selectedFilter == 'All'
+                                ? 'No completed trips yet'
+                                : 'No completed $_selectedFilter trips yet',
                             Icons.check_circle_outline,
-                            'Complete a trip to see it here.')
+                            'Complete a trip to see it here.',
+                          )
                         : _buildTripList(completedTrips),
                   ],
                 );
@@ -451,12 +442,30 @@ class _TripsScreenState extends State<TripsScreen> with SingleTickerProviderStat
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 64, color: AppTheme.primaryBlue.withValues(alpha: 0.2)),
+          Icon(
+            icon,
+            size: 64,
+            color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+          ),
           const SizedBox(height: AppConstants.spaceM),
-          Text(title, style: GoogleFonts.outfit(
-            fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryBlue.withValues(alpha: 0.5))),
+          Text(
+            title,
+            style: GoogleFonts.outfit(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+              color: AppTheme.primaryBlue.withValues(alpha: 0.5),
+            ),
+          ),
           const SizedBox(height: AppConstants.spaceS),
-          Text(subtitle, style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55), fontSize: 13)),
+          Text(
+            subtitle,
+            style: TextStyle(
+              color: Theme.of(
+                context,
+              ).colorScheme.onSurface.withValues(alpha: 0.55),
+              fontSize: 13,
+            ),
+          ),
         ],
       ),
     );
@@ -472,7 +481,8 @@ class PulsingDot extends StatefulWidget {
   State<PulsingDot> createState() => _PulsingDotState();
 }
 
-class _PulsingDotState extends State<PulsingDot> with SingleTickerProviderStateMixin {
+class _PulsingDotState extends State<PulsingDot>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _animation;
 
@@ -539,8 +549,12 @@ class _TripCard extends StatelessWidget {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-                final provider = Provider.of<TripProvider>(context, listen: false);
+                final provider = Provider.of<TripProvider>(
+                  context,
+                  listen: false,
+                );
                 final success = await provider.deleteTrip(trip.id);
+                if (!context.mounted) return;
                 if (success) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -551,7 +565,9 @@ class _TripCard extends StatelessWidget {
                 } else {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(provider.errorMessage ?? 'Failed to delete trip.'),
+                      content: Text(
+                        provider.errorMessage ?? 'Failed to delete trip.',
+                      ),
                       backgroundColor: Colors.redAccent,
                     ),
                   );
@@ -573,21 +589,32 @@ class _TripCard extends StatelessWidget {
   }
 
   TripStatus _getTripStatus(Trip trip) {
-    if (trip.dateRange.contains('Flexible') || trip.dateRange.contains('AI Generated')) {
+    if (trip.dateRange.contains('Flexible') ||
+        trip.dateRange.contains('AI Generated')) {
       return TripStatus.upcoming;
     }
     try {
       final parts = trip.dateRange.split(RegExp(r'\s*[-–]\s*'));
       if (parts.isEmpty) return TripStatus.upcoming;
-      
+
       final startDateStr = parts[0].trim();
       final endDateStr = parts.length > 1 ? parts[1].trim() : parts[0].trim();
-      
+
       final months = {
-        'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-        'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        'jan': 1,
+        'feb': 2,
+        'mar': 3,
+        'apr': 4,
+        'may': 5,
+        'jun': 6,
+        'jul': 7,
+        'aug': 8,
+        'sep': 9,
+        'oct': 10,
+        'nov': 11,
+        'dec': 12,
       };
-      
+
       DateTime? parseDate(String dateStr) {
         final cleanStr = dateStr.toLowerCase().replaceAll(',', '');
         final strParts = cleanStr.split(RegExp(r'\s+'));
@@ -599,14 +626,21 @@ class _TripCard extends StatelessWidget {
         }
         return null;
       }
-      
+
       final startDate = parseDate(startDateStr);
       final endDate = parseDate(endDateStr);
-      
+
       if (startDate != null && endDate != null) {
         final now = DateTime.now();
         final todayMidnight = DateTime(now.year, now.month, now.day);
-        final endMidnight = DateTime(endDate.year, endDate.month, endDate.day, 23, 59, 59);
+        final endMidnight = DateTime(
+          endDate.year,
+          endDate.month,
+          endDate.day,
+          23,
+          59,
+          59,
+        );
         if (todayMidnight.isAfter(endMidnight)) {
           return TripStatus.completed;
         } else {
@@ -704,11 +738,7 @@ class _TripCard extends StatelessWidget {
                       size: 15,
                       color: Colors.white,
                     )
-                  : Icon(
-                      icon,
-                      size: 15,
-                      color: Colors.white,
-                    ),
+                  : Icon(icon, size: 15, color: Colors.white),
             ),
           ),
         ),
@@ -722,11 +752,7 @@ class _TripCard extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        Navigator.pushNamed(
-          context,
-          AppRoutes.groupDashboard,
-          arguments: trip,
-        );
+        Navigator.pushNamed(context, AppRoutes.groupDashboard, arguments: trip);
       },
       child: Container(
         margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
@@ -839,7 +865,9 @@ class _TripCard extends StatelessWidget {
                             _buildActionCircle(
                               imageAsset: 'assets/icons/ai_planner.png',
                               onTap: () {
-                                context.read<TripProvider>().discussTripWithAI(trip);
+                                context.read<TripProvider>().discussTripWithAI(
+                                  trip,
+                                );
                                 context.read<NavProvider>().setIndex(1);
                               },
                             ),
@@ -889,19 +917,23 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
   final List<Map<String, String>> _coverImages = [
     {
       'name': 'Beach 🏖️',
-      'url': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'
+      'url':
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
     },
     {
       'name': 'Mountain ⛰️',
-      'url': 'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80'
+      'url':
+          'https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80',
     },
     {
       'name': 'City 🏙️',
-      'url': 'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80'
+      'url':
+          'https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?w=800&q=80',
     },
     {
       'name': 'Forest 🌲',
-      'url': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80'
+      'url':
+          'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=800&q=80',
     },
   ];
 
@@ -942,7 +974,20 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
   }
 
   String _formatDate(DateTime dt) {
-    final months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    final months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
@@ -964,7 +1009,7 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
     }
 
     final budgetVal = double.tryParse(_budgetController.text) ?? 5000.0;
-    
+
     final newTrip = Trip(
       id: 'trip-${DateTime.now().millisecondsSinceEpoch}',
       title: _titleController.text.trim(),
@@ -982,17 +1027,17 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
             description: 'First day of your amazing adventure.',
             cost: 'Free',
             location: _destController.text.trim(),
-          )
-        ]
+          ),
+        ],
       },
     );
 
     // Show loading indicator or block UI
     final provider = context.read<TripProvider>();
     final success = await provider.addNewTrip(newTrip);
-    
+
     if (!mounted) return;
-    
+
     if (success) {
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1004,7 +1049,9 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(provider.errorMessage ?? 'Failed to save trip. Please try again.'),
+          content: Text(
+            provider.errorMessage ?? 'Failed to save trip. Please try again.',
+          ),
           backgroundColor: Colors.redAccent,
         ),
       );
@@ -1055,38 +1102,64 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                 controller: _titleController,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  color: isDark
+                      ? AppTheme.textPrimaryDark
+                      : AppTheme.textPrimaryLight,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Trip Name',
                   hintText: 'e.g. Samal Summer Getaway',
-                  prefixIcon: const Icon(Icons.edit_road_rounded, color: AppTheme.primaryBlue, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(
+                    Icons.edit_road_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 20,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: 2,
+                    ),
                   ),
                 ),
-                validator: (val) => val == null || val.trim().isEmpty ? 'Enter a trip name' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter a trip name'
+                    : null,
               ),
               const SizedBox(height: AppConstants.spaceM),
               TextFormField(
                 controller: _destController,
                 style: TextStyle(
                   fontSize: 14,
-                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  color: isDark
+                      ? AppTheme.textPrimaryDark
+                      : AppTheme.textPrimaryLight,
                 ),
                 decoration: InputDecoration(
                   labelText: 'Where to?',
                   hintText: 'e.g. Samal Island, Davao del Norte',
-                  prefixIcon: const Icon(Icons.location_on_rounded, color: AppTheme.primaryBlue, size: 20),
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  prefixIcon: const Icon(
+                    Icons.location_on_rounded,
+                    color: AppTheme.primaryBlue,
+                    size: 20,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppTheme.primaryBlue,
+                      width: 2,
+                    ),
                   ),
                 ),
-                validator: (val) => val == null || val.trim().isEmpty ? 'Enter a destination' : null,
+                validator: (val) => val == null || val.trim().isEmpty
+                    ? 'Enter a destination'
+                    : null,
               ),
               const SizedBox(height: AppConstants.spaceM),
               Row(
@@ -1096,28 +1169,51 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onTap: _selectDates,
                       borderRadius: BorderRadius.circular(12),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM, vertical: 15),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppConstants.spaceM,
+                          vertical: 15,
+                        ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: Colors.grey.withValues(alpha: 0.5),
+                          ),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today_rounded, size: 18, color: AppTheme.primaryBlue),
+                            const Icon(
+                              Icons.calendar_today_rounded,
+                              size: 18,
+                              color: AppTheme.primaryBlue,
+                            ),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Dates', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                                  const Text(
+                                    'Dates',
+                                    style: TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    _selectedDateRange == null ? 'Select Dates' : _dateRangeText,
+                                    _selectedDateRange == null
+                                        ? 'Select Dates'
+                                        : _dateRangeText,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       fontSize: 12,
-                                      fontWeight: _selectedDateRange == null ? FontWeight.normal : FontWeight.bold,
-                                      color: _selectedDateRange == null ? Colors.grey : (isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight),
+                                      fontWeight: _selectedDateRange == null
+                                          ? FontWeight.normal
+                                          : FontWeight.bold,
+                                      color: _selectedDateRange == null
+                                          ? Colors.grey
+                                          : (isDark
+                                                ? AppTheme.textPrimaryDark
+                                                : AppTheme.textPrimaryLight),
                                     ),
                                   ),
                                 ],
@@ -1134,22 +1230,37 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       controller: _budgetController,
                       style: TextStyle(
                         fontSize: 14,
-                        color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                        color: isDark
+                            ? AppTheme.textPrimaryDark
+                            : AppTheme.textPrimaryLight,
                       ),
                       keyboardType: TextInputType.number,
                       decoration: InputDecoration(
                         labelText: 'Budget (PHP)',
                         hintText: 'e.g. 15000',
-                        prefixIcon: const Icon(Icons.payments_rounded, color: AppTheme.primaryBlue, size: 20),
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                        prefixIcon: const Icon(
+                          Icons.payments_rounded,
+                          color: AppTheme.primaryBlue,
+                          size: 20,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(color: AppTheme.primaryBlue, width: 2),
+                          borderSide: const BorderSide(
+                            color: AppTheme.primaryBlue,
+                            width: 2,
+                          ),
                         ),
                       ),
                       validator: (val) {
-                        if (val == null || val.trim().isEmpty) return 'Enter budget';
-                        if (double.tryParse(val) == null) return 'Enter valid number';
+                        if (val == null || val.trim().isEmpty) {
+                          return 'Enter budget';
+                        }
+                        if (double.tryParse(val) == null) {
+                          return 'Enter valid number';
+                        }
                         return null;
                       },
                     ),
@@ -1162,7 +1273,9 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  color: isDark
+                      ? AppTheme.textPrimaryDark
+                      : AppTheme.textPrimaryLight,
                 ),
               ),
               const SizedBox(height: AppConstants.spaceS),
@@ -1175,10 +1288,16 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onSelected: (val) {
                         if (val) setState(() => _isGroup = false);
                       },
-                      selectedColor: AppTheme.primaryBlue.withValues(alpha: 0.12),
+                      selectedColor: AppTheme.primaryBlue.withValues(
+                        alpha: 0.12,
+                      ),
                       checkmarkColor: AppTheme.primaryBlue,
                       labelStyle: TextStyle(
-                        color: !_isGroup ? AppTheme.primaryBlue : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                        color: !_isGroup
+                            ? AppTheme.primaryBlue
+                            : (isDark
+                                  ? AppTheme.textSecondaryDark
+                                  : AppTheme.textSecondaryLight),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1192,10 +1311,16 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onSelected: (val) {
                         if (val) setState(() => _isGroup = true);
                       },
-                      selectedColor: AppTheme.secondaryGreen.withValues(alpha: 0.12),
+                      selectedColor: AppTheme.secondaryGreen.withValues(
+                        alpha: 0.12,
+                      ),
                       checkmarkColor: AppTheme.secondaryGreen,
                       labelStyle: TextStyle(
-                        color: _isGroup ? AppTheme.secondaryGreen : (isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight),
+                        color: _isGroup
+                            ? AppTheme.secondaryGreen
+                            : (isDark
+                                  ? AppTheme.textSecondaryDark
+                                  : AppTheme.textSecondaryLight),
                         fontWeight: FontWeight.bold,
                         fontSize: 12,
                       ),
@@ -1209,7 +1334,9 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                 style: GoogleFonts.outfit(
                   fontSize: 14,
                   fontWeight: FontWeight.bold,
-                  color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                  color: isDark
+                      ? AppTheme.textPrimaryDark
+                      : AppTheme.textPrimaryLight,
                 ),
               ),
               const SizedBox(height: AppConstants.spaceS),
@@ -1225,20 +1352,26 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                       onTap: () => setState(() => _selectedImageIndex = idx),
                       child: Container(
                         width: 100,
-                        margin: const EdgeInsets.only(right: AppConstants.spaceM),
+                        margin: const EdgeInsets.only(
+                          right: AppConstants.spaceM,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryBlue : Colors.transparent,
+                            color: isSelected
+                                ? AppTheme.primaryBlue
+                                : Colors.transparent,
                             width: 2.5,
                           ),
                           boxShadow: isSelected
                               ? [
                                   BoxShadow(
-                                    color: AppTheme.primaryBlue.withValues(alpha: 0.3),
+                                    color: AppTheme.primaryBlue.withValues(
+                                      alpha: 0.3,
+                                    ),
                                     blurRadius: 4,
                                     spreadRadius: 1,
-                                  )
+                                  ),
                                 ]
                               : [],
                         ),
@@ -1247,7 +1380,10 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                           child: Stack(
                             fit: StackFit.expand,
                             children: [
-                              Destination.loadImage(item['url']!, fit: BoxFit.cover),
+                              Destination.loadImage(
+                                item['url']!,
+                                fit: BoxFit.cover,
+                              ),
                               Container(color: Colors.black26),
                               Center(
                                 child: Text(
@@ -1256,7 +1392,12 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                                     color: Colors.white,
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
-                                    shadows: [Shadow(color: Colors.black, blurRadius: 4)],
+                                    shadows: [
+                                      Shadow(
+                                        color: Colors.black,
+                                        blurRadius: 4,
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ),
@@ -1287,7 +1428,13 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
                     children: const [
                       Icon(Icons.flight_takeoff_rounded, size: 20),
                       SizedBox(width: 8),
-                      Text('Start Planning', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                      Text(
+                        'Start Planning',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 15,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1299,4 +1446,3 @@ class _CreateTripBottomSheetState extends State<_CreateTripBottomSheet> {
     );
   }
 }
-

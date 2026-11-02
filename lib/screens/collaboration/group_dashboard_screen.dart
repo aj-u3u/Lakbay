@@ -13,6 +13,7 @@ import '../../core/routes/app_routes.dart';
 import '../../models/trip.dart';
 import '../../models/destination.dart';
 import '../../services/api_service.dart';
+import '../../services/pdf_export_service.dart';
 import '../../providers/trip_provider.dart';
 
 class TransitHub {
@@ -85,65 +86,49 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   final MapController _mapController = MapController();
   String _commuterStartPoint = 'Current Location';
   List<LatLng> _roadGeometryPoints = [];
+  List<Map<String, dynamic>> _routeStops = [];
   Map<String, dynamic>? _trafficSummary;
-  bool _isLoadingRoute = false;
   LatLng? _lastStartLoc;
-  int? _lastDestId;
+  String? _lastRouteIds;
 
-  Future<void> _fetchRoadRoute(LatLng startLocation, Destination dest) async {
-    if (_lastStartLoc == startLocation && _lastDestId == dest.id) {
+  Future<void> _fetchRoadRoute(
+    LatLng startLocation,
+    List<int> destinationIds,
+  ) async {
+    final routeIds = destinationIds.join(',');
+    if (_lastStartLoc == startLocation && _lastRouteIds == routeIds) {
       return;
     }
     _lastStartLoc = startLocation;
-    _lastDestId = dest.id;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          _isLoadingRoute = true;
-        });
-      }
-    });
+    _lastRouteIds = routeIds;
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
 
     try {
-      final isSamal =
-          dest.name.toLowerCase().contains('samal') ||
-          dest.location.toLowerCase().contains('samal') ||
-          widget.trip?.destinationName.toLowerCase().contains('samal') == true;
+      final destinationsList = destinationIds
+          .map((id) => <String, dynamic>{'destination_id': id})
+          .toList();
 
-      List<Map<String, dynamic>> destinationsList = [];
-      if (isSamal) {
-        destinationsList.add({
-          "destination_id": -1,
-          "name": "Sasa Wharf",
-          "lat": 7.1017,
-          "lng": 125.6601,
-        });
-        destinationsList.add({
-          "destination_id": -2,
-          "name": "Babak Port",
-          "lat": 7.1189,
-          "lng": 125.6822,
-        });
-      }
-      destinationsList.add({
-        "destination_id": dest.id,
-        "name": dest.name,
-        "lat": dest.latitude,
-        "lng": dest.longitude,
-      });
-
-      final response = await ApiService().optimizeRoute(
-        destinations: destinationsList,
-        startLat: startLocation.latitude,
-        startLng: startLocation.longitude,
-        startName: 'Start Point',
-        returnToStart: false,
-      );
+      final response = destinationsList.isEmpty
+          ? null
+          : await ApiService().optimizeRoute(
+              destinations: destinationsList,
+              startLat: startLocation.latitude,
+              startLng: startLocation.longitude,
+              startName: 'Start Point',
+              returnToStart: false,
+            );
       final trafficRaw = response?['traffic'];
       final trafficSummary = trafficRaw is Map
           ? trafficRaw.cast<String, dynamic>()
           : null;
+      final routeStops = response?['stops'] is List
+          ? (response!['stops'] as List)
+                .whereType<Map>()
+                .where((stop) => stop['is_origin'] != true)
+                .map((stop) => stop.cast<String, dynamic>())
+                .toList()
+          : <Map<String, dynamic>>[];
 
       if (response != null && response['geometry'] != null) {
         final geometry = response['geometry'];
@@ -159,12 +144,20 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             setState(() {
               _roadGeometryPoints = points;
               _trafficSummary = trafficSummary;
-              _isLoadingRoute = false;
+              _routeStops = routeStops;
             });
           }
           return;
         }
       }
+      if (mounted) {
+        setState(() {
+          _roadGeometryPoints = [];
+          _trafficSummary = trafficSummary;
+          _routeStops = routeStops;
+        });
+      }
+      return;
     } catch (e) {
       debugPrint('Error fetching road route: $e');
     }
@@ -173,7 +166,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       setState(() {
         _roadGeometryPoints = [];
         _trafficSummary = null;
-        _isLoadingRoute = false;
+        _routeStops = [];
       });
     }
   }
@@ -367,6 +360,16 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       _isLoadingBackendCollaboration = false;
     });
     _syncProviderMembers(trip);
+    if (membersError != null || expensesError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            membersError ?? expensesError ?? 'Failed to refresh trip data.',
+          ),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   Future<void> _requestLocation() async {
@@ -571,11 +574,8 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         {
           'step': '1. Your Location to ${hub.name}',
           'type':
-              firstMile['vehicle'] +
-              " (" +
-              firstMile['distance'].toStringAsFixed(1) +
-              " km)",
-          'cost': '₱' + firstMile['cost'].toStringAsFixed(0),
+              "${firstMile['vehicle']} (${firstMile['distance'].toStringAsFixed(1)} km)",
+          'cost': "₱${firstMile['cost'].toStringAsFixed(0)}",
           'duration': firstMile['duration'],
         },
       ];
@@ -1139,22 +1139,13 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           : 'Davao City Center';
     }
 
-    // Trigger OSRM road geometry fetching
-    _fetchRoadRoute(startLocation, dest);
-
-    final lowerSearch = activeTrip.destinationName.toLowerCase();
-    final isSamal =
-        lowerSearch.contains('samal') ||
-        dest.location.toLowerCase().contains('samal') ||
-        dest.name.toLowerCase().contains('pearl farm') ||
-        dest.name.toLowerCase().contains('hagimit');
-
-    final List<LatLng> routePoints = [startLocation];
-    if (isSamal) {
-      routePoints.add(const LatLng(7.1017, 125.6601));
-      routePoints.add(const LatLng(7.1189, 125.6822));
-    }
-    routePoints.add(LatLng(dest.latitude, dest.longitude));
+    // Draw road geometry only when the backend route provider supplied it.
+    _fetchRoadRoute(
+      startLocation,
+      activeTrip.destinationIds.isNotEmpty
+          ? activeTrip.destinationIds
+          : (dest.isCatalogRecord ? <int>[dest.id] : <int>[]),
+    );
 
     final Color budgetBadgeColor = budgetStyle == 'Low Budget'
         ? Colors.green[700]!
@@ -1218,17 +1209,16 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                           : 'https://api.mapbox.com/styles/v1/mapbox/streets-v11/tiles/{z}/{x}/{y}?access_token=${AppConstants.mapboxAccessToken}',
                       userAgentPackageName: 'com.lakbay.plus',
                     ),
-                    PolylineLayer(
-                      polylines: [
-                        Polyline(
-                          points: _roadGeometryPoints.isNotEmpty
-                              ? _roadGeometryPoints
-                              : routePoints,
-                          color: AppTheme.primaryBlue,
-                          strokeWidth: 4,
-                        ),
-                      ],
-                    ),
+                    if (_roadGeometryPoints.length >= 2)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: _roadGeometryPoints,
+                            color: AppTheme.primaryBlue,
+                            strokeWidth: 4,
+                          ),
+                        ],
+                      ),
                     MarkerLayer(
                       markers: [
                         Marker(
@@ -1241,43 +1231,36 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             size: 28,
                           ),
                         ),
-                        if (isSamal) ...[
+                        if (_routeStops.isEmpty)
                           Marker(
-                            point: const LatLng(7.1017, 125.6601),
-                            width: 32,
-                            height: 32,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                color: Colors.white,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black26,
-                                    blurRadius: 3,
-                                    offset: Offset(0, 1),
-                                  ),
-                                ],
+                            point: LatLng(dest.latitude, dest.longitude),
+                            width: 45,
+                            height: 45,
+                            child: const Icon(
+                              Icons.location_on_rounded,
+                              color: Colors.redAccent,
+                              size: 38,
+                            ),
+                          )
+                        else
+                          ..._routeStops.asMap().entries.map((entry) {
+                            final stop = entry.value;
+                            return Marker(
+                              point: LatLng(
+                                (stop['lat'] as num).toDouble(),
+                                (stop['lng'] as num).toDouble(),
                               ),
-                              child: const Center(
-                                child: Icon(
-                                  Icons.directions_boat_rounded,
-                                  color: AppTheme.primaryBlue,
-                                  size: 18,
+                              width: 40,
+                              height: 40,
+                              child: CircleAvatar(
+                                backgroundColor: AppTheme.primaryBlue,
+                                child: Text(
+                                  '${entry.key + 1}',
+                                  style: const TextStyle(color: Colors.white),
                                 ),
                               ),
-                            ),
-                          ),
-                        ],
-                        Marker(
-                          point: LatLng(dest.latitude, dest.longitude),
-                          width: 45,
-                          height: 45,
-                          child: const Icon(
-                            Icons.location_on_rounded,
-                            color: Colors.redAccent,
-                            size: 38,
-                          ),
-                        ),
+                            );
+                          }),
                       ],
                     ),
                   ],
@@ -1584,6 +1567,24 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     }
     final trips = context.watch<TripProvider>().userTrips;
     return trips.isNotEmpty ? trips.first : Trip.mockTrips[0];
+  }
+
+  Widget _buildSavedTripRequiredState(BuildContext context, String message) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text('Trip Dashboard'),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(AppConstants.spaceXL),
+          child: Text(message, textAlign: TextAlign.center),
+        ),
+      ),
+    );
   }
 
   Widget _summaryDivider() {
@@ -2173,7 +2174,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               ),
               icon: const Icon(Icons.picture_as_pdf_rounded, size: 16),
               label: Text(
-                'Export PDF Travel Receipt',
+                'Export Trip Report (PDF)',
                 style: GoogleFonts.outfit(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -2233,21 +2234,28 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         expense['trip_expense_id']?.toString() ??
         expense['id']?.toString() ??
         '';
-    if (_hasBackendTripId(activeTrip) && int.tryParse(expenseId) != null) {
-      final deleted = await _apiService.deleteTripExpense(
-        activeTrip.id,
-        expenseId,
+    if (!_hasBackendTripId(activeTrip) || int.tryParse(expenseId) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Load a saved expense before deleting it.'),
+          backgroundColor: Colors.redAccent,
+        ),
       );
-      if (!mounted) return;
-      if (!deleted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_apiService.lastError ?? 'Failed to delete expense.'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-        return;
-      }
+      return;
+    }
+    final deleted = await _apiService.deleteTripExpense(
+      activeTrip.id,
+      expenseId,
+    );
+    if (!mounted) return;
+    if (!deleted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_apiService.lastError ?? 'Failed to delete expense.'),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      return;
     }
 
     setState(() {
@@ -2357,18 +2365,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     );
                     return;
                   }
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Save this trip before adding expenses.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
                 }
 
                 setState(() {
-                  _loggedExpenses.add(
-                    savedExpense ??
-                        {
-                          'id': 'exp-${DateTime.now().millisecondsSinceEpoch}',
-                          'amount': amt,
-                          'category': category,
-                          'note': note,
-                        },
-                  );
+                  _loggedExpenses.add(savedExpense!);
                 });
                 navigator.pop();
               },
@@ -2474,17 +2482,18 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     );
                     return;
                   }
+                } else {
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Load a saved expense before editing it.'),
+                      backgroundColor: Colors.redAccent,
+                    ),
+                  );
+                  return;
                 }
 
                 setState(() {
-                  _loggedExpenses[index] =
-                      savedExpense ??
-                      {
-                        ...exp,
-                        'amount': amt,
-                        'category': category,
-                        'note': note,
-                      };
+                  _loggedExpenses[index] = savedExpense!;
                 });
                 navigator.pop();
               },
@@ -2669,6 +2678,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     final file = File(pickedFile.path);
     final result = await _showAddPhotoDialog(file, trip.destinationName);
     if (result == null) return;
+    if (!mounted) return;
 
     final caption = result['caption'] ?? '';
     final location = result['location'] ?? '';
@@ -2998,7 +3008,20 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final tripProvider = context.watch<TripProvider>();
+    if (widget.trip == null) {
+      return _buildSavedTripRequiredState(
+        context,
+        'Open the dashboard from a saved trip to manage its details and collaboration.',
+      );
+    }
     final activeTrip = _getTrip(context);
+    if (!tripProvider.isPersistedTrip(activeTrip)) {
+      return _buildSavedTripRequiredState(
+        context,
+        'Save this trip before managing its details and collaboration.',
+      );
+    }
     final totalStops = activeTrip.itinerary.values.fold<int>(
       0,
       (sum, list) => sum + list.length,
@@ -3795,6 +3818,14 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   );
                   return;
                 }
+              } else {
+                messenger.showSnackBar(
+                  const SnackBar(
+                    content: Text('Load a saved member before removing them.'),
+                    backgroundColor: Colors.redAccent,
+                  ),
+                );
+                return;
               }
               setState(() {
                 _members.removeAt(index);
@@ -4116,14 +4147,15 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
     );
   }
 
-  // Interactive Digital PDF Receipt Modal Simulation
+  // Trip report preview and backend PDF export
   void _showDigitalReceiptModal(
     BuildContext context,
     Trip activeTrip,
     Destination dest,
     DestinationExtra extra,
   ) {
-    double totalEst = dest.estimatedCost;
+    final double? totalEst = dest.estimatedCost;
+    bool isDownloading = false;
 
     showModalBottomSheet(
       context: context,
@@ -4132,32 +4164,64 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setModalState) {
-            bool isDownloading = false;
-            double progress = 0.0;
-
-            void runDownloadProgress() async {
-              setModalState(() {
-                isDownloading = true;
-                progress = 0.0;
-              });
-
-              for (int i = 1; i <= 10; i++) {
-                await Future.delayed(const Duration(milliseconds: 150));
-                setModalState(() {
-                  progress = i * 0.1;
-                });
-              }
-
-              Navigator.pop(ctx); // Close receipt sheet
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(
-                    'PDF Receipt exported successfully to Downloads! 📄✅',
+            Future<void> saveReport() async {
+              if (isDownloading) return;
+              if (!context.read<TripProvider>().isPersistedTrip(activeTrip)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'Save this trip before exporting its report.',
+                    ),
                   ),
-                  backgroundColor: AppTheme.secondaryGreen,
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
+                );
+                return;
+              }
+              setModalState(() => isDownloading = true);
+              try {
+                final api = ApiService();
+                final bytes = await api.downloadTripReportPdf(activeTrip.id);
+                if (!ctx.mounted) return;
+                if (bytes == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        api.lastError ?? 'Could not export the PDF report.',
+                      ),
+                    ),
+                  );
+                  return;
+                }
+                final saved = await PdfExportService().saveTripReport(
+                  activeTrip.id,
+                  bytes,
+                );
+                if (!ctx.mounted) return;
+                if (saved) {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text(
+                        'PDF report saved to the selected location.',
+                      ),
+                    ),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('PDF export cancelled.')),
+                  );
+                }
+              } catch (error) {
+                if (!ctx.mounted) return;
+                final message = error is UnsupportedError
+                    ? error.message?.toString() ??
+                          'PDF saving is unavailable here.'
+                    : 'Could not save the PDF report. Please try again.';
+                ScaffoldMessenger.of(
+                  context,
+                ).showSnackBar(SnackBar(content: Text(message)));
+              } finally {
+                if (ctx.mounted) setModalState(() => isDownloading = false);
+              }
             }
 
             return Container(
@@ -4186,7 +4250,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   ),
                   const SizedBox(height: 20),
                   Text(
-                    'Itemized Travel Receipt',
+                    'Trip Report Preview',
                     textAlign: TextAlign.center,
                     style: GoogleFonts.outfit(
                       fontWeight: FontWeight.bold,
@@ -4196,7 +4260,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Transaction ID: LKB-${activeTrip.id.toUpperCase()}',
+                    'Trip ID: ${activeTrip.id}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 11,
@@ -4286,7 +4350,9 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             const Divider(thickness: 2, height: 32),
                             _receiptLine(
                               'Estimated Trip Base Cost',
-                              '₱${totalEst.toStringAsFixed(0)}',
+                              totalEst == null
+                                  ? 'Cost not listed'
+                                  : '₱${totalEst.toStringAsFixed(0)}',
                               isBold: true,
                             ),
                             _receiptLine(
@@ -4320,7 +4386,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: Text(
-                                  'LAKBAY+ APPROVED',
+                                  'SAVED TRIP PREVIEW',
                                   style: GoogleFonts.outfit(
                                     fontSize: 14,
                                     fontWeight: FontWeight.bold,
@@ -4342,7 +4408,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                       ? Column(
                           children: [
                             LinearProgressIndicator(
-                              value: progress,
+                              value: null,
                               backgroundColor: Colors.grey[200],
                               valueColor: const AlwaysStoppedAnimation<Color>(
                                 AppTheme.secondaryGreen,
@@ -4350,7 +4416,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                             ),
                             const SizedBox(height: 8),
                             Text(
-                              'Generating PDF Receipt... ${(progress * 100).toStringAsFixed(0)}%',
+                              'Downloading report and choosing a save location...',
                               style: GoogleFonts.outfit(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -4368,10 +4434,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                               borderRadius: BorderRadius.circular(16),
                             ),
                           ),
-                          onPressed: runDownloadProgress,
+                          onPressed: saveReport,
                           icon: const Icon(Icons.download_rounded),
                           label: Text(
-                            'Download PDF Receipt',
+                            'Save PDF Report',
                             style: GoogleFonts.outfit(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,

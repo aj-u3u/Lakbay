@@ -15,9 +15,7 @@ class WishlistScreen extends StatelessWidget {
     final tripProvider = Provider.of<TripProvider>(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    final allDestinations = tripProvider.destinations.isNotEmpty
-        ? tripProvider.destinations
-        : Destination.davaoDestinations;
+    final allDestinations = tripProvider.destinations;
 
     final bookmarkedIds = tripProvider.bookmarkedDestinationIds;
 
@@ -67,10 +65,18 @@ class WishlistScreen extends StatelessWidget {
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(AppConstants.spaceL, 56, AppConstants.spaceL, 0),
+                    padding: const EdgeInsets.fromLTRB(
+                      AppConstants.spaceL,
+                      56,
+                      AppConstants.spaceL,
+                      0,
+                    ),
                     child: Text(
                       '${wishlistDestinations.length} saved inspiration spots',
-                      style: GoogleFonts.outfit(color: Colors.white60, fontSize: 13),
+                      style: GoogleFonts.outfit(
+                        color: Colors.white60,
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                 ),
@@ -104,7 +110,9 @@ class WishlistScreen extends StatelessWidget {
                         style: GoogleFonts.outfit(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
-                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
+                          color: isDark
+                              ? AppTheme.textPrimaryDark
+                              : AppTheme.textPrimaryLight,
                         ),
                       ),
                       const SizedBox(height: AppConstants.spaceS),
@@ -113,7 +121,9 @@ class WishlistScreen extends StatelessWidget {
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 13,
-                          color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                          color: isDark
+                              ? AppTheme.textSecondaryDark
+                              : AppTheme.textSecondaryLight,
                           height: 1.5,
                         ),
                       ),
@@ -126,164 +136,215 @@ class WishlistScreen extends StatelessWidget {
             SliverPadding(
               padding: const EdgeInsets.all(AppConstants.spaceM),
               sliver: SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final dest = wishlistDestinations[index];
-                    return Dismissible(
-                      key: Key('wishlist-${dest.id}'),
-                      direction: DismissDirection.endToStart,
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
-                        decoration: BoxDecoration(
-                          color: Colors.redAccent.withValues(alpha: 0.9),
-                          borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                        ),
-                        child: const Icon(Icons.delete_rounded, color: Colors.white),
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  final dest = wishlistDestinations[index];
+                  return Dismissible(
+                    key: Key('wishlist-${dest.id}'),
+                    direction: DismissDirection.endToStart,
+                    background: Container(
+                      alignment: Alignment.centerRight,
+                      padding: const EdgeInsets.only(right: 20),
+                      margin: const EdgeInsets.only(
+                        bottom: AppConstants.spaceM,
                       ),
-                      onDismissed: (direction) {
-                        tripProvider.toggleBookmark(dest.id);
-                        ScaffoldMessenger.of(context).clearSnackBars();
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.9),
+                        borderRadius: BorderRadius.circular(
+                          AppConstants.radiusL,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.delete_rounded,
+                        color: Colors.white,
+                      ),
+                    ),
+                    onDismissed: (direction) async {
+                      final success = await tripProvider.toggleBookmark(
+                        dest.id,
+                      );
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      if (!success) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
-                            content: Text('Removed ${dest.name} from Wishlist'),
-                            action: SnackBarAction(
-                              label: 'Undo',
-                              textColor: Colors.white,
-                              onPressed: () {
-                                tripProvider.toggleBookmark(dest.id);
-                              },
+                            content: Text(
+                              tripProvider.errorMessage ??
+                                  'Could not update your wishlist.',
                             ),
-                            backgroundColor: Colors.grey[850],
+                            backgroundColor: Colors.redAccent,
                           ),
                         );
-                      },
-                      child: GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.destinationDetail,
-                            arguments: dest,
-                          );
-                        },
-                        onLongPress: () {
-                          _confirmRemove(context, tripProvider, dest);
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.only(bottom: AppConstants.spaceM),
-                          decoration: BoxDecoration(
-                            color: isDark ? Theme.of(context).cardColor : Colors.white,
-                            borderRadius: BorderRadius.circular(AppConstants.radiusL),
-                            border: Border.all(
-                              color: isDark ? Colors.white10 : Colors.grey.withValues(alpha: 0.2),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 6,
-                                offset: const Offset(0, 3),
-                              ),
-                            ],
+                        return;
+                      }
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Removed ${dest.name} from Wishlist'),
+                          action: SnackBarAction(
+                            label: 'Undo',
+                            textColor: Colors.white,
+                            onPressed: () async {
+                              final restored = await tripProvider
+                                  .toggleBookmark(dest.id);
+                              if (!context.mounted || restored) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    tripProvider.errorMessage ??
+                                        'Could not restore this wishlist item.',
+                                  ),
+                                  backgroundColor: Colors.redAccent,
+                                ),
+                              );
+                            },
                           ),
-                          clipBehavior: Clip.antiAlias,
-                          child: Row(
-                            children: [
-                              // Image
-                              SizedBox(
-                                width: 110,
-                                height: 110,
-                                child: Destination.loadImage(
-                                  dest.imageUrl,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) => Container(
-                                    color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                                    child: const Icon(
-                                      Icons.landscape,
-                                      color: AppTheme.primaryBlue,
-                                    ),
+                          backgroundColor: Colors.grey[850],
+                        ),
+                      );
+                    },
+                    child: GestureDetector(
+                      onTap: () {
+                        Navigator.pushNamed(
+                          context,
+                          AppRoutes.destinationDetail,
+                          arguments: dest,
+                        );
+                      },
+                      onLongPress: () {
+                        _confirmRemove(context, tripProvider, dest);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(
+                          bottom: AppConstants.spaceM,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? Theme.of(context).cardColor
+                              : Colors.white,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusL,
+                          ),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white10
+                                : Colors.grey.withValues(alpha: 0.2),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.04),
+                              blurRadius: 6,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: Row(
+                          children: [
+                            // Image
+                            SizedBox(
+                              width: 110,
+                              height: 110,
+                              child: Destination.loadImage(
+                                dest.imageUrl,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => Container(
+                                  color: AppTheme.primaryBlue.withValues(
+                                    alpha: 0.1,
+                                  ),
+                                  child: const Icon(
+                                    Icons.landscape,
+                                    color: AppTheme.primaryBlue,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: AppConstants.spaceM),
-                              // Details
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(vertical: AppConstants.spaceS),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                        decoration: BoxDecoration(
-                                          color: AppTheme.primaryBlue.withValues(alpha: 0.1),
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),
-                                        child: Text(
-                                          dest.category,
-                                          style: const TextStyle(
-                                            color: AppTheme.primaryBlue,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                            ),
+                            const SizedBox(width: AppConstants.spaceM),
+                            // Details
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: AppConstants.spaceS,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 2,
                                       ),
-                                      const SizedBox(height: 6),
-                                      Text(
-                                        dest.name,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
+                                      decoration: BoxDecoration(
+                                        color: AppTheme.primaryBlue.withValues(
+                                          alpha: 0.1,
+                                        ),
+                                        borderRadius: BorderRadius.circular(6),
+                                      ),
+                                      child: Text(
+                                        dest.category,
+                                        style: const TextStyle(
+                                          color: AppTheme.primaryBlue,
+                                          fontSize: 10,
                                           fontWeight: FontWeight.bold,
-                                          fontSize: 14,
-                                          color: isDark ? AppTheme.textPrimaryDark : AppTheme.textPrimaryLight,
                                         ),
                                       ),
-                                      const SizedBox(height: 4),
-                                      Row(
-                                        children: [
-                                          const Icon(
-                                            Icons.location_on_rounded,
-                                            color: AppTheme.secondaryGreen,
-                                            size: 12,
-                                          ),
-                                          const SizedBox(width: 3),
-                                          Expanded(
-                                            child: Text(
-                                              dest.district,
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: TextStyle(
-                                                color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
-                                                fontSize: 11,
-                                              ),
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(
+                                      dest.name,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: isDark
+                                            ? AppTheme.textPrimaryDark
+                                            : AppTheme.textPrimaryLight,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        const Icon(
+                                          Icons.location_on_rounded,
+                                          color: AppTheme.secondaryGreen,
+                                          size: 12,
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Expanded(
+                                          child: Text(
+                                            dest.district,
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              color: isDark
+                                                  ? AppTheme.textSecondaryDark
+                                                  : AppTheme.textSecondaryLight,
+                                              fontSize: 11,
                                             ),
                                           ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
                                 ),
                               ),
-                              // Filled heart icon on tap unbookmarks
-                              IconButton(
-                                icon: const Icon(
-                                  Icons.favorite_rounded,
-                                  color: Colors.redAccent,
-                                ),
-                                onPressed: () {
-                                  _confirmRemove(context, tripProvider, dest);
-                                },
+                            ),
+                            // Filled heart icon on tap unbookmarks
+                            IconButton(
+                              icon: const Icon(
+                                Icons.favorite_rounded,
+                                color: Colors.redAccent,
                               ),
-                              const SizedBox(width: AppConstants.spaceS),
-                            ],
-                          ),
+                              onPressed: () {
+                                _confirmRemove(context, tripProvider, dest);
+                              },
+                            ),
+                            const SizedBox(width: AppConstants.spaceS),
+                          ],
                         ),
                       ),
-                    );
-                  },
-                  childCount: wishlistDestinations.length,
-                ),
+                    ),
+                  );
+                }, childCount: wishlistDestinations.length),
               ),
             ),
         ],
@@ -291,15 +352,24 @@ class WishlistScreen extends StatelessWidget {
     );
   }
 
-  void _confirmRemove(BuildContext context, TripProvider tripProvider, Destination dest) {
+  void _confirmRemove(
+    BuildContext context,
+    TripProvider tripProvider,
+    Destination dest,
+  ) {
     showDialog(
       context: context,
       builder: (dialogCtx) => AlertDialog(
         title: Text(
           'Remove from Wishlist?',
-          style: GoogleFonts.outfit(fontWeight: FontWeight.bold, color: Colors.redAccent),
+          style: GoogleFonts.outfit(
+            fontWeight: FontWeight.bold,
+            color: Colors.redAccent,
+          ),
         ),
-        content: Text('Are you sure you want to remove ${dest.name} from your saved inspirations?'),
+        content: Text(
+          'Are you sure you want to remove ${dest.name} from your saved inspirations?',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(dialogCtx),
@@ -307,14 +377,22 @@ class WishlistScreen extends StatelessWidget {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            onPressed: () {
+            onPressed: () async {
               Navigator.pop(dialogCtx);
-              tripProvider.toggleBookmark(dest.id);
+              final success = await tripProvider.toggleBookmark(dest.id);
+              if (!context.mounted) return;
               ScaffoldMessenger.of(context).clearSnackBars();
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Removed ${dest.name} from Wishlist'),
-                  backgroundColor: Colors.grey[850],
+                  content: Text(
+                    success
+                        ? 'Removed ${dest.name} from Wishlist'
+                        : (tripProvider.errorMessage ??
+                              'Could not update your wishlist.'),
+                  ),
+                  backgroundColor: success
+                      ? Colors.grey[850]
+                      : Colors.redAccent,
                 ),
               );
             },

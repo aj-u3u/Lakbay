@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -12,10 +14,12 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnim;
   late Animation<double> _scaleAnim;
+  Timer? _navigationTimer;
 
   @override
   void initState() {
@@ -25,16 +29,24 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       vsync: this,
     );
     _fadeAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.easeOut)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.6, curve: Curves.easeOut),
+      ),
     );
     _scaleAnim = Tween<double>(begin: 0.75, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: const Interval(0, 0.6, curve: Curves.elasticOut)),
+      CurvedAnimation(
+        parent: _controller,
+        curve: const Interval(0, 0.6, curve: Curves.elasticOut),
+      ),
     );
     _controller.forward();
 
-    Future.delayed(const Duration(seconds: 3), () async {
+    _navigationTimer = Timer(const Duration(seconds: 3), () async {
       if (mounted) {
-        final restored = await context.read<AuthProvider>().restoreSavedSession();
+        final restored = await context
+            .read<AuthProvider>()
+            .restoreSavedSession();
         if (!mounted) return;
 
         Navigator.pushReplacementNamed(
@@ -47,6 +59,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
 
   @override
   void dispose() {
+    _navigationTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }

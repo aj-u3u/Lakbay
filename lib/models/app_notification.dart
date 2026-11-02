@@ -14,6 +14,7 @@ class AppNotification {
   final String icon;
   final bool isNew;
   final NotificationType type;
+  final String? tripId;
 
   AppNotification({
     required this.id,
@@ -23,6 +24,7 @@ class AppNotification {
     required this.icon,
     required this.isNew,
     required this.type,
+    this.tripId,
   });
 
   factory AppNotification.fromJson(Map<String, dynamic> json) {
@@ -55,6 +57,8 @@ class AppNotification {
       icon: json['icon'] ?? '🔔',
       isNew: json['isNew'] ?? true,
       type: type,
+      tripId: (json['tripId'] ?? json['trip_id'] ?? json['related_trip_id'])
+          ?.toString(),
     );
   }
 

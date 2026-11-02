@@ -6,5 +6,6 @@ void main() {
   testWidgets('App smoke test', (WidgetTester tester) async {
     await tester.pumpWidget(const LakbayPlusApp());
     expect(find.byType(MaterialApp), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }

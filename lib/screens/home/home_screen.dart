@@ -41,9 +41,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Dual-Engine backend popularity & recommendation states
   List<Destination> _popularDestinations = [];
-  List<Destination> _recommendedDestinations = [];
   bool _loadingPopular = false;
-  bool _loadingRecommended = false;
 
   List<Map<String, String>> _getSuggestions(List<Destination> allDests) {
     final query = _searchQuery.trim().toLowerCase();
@@ -80,31 +78,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return matches;
   }
 
-
-
-  final List<Map<String, dynamic>> _promoSlides = [
-    {
-      'id': 8,
-      'title': 'Pearl Farm\nBeach Resort',
-      'subtitle': 'Samal Island, Davao del Norte',
-      'image':
-          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
-    },
-    {
-      'id': 15,
-      'title': 'Dahican Beach\nSurf Paradise',
-      'subtitle': 'Mati City, Davao Oriental',
-      'image':
-          'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=900&q=80',
-    },
-    {
-      'id': 12,
-      'title': 'Mount Apo\nNational Park',
-      'subtitle': 'Digos City, Davao del Sur',
-      'image':
-          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=900&q=80',
-    },
-  ];
+  List<Destination> get _promoSlides =>
+      context.read<TripProvider>().destinations.take(3).toList();
 
   @override
   void initState() {
@@ -122,7 +97,6 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() {
       _loadingPopular = true;
-      _loadingRecommended = true;
     });
 
     try {
@@ -135,20 +109,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _loadingPopular = false);
-    }
-
-    try {
-      final recommended = await ApiService().fetchRecommendedDestinations(
-        limit: 6,
-      );
-      if (mounted) {
-        setState(() {
-          _recommendedDestinations = recommended;
-          _loadingRecommended = false;
-        });
-      }
-    } catch (e) {
-      if (mounted) setState(() => _loadingRecommended = false);
     }
   }
 
@@ -181,7 +141,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _startPromoTimer() {
     _promoTimer = Timer.periodic(const Duration(seconds: 4), (_) {
-      if (!mounted) return;
+      if (!mounted || _promoSlides.length < 2 || !_promoPageCtrl.hasClients) {
+        return;
+      }
       final nextPage = (_currentPromoPage + 1) % _promoSlides.length;
       _promoPageCtrl.animateToPage(
         nextPage,
@@ -237,9 +199,21 @@ class _HomeScreenState extends State<HomeScreen> {
     if (_sortBy == 'Rating') {
       list.sort((a, b) => b.rating.compareTo(a.rating));
     } else if (_sortBy == 'Cost: Low to High') {
-      list.sort((a, b) => a.estimatedCost.compareTo(b.estimatedCost));
+      list.sort((a, b) {
+        final aCost = a.estimatedCost;
+        final bCost = b.estimatedCost;
+        if (aCost == null) return bCost == null ? 0 : 1;
+        if (bCost == null) return -1;
+        return aCost.compareTo(bCost);
+      });
     } else if (_sortBy == 'Cost: High to Low') {
-      list.sort((a, b) => b.estimatedCost.compareTo(a.estimatedCost));
+      list.sort((a, b) {
+        final aCost = a.estimatedCost;
+        final bCost = b.estimatedCost;
+        if (aCost == null) return bCost == null ? 0 : 1;
+        if (bCost == null) return -1;
+        return bCost.compareTo(aCost);
+      });
     }
 
     return list;
@@ -249,9 +223,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final provider = context.watch<TripProvider>();
-    final allDests = provider.destinations.isNotEmpty
-        ? provider.destinations
-        : Destination.davaoDestinations;
+    final allDests = provider.destinations;
     final filtered = _filteredDestinations(allDests);
 
     return Scaffold(
@@ -467,9 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
             _buildContinuePlanningSliver(context, provider.activeDraft!),
 
           // ── Davao Context Strip ──────────────────────────────────────────
-          SliverToBoxAdapter(
-            child: _buildDavaoContextStrip(context),
-          ),
+          SliverToBoxAdapter(child: _buildDavaoContextStrip(context)),
 
           SliverToBoxAdapter(
             child: Column(
@@ -481,7 +451,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     horizontal: AppConstants.spaceM,
                   ),
                   child: Text(
-                    'AI Mood Suggestions ✨',
+                    "What's your travel mood? ✨",
                     style: GoogleFonts.outfit(
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
@@ -513,12 +483,42 @@ class _HomeScreenState extends State<HomeScreen> {
                       horizontal: AppConstants.spaceM,
                     ),
                     children: [
-                      _buildMoodTile(context, 'Adventure', '🏔️', 'Suggest an adventure trip in Davao Region.'),
-                      _buildMoodTile(context, 'Relaxation', '🌿', 'Suggest a relaxation trip in Davao Region.'),
-                      _buildMoodTile(context, 'Family', '👨', 'Suggest a family trip in Davao Region.'),
-                      _buildMoodTile(context, 'Beach', '🌊', 'Suggest a beach trip in Davao Region.'),
-                      _buildMoodTile(context, 'Nature', '🌲', 'Suggest a nature trip in Davao Region.'),
-                      _buildMoodTile(context, 'Culture', '🏙️', 'Suggest a cultural trip in Davao Region.'),
+                      _buildMoodTile(
+                        context,
+                        'Adventure',
+                        '🏔️',
+                        'Suggest an adventure trip in Davao Region.',
+                      ),
+                      _buildMoodTile(
+                        context,
+                        'Relaxation',
+                        '🌿',
+                        'Suggest a relaxation trip in Davao Region.',
+                      ),
+                      _buildMoodTile(
+                        context,
+                        'Family',
+                        '👨',
+                        'Suggest a family trip in Davao Region.',
+                      ),
+                      _buildMoodTile(
+                        context,
+                        'Beach',
+                        '🌊',
+                        'Suggest a beach trip in Davao Region.',
+                      ),
+                      _buildMoodTile(
+                        context,
+                        'Nature',
+                        '🌲',
+                        'Suggest a nature trip in Davao Region.',
+                      ),
+                      _buildMoodTile(
+                        context,
+                        'Culture',
+                        '🏙️',
+                        'Suggest a cultural trip in Davao Region.',
+                      ),
                     ],
                   ),
                 ),
@@ -532,61 +532,85 @@ class _HomeScreenState extends State<HomeScreen> {
               children: [
                 const SizedBox(height: AppConstants.spaceL),
                 SectionHeader(
-                  title: '🔥 Trending in Davao',
+                  title: 'Featured destinations',
                   onActionPressed: () =>
                       Navigator.pushNamed(context, AppRoutes.destinationList),
                 ),
                 const SizedBox(height: AppConstants.spaceS),
-                SizedBox(
-                  height: 196,
-                  child: PageView.builder(
-                    controller: _promoPageCtrl,
-                    itemCount: _promoSlides.length,
-                    onPageChanged: (i) => setState(() => _currentPromoPage = i),
-                    itemBuilder: (_, i) {
-                      final s = _promoSlides[i];
-                      return PromoCard(
-                        title: s['title'] as String,
-                        subtitle: s['subtitle'] as String,
-                        imageUrl: s['image'] as String,
-                        onTap: () {
-                          final destId = s['id'] as int;
-                          final dest = allDests.firstWhere(
-                            (d) => d.id == destId,
-                            orElse: () => allDests.firstWhere((d) => d.id == 8),
-                          );
-                          Navigator.pushNamed(
-                            context,
-                            AppRoutes.destinationDetail,
-                            arguments: dest,
-                          );
-                        },
-                      );
-                    },
+                if (provider.catalogError != null)
+                  Padding(
+                    padding: const EdgeInsets.all(AppConstants.spaceM),
+                    child: Column(
+                      children: [
+                        Text(
+                          provider.catalogError!,
+                          textAlign: TextAlign.center,
+                        ),
+                        TextButton.icon(
+                          onPressed: context
+                              .read<TripProvider>()
+                              .refreshDestinations,
+                          icon: const Icon(Icons.refresh_rounded),
+                          label: const Text('Retry catalog'),
+                        ),
+                      ],
+                    ),
+                  )
+                else if (provider.catalogLoading)
+                  const Center(child: CircularProgressIndicator())
+                else if (allDests.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(AppConstants.spaceM),
+                    child: Text('No destinations are available yet.'),
                   ),
-                ),
+                if (allDests.isNotEmpty)
+                  SizedBox(
+                    height: 196,
+                    child: PageView.builder(
+                      controller: _promoPageCtrl,
+                      itemCount: _promoSlides.length,
+                      onPageChanged: (i) =>
+                          setState(() => _currentPromoPage = i),
+                      itemBuilder: (_, i) {
+                        final s = _promoSlides[i];
+                        return PromoCard(
+                          title: s.name,
+                          subtitle: s.district,
+                          imageUrl: s.imageUrl,
+                          onTap: () {
+                            Navigator.pushNamed(
+                              context,
+                              AppRoutes.destinationDetail,
+                              arguments: s,
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
                 const SizedBox(height: AppConstants.spaceS),
                 // Dot indicators
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(_promoSlides.length, (i) {
-                    final isActive = i == _currentPromoPage;
-                    return AnimatedContainer(
-                      duration: AppConstants.animDurationFast,
-                      margin: const EdgeInsets.symmetric(horizontal: 4),
-                      width: isActive ? 22 : 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: isActive
-                            ? AppTheme.primaryBlue
-                            : AppTheme.primaryBlue.withValues(alpha: 0.25),
-                        borderRadius: BorderRadius.circular(
-                          AppConstants.radiusCircular,
+                if (allDests.isNotEmpty)
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(_promoSlides.length, (i) {
+                      final isActive = i == _currentPromoPage;
+                      return AnimatedContainer(
+                        duration: AppConstants.animDurationFast,
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        width: isActive ? 22 : 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: isActive
+                              ? AppTheme.primaryBlue
+                              : AppTheme.primaryBlue.withValues(alpha: 0.25),
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.radiusCircular,
+                          ),
                         ),
-                      ),
-                    );
-                  }),
-                ),
+                      );
+                    }),
+                  ),
               ],
             ),
           ),
@@ -649,7 +673,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                     Text(
                                       'Try adjusting your search or filters',
                                       style: TextStyle(
-                                        color: isDark ? AppTheme.textSecondaryDark : AppTheme.textSecondaryLight,
+                                        color: isDark
+                                            ? AppTheme.textSecondaryDark
+                                            : AppTheme.textSecondaryLight,
                                         fontSize: 12,
                                       ),
                                     ),
@@ -676,7 +702,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
           ),
 
-
           const SliverToBoxAdapter(
             child: SizedBox(height: AppConstants.spaceXL),
           ),
@@ -685,38 +710,42 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-
-
   // District data: name, representative image URL, accent color
   static const List<Map<String, dynamic>> _districtData = [
     {
       'name': 'Davao City',
-      'image': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80',
       'accent': Color(0xFF0D7377),
     },
     {
       'name': 'Davao del Norte',
-      'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=600&q=80',
       'accent': Color(0xFF1A6B3A),
     },
     {
       'name': 'Davao del Sur',
-      'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=600&q=80',
       'accent': Color(0xFF2C5364),
     },
     {
       'name': 'Davao Oriental',
-      'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=600&q=80',
       'accent': Color(0xFF16213E),
     },
     {
       'name': 'Davao de Oro',
-      'image': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?w=600&q=80',
       'accent': Color(0xFF355C7D),
     },
     {
       'name': 'Davao Occidental',
-      'image': 'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=600&q=80',
+      'image':
+          'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=600&q=80',
       'accent': Color(0xFF6A3093),
     },
   ];
@@ -756,7 +785,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(
-          AppConstants.spaceM, AppConstants.spaceM, AppConstants.spaceM, 0),
+        AppConstants.spaceM,
+        AppConstants.spaceM,
+        AppConstants.spaceM,
+        0,
+      ),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         decoration: BoxDecoration(
@@ -797,7 +830,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
+                          horizontal: 7,
+                          vertical: 2,
+                        ),
                         decoration: BoxDecoration(
                           color: stripColor.withValues(alpha: 0.18),
                           borderRadius: BorderRadius.circular(10),
@@ -833,9 +868,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildRecommendedSection(BuildContext context) {
-    final allDests = context.read<TripProvider>().destinations.isNotEmpty
-        ? context.read<TripProvider>().destinations
-        : Destination.davaoDestinations;
+    final allDests = context.read<TripProvider>().destinations;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: AppConstants.spaceM),
@@ -953,7 +986,7 @@ class _HomeScreenState extends State<HomeScreen> {
               Image.network(
                 imageUrl,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(
+                errorBuilder: (_, _, _) => Container(
                   color: accentColor,
                   child: const Icon(
                     Icons.landscape_rounded,
@@ -1344,7 +1377,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: AppTheme.primaryBlue.withValues(alpha: 0.85),
+                                color: AppTheme.primaryBlue.withValues(
+                                  alpha: 0.85,
+                                ),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
                                   color: Colors.white30,
@@ -1429,37 +1464,48 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildDistrictBentoGrid(BuildContext context, List<Destination> allDests) {
+  // Retained for the alternate district layout.
+  // ignore: unused_element
+  Widget _buildDistrictBentoGrid(
+    BuildContext context,
+    List<Destination> allDests,
+  ) {
     final districts = [
       {
         'name': 'Davao City',
         'mood': 'Urban Culture & Heritage',
-        'image': 'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&q=80',
       },
       {
         'name': 'Davao del Norte',
         'mood': 'Adventure Gateways',
-        'image': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80',
       },
       {
         'name': 'Davao Oriental',
         'mood': 'Coastal Escapes',
-        'image': 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=800&q=80',
       },
       {
         'name': 'Davao del Sur',
         'mood': 'Mountain Retreats',
-        'image': 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=800&q=80',
       },
       {
         'name': 'Davao de Oro',
         'mood': 'Wilderness & Rivers',
-        'image': 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80',
       },
       {
         'name': 'Davao Occidental',
         'mood': 'Hidden Coastal Gems',
-        'image': 'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
+        'image':
+            'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&q=80',
       },
     ];
 
@@ -1489,15 +1535,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildBentoCard(
-    BuildContext context, 
-    Map<String, dynamic> district, 
-    List<Destination> allDests, 
-    {bool isHero = false, bool isFullWidth = false}
-  ) {
+    BuildContext context,
+    Map<String, dynamic> district,
+    List<Destination> allDests, {
+    bool isHero = false,
+    bool isFullWidth = false,
+  }) {
     final name = district['name'] as String;
     final mood = district['mood'] as String;
     final image = district['image'] as String;
-    
+
     // Set heights: hero is 360.0, secondary cards are 140.0
     final height = isHero ? 360.0 : 140.0;
     final int count = allDests.where((d) => d.district == name).length;
@@ -1533,7 +1580,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   errorBuilder: (ctx, err, stackTrace) {
                     return Container(
                       color: AppTheme.primaryBlue.withValues(alpha: 0.15),
-                      child: const Icon(Icons.image_not_supported_rounded, color: AppTheme.primaryBlue),
+                      child: const Icon(
+                        Icons.image_not_supported_rounded,
+                        color: AppTheme.primaryBlue,
+                      ),
                     );
                   },
                 ),
@@ -1544,18 +1594,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     gradient: LinearGradient(
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
-                      colors: isHero 
-                        ? [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.2),
-                            Colors.black.withValues(alpha: 0.5),
-                            Colors.black.withValues(alpha: 0.85),
-                          ]
-                        : [
-                            Colors.transparent,
-                            Colors.black.withValues(alpha: 0.35),
-                            Colors.black.withValues(alpha: 0.75),
-                          ],
+                      colors: isHero
+                          ? [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.2),
+                              Colors.black.withValues(alpha: 0.5),
+                              Colors.black.withValues(alpha: 0.85),
+                            ]
+                          : [
+                              Colors.transparent,
+                              Colors.black.withValues(alpha: 0.35),
+                              Colors.black.withValues(alpha: 0.75),
+                            ],
                     ),
                   ),
                 ),
@@ -1593,7 +1643,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                                 const SizedBox(height: 12),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
                                   decoration: BoxDecoration(
                                     color: Colors.white.withValues(alpha: 0.15),
                                     borderRadius: BorderRadius.circular(8),
@@ -1613,16 +1666,21 @@ class _HomeScreenState extends State<HomeScreen> {
                           ),
                           const SizedBox(width: 16),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 18,
+                              vertical: 8,
+                            ),
                             decoration: BoxDecoration(
                               color: AppTheme.secondaryGreen,
                               borderRadius: BorderRadius.circular(99),
                               boxShadow: [
                                 BoxShadow(
-                                  color: AppTheme.secondaryGreen.withValues(alpha: 0.3),
+                                  color: AppTheme.secondaryGreen.withValues(
+                                    alpha: 0.3,
+                                  ),
                                   blurRadius: 10,
                                   offset: const Offset(0, 4),
-                                )
+                                ),
                               ],
                             ),
                             child: Row(
@@ -1637,7 +1695,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 4),
-                                const Icon(Icons.arrow_forward_rounded, color: Colors.white, size: 16),
+                                const Icon(
+                                  Icons.arrow_forward_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ],
                             ),
                           ),
@@ -1659,7 +1721,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           Row(
                             children: [
                               Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
                                 decoration: BoxDecoration(
                                   color: Colors.white.withValues(alpha: 0.2),
                                   borderRadius: BorderRadius.circular(6),
@@ -1732,7 +1797,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     boxShadow: isSelected
                         ? [
                             BoxShadow(
-                              color: AppTheme.primaryBlue.withValues(alpha: 0.2),
+                              color: AppTheme.primaryBlue.withValues(
+                                alpha: 0.2,
+                              ),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -1980,9 +2047,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return OverlayEntry(
       builder: (context) {
-        final allDests = context.read<TripProvider>().destinations.isNotEmpty
-            ? context.read<TripProvider>().destinations
-            : Destination.davaoDestinations;
+        final allDests = context.read<TripProvider>().destinations;
         final list = _getSuggestions(allDests);
         if (list.isEmpty) return const SizedBox.shrink();
 
@@ -2028,7 +2093,9 @@ class _HomeScreenState extends State<HomeScreen> {
                           leading: CircleAvatar(
                             backgroundColor: isDistrict
                                 ? AppTheme.primaryBlue.withValues(alpha: 0.08)
-                                : AppTheme.secondaryGreen.withValues(alpha: 0.08),
+                                : AppTheme.secondaryGreen.withValues(
+                                    alpha: 0.08,
+                                  ),
                             child: Icon(
                               isDistrict
                                   ? Icons.location_on_rounded
@@ -2069,8 +2136,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 _searchFocusNode.unfocus();
                               });
                             } else {
-                              final dest = Destination.davaoDestinations
-                                  .firstWhere((d) => d.name == item['name']);
+                              final matches = context
+                                  .read<TripProvider>()
+                                  .destinations
+                                  .where((d) => d.name == item['name']);
+                              if (matches.isEmpty) return;
+                              final dest = matches.first;
                               setState(() {
                                 _searchFocusNode.unfocus();
                               });
@@ -2239,10 +2310,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(
-              emoji,
-              style: const TextStyle(fontSize: 20),
-            ),
+            Text(emoji, style: const TextStyle(fontSize: 20)),
             const SizedBox(width: 8),
             Text(
               label,
@@ -2258,4 +2326,3 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 }
-
