@@ -88,6 +88,8 @@ class DestinationUpdate(BaseModel):
 
 
 class DestinationResponse(DestinationBase):
+    # A catalog cost can be unknown even when older create requests require a price.
+    estimated_cost: Decimal | None = None
     destination_id: int
     is_active: bool
     created_at: datetime

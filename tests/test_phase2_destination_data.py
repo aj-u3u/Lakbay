@@ -1,3 +1,9 @@
+from datetime import datetime, timezone
+from types import SimpleNamespace
+
+from app.features.destinations.schemas import DestinationResponse
+
+
 DESTINATION_PAYLOAD = {
     "name": "Test Beach",
     "description": "A calm beach for testing.",
@@ -105,6 +111,24 @@ def test_user_can_browse_and_filter_destinations(client) -> None:
     body = response.json()
     assert len(body) == 1
     assert body[0]["name"] == "Test Beach"
+
+
+def test_destination_response_returns_unknown_cost_as_null() -> None:
+    now = datetime.now(timezone.utc)
+    destination = SimpleNamespace(
+        destination_id=1,
+        name="Unpriced Park",
+        lat=6.77553,
+        lng=125.34392,
+        estimated_cost=None,
+        is_active=True,
+        created_at=now,
+        updated_at=now,
+    )
+
+    response = DestinationResponse.model_validate(destination)
+
+    assert response.model_dump(mode="json")["estimated_cost"] is None
 
 
 def test_destination_list_supports_pagination(client) -> None:
