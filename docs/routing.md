@@ -24,6 +24,64 @@ Lakbay should use routing for:
 
 ## Core Concepts
 
+### Attraction and arrival coordinates
+
+An attraction coordinate identifies the place for discovery, recommendations,
+and an approximate itinerary map. A visitor arrival coordinate identifies the
+public gate, parking area, trailhead, or pier where a route should end. Keep
+these as separate facts, with a source and review date for each arrival point.
+
+An attraction coordinate may support a provisional stop order or distance
+estimate only when its road approach has been checked and the result is labeled
+as a planning estimate. It must not be presented as a verified arrival point,
+final travel time, or turn-by-turn destination. If opening status or required
+booking or permits are unresolved, the itinerary should ask the traveler to
+confirm them before the trip.
+
+For waterfalls, mountain resorts, beaches with multiple access points, and
+islands, use a verified visitor arrival point before giving road directions.
+Represent a ferry or boat connection as a separate leg between verified piers.
+Do not route a road profile across that connection. A destination reported
+closed or awaiting reopening should not be offered as an available stop until
+its access is reconfirmed.
+
+The route service uses `Destination.arrival_lat/lng` when an admin has marked
+the destination `route_ready=true` with an arrival source URL and verification
+time. Otherwise it uses `Destination.lat/lng` and adds a planning-preview
+warning. `route_ready` records that the arrival coordinate was reviewed; it
+does not establish current opening hours, permit availability, or boat service.
+Those facts still need a separate access check before travel.
+
+### API fields for the map and itinerary
+
+The admin destination create/update API accepts `arrival_lat`, `arrival_lng`,
+`arrival_source_url`, `arrival_verified_at`, and `route_ready`. Both coordinates
+must be supplied together. Setting `route_ready=true` requires coordinates,
+source URL, and verification time. Changing a route-ready arrival coordinate
+requires a fresh source URL and verification time in the same update.
+
+`POST /api/v1/routes/preview` keeps the requested stop order;
+`POST /api/v1/routes/optimize` suggests an order. Both responses include:
+
+| Field | Use |
+| --- | --- |
+| `stops[].coordinate_basis` | `origin`, `verified_arrival`, or `attraction` |
+| `arrival_points_verified` | True only when every destination stop uses a verified arrival point |
+| `polyline`, `polyline_encoding` | Draw the returned encoded polyline (`polyline5`) on a map when the provider supplies one |
+| `legs[].distance_km`, `legs[].duration_minutes` | Show distance and ETA for each stop pair |
+| `legs[].steps[]` | Show maneuver text, meters, and seconds only for routes with verified arrival points |
+| `is_estimated`, `route_provider`, `warnings` | Explain provider quality and fallback estimates |
+
+OSRM and configured Google Routes supply road geometry and directions for
+driving. OSRM walking support depends on the configured walking profile.
+Public transport and Haversine fallback remain estimates without road geometry
+or turn-by-turn directions. When an attraction coordinate is used, the road
+polyline may still be shown as a provisional planning line; suppress navigation
+instructions in the UI. A saved trip route stores the same stop basis, geometry,
+and steps in `trip_routes`, so an itinerary can reopen its route snapshot. The
+saved-route API checks any claimed verified arrival coordinate against the
+admin-reviewed destination before accepting verified directions.
+
 ### Coordinate
 
 A coordinate is a latitude and longitude pair.
@@ -65,7 +123,8 @@ OSRM Route finds the best road path between coordinates in a fixed order.
 Use it when:
 
 - The backend already knows the order of destinations.
-- The API needs turn-by-turn-ready distance and duration.
+- The API needs a road distance and duration estimate. Traveler directions
+  additionally require a verified arrival point.
 - The user wants to preview a selected itinerary route.
 
 Simple meaning:
@@ -140,7 +199,8 @@ Reason:
 - nearest-neighbor is easy to explain and test.
 - 2-opt can improve obvious route loops without making the service hard to
   maintain.
-- the existing route response can stay the same for Flutter.
+- the existing route response keeps its original fields while adding optional
+  geometry, directions, and arrival verification for Flutter.
 
 Fallback behavior:
 
@@ -343,8 +403,8 @@ Return a clear shape:
 }
 ```
 
-Keep route responses simple first. Add map polylines later only when Flutter
-needs them.
+The response now includes an optional encoded polyline and per-leg directions
+when the route provider supplies them; see the API field table above.
 
 ## Environment Variables
 
@@ -364,6 +424,14 @@ self-hosted OSRM server.
 
 If `OSRM_BASE_URL` is missing or OSRM fails, the backend returns a Haversine
 estimate with `is_estimated=true`.
+
+For route previews, the OSRM client checks the provider's waypoint snap
+distances. Every requested point must have a returned waypoint within 250 meters.
+A missing waypoint or a more distant road snap makes the provider route
+unconfirmed, so the route service returns a clearly labeled estimate instead.
+This avoids presenting a road path to a nearby but different location as a
+confirmed route to a visitor entrance. The limit is a conservative planning
+guard, not a guarantee that a gate is open or that the last approach is usable.
 
 ## Testing
 
@@ -395,9 +463,8 @@ The route service should handle:
 
 ## Storage Recommendation
 
-Do not store every raw OSRM response at first. Phase 6 does not store route
-results at all. When trip persistence is implemented later, store the useful
-summary:
+Phase 6 remains stateless and does not store raw OSRM responses. Phase 7 stores
+the selected route summary in `trip_routes`, including its line and directions:
 
 - Trip or itinerary ID.
 - Travel mode.

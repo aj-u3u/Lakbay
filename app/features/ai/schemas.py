@@ -9,6 +9,7 @@ from app.features.planning.schemas import (
     PlanningPreviewResponse,
     PlanningState,
 )
+from app.features.recommendations.schemas import PlanningRecommendationItem
 
 Money = Annotated[
     Decimal,
@@ -101,6 +102,7 @@ class AIItineraryGenerateResponse(BaseModel):
     model_runs: list[AIModelRunResult]
     selected_generation_run_id: int | None = None
     planning_preview: PlanningPreviewResponse | None = None
+    geo_analytics_context: dict[str, Any] | None = None
 
 
 class AIChatMessage(BaseModel):
@@ -165,6 +167,9 @@ class AIPlanningChatResult(BaseModel):
         "applied", "no_changes", "needs_clarification", "invalid_output",
     ]
     preview: PlanningPreviewResponse
+    recommendations: list[PlanningRecommendationItem] = Field(default_factory=list)
+    recommendation_total_candidates: int = 0
+    recommendation_shortfall_reason: str | None = None
 
 
 class AIChatResponse(BaseModel):

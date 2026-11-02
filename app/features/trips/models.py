@@ -228,6 +228,9 @@ class TripRoute(Base):
     stops: Mapped[list] = mapped_column(JSON)
     legs: Mapped[list] = mapped_column(JSON)
     warnings: Mapped[list] = mapped_column(JSON)
+    polyline: Mapped[str | None] = mapped_column(Text)
+    polyline_encoding: Mapped[str | None] = mapped_column(String(20))
+    arrival_points_verified: Mapped[bool] = mapped_column(default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

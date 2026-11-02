@@ -1,6 +1,7 @@
 """Pure, conservative cost projection from current catalog choices and assumptions."""
 
-from decimal import Decimal
+from collections import Counter
+from decimal import Decimal, ROUND_HALF_UP
 
 from app.features.destinations.models import Destination
 from app.features.planning.schemas import (
@@ -57,10 +58,18 @@ def build_budget(
         if category in {"destination", "food"}
         for option_id in allowance.includes_activity_option_ids
     }
+    age_rules = _age_rules(
+        projection, destinations_by_id, transports, activities, allowances, covered_activities,
+    )
     for destination in destinations:
         reference = f"destination:{destination.destination_id}"
         allowance = allowances.get(("destination", destination.destination_id, None))
-        if allowance is None:
+        rule = age_rules.get(("destination", reference))
+        if rule is not None:
+            _age_priced_cost(projection, rule, "destination", reference, destination.name,
+                             rule.adult_unit_amount, charge_count=1,
+                             adult_source="traveler_age_pricing_rule")
+        elif allowance is None:
             projection.missing(
                 "destination_allowance_missing", reference,
                 "Provide a labeled entrance/destination allowance; the catalog estimate has an unknown basis and inclusions.",
@@ -72,6 +81,7 @@ def build_budget(
         if option is None:
             continue
         allowance = allowances.get(("activity", None, option_id))
+        rule = age_rules.get(("activity", option_id))
         if option_id in covered_activities:
             if allowance is not None:
                 projection.problem(
@@ -83,12 +93,16 @@ def build_budget(
                 "activity", option_id, option.label, ZERO, "included_in_allowance",
                 included_in=covered_activities[option_id],
             )
+        elif rule is not None:
+            _age_priced_cost(projection, rule, "activity", option_id, option.label,
+                             rule.adult_unit_amount, charge_count=1,
+                             adult_source="traveler_age_pricing_rule")
         elif allowance is None:
             projection.missing("activity_allowance_missing", option_id, f"Provide a labeled allowance for {option.label}; its fee is unknown.")
         else:
             projection.allowance(allowance, option_id, f"{option.label}: activity allowance")
 
-    _transport_costs(projection, transports, allowances, fuel)
+    _transport_costs(projection, transports, allowances, fuel, age_rules)
     _accommodation_costs(projection, accommodations, allowances)
     for category in ("food", "other"):
         allowance = allowances.get((category, None, None))
@@ -204,7 +218,90 @@ def _allowances(projection, destinations, activities):
     return valid
 
 
-def _transport_costs(projection, options, allowances, fuel):
+def _age_rules(projection, destinations, transports, activities, allowances, covered_activities):
+    state = projection.state
+    valid = {}
+    for rule in state.age_pricing_rules:
+        reference = rule.reference_id
+        conflict = False
+        if rule.category == "destination":
+            destination_id = next(
+                (item for item in state.destination_ids if reference == f"destination:{item}"), None
+            )
+            conflict = destination_id is not None and (
+                "destination", destination_id, None
+            ) in allowances
+            available = destination_id in destinations
+        elif rule.category == "activity":
+            available = reference in activities and reference in state.selected_activity_option_ids
+            conflict = (
+                ("activity", None, reference) in allowances or reference in covered_activities
+            )
+        else:
+            option = transports.get(reference)
+            fare = next(
+                (item for item in state.transport_pricing if item.option_id == reference), None
+            )
+            available = (
+                reference in state.selected_transport_option_ids
+                and option is not None and option.kind == "catalog_transport"
+                and fare is not None and fare.price_basis == "per_person"
+            )
+            conflict = ("transportation", None, None) in allowances
+        if not available or conflict:
+            projection.problem(
+                "age_pricing_rules", reference, "pricing_assumption_invalid",
+                "Age pricing must reference a selected available item and cannot overlap a whole-trip allowance.",
+            )
+            continue
+        valid[(rule.category, reference)] = rule
+    return valid
+
+
+def _age_priced_cost(
+    projection, rule, category, reference, label, adult_unit_amount,
+    *, charge_count, adult_source,
+):
+    state = projection.state
+    adult_count = state.adult_count or 0
+    if adult_count:
+        quantity = adult_count * charge_count
+        projection.line(
+            category, reference, f"{label}: adults", adult_unit_amount * quantity,
+            adult_source, unit_amount=adult_unit_amount, quantity=quantity,
+            price_basis="per_person",
+        )
+    if rule is None:
+        projection.missing(
+            "child_price_rule_missing", reference,
+            "Provide explicit child age-band pricing or a whole-trip allowance; children are not assumed free or full price.",
+        )
+        return
+    for age, count in sorted(Counter(state.child_ages).items()):
+        band = next(
+            (item for item in rule.child_bands if item.min_age <= age <= item.max_age), None
+        )
+        if band is None:
+            projection.missing(
+                "child_price_band_missing", f"{reference}:age:{age}",
+                f"Provide an explicit price rule for children age {age} at {label}.",
+            )
+            continue
+        factor = {"free": Decimal("0"), "half": Decimal("0.5"), "full": Decimal("1")}[band.rate]
+        unit = (adult_unit_amount * factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+        quantity = count * charge_count
+        projection.line(
+            category, f"{reference}:child_age:{age}",
+            f"{label}: children age {age} ({band.rate})", unit * quantity,
+            "traveler_age_pricing_rule", unit_amount=unit, quantity=quantity,
+            price_basis="per_person",
+        )
+    projection.assumptions.append(
+        f"{reference}: child age-band prices are traveler-supplied rules, not verified catalog child fees."
+    )
+
+
+def _transport_costs(projection, options, allowances, fuel, age_rules):
     state = projection.state
     selected = [options[item] for item in state.selected_transport_option_ids if item in options]
     assumptions = {}
@@ -283,6 +380,21 @@ def _transport_costs(projection, options, allowances, fuel):
             projection.missing(
                 "transport_price_basis_missing", option.option_id,
                 "Provide an explicit fare basis/count, or a whole-trip transportation allowance for vehicle and unpriced travel expenses.",
+            )
+            continue
+        if assumption.price_basis == "per_person" and state.child_ages:
+            _age_priced_cost(
+                projection, age_rules.get(("transportation", option.option_id)),
+                "transportation", option.option_id, option.label, option.listed_price,
+                charge_count=assumption.charge_count,
+                adult_source=(
+                    "catalog_price_with_verified_basis" if option.price_basis
+                    else "catalog_price_with_assumed_basis"
+                ),
+            )
+            projection.assumptions.append(
+                f"{option.option_id}: catalog adult fare with {assumption.charge_count} "
+                f"traveler-assumed charge(s) and {assumption.journey_scope} coverage."
             )
             continue
         quantity = assumption.charge_count

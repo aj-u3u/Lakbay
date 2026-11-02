@@ -44,6 +44,14 @@ class RouteStop(BaseModel):
     lat: float
     lng: float
     is_origin: bool = False
+    coordinate_basis: Literal["origin", "verified_arrival", "attraction"] = "attraction"
+
+
+class RouteDirectionStep(BaseModel):
+    order: int = Field(ge=1)
+    instruction: str
+    distance_meters: int = Field(ge=0)
+    duration_seconds: int = Field(ge=0)
 
 
 class RouteLeg(BaseModel):
@@ -58,6 +66,7 @@ class RouteLeg(BaseModel):
     normal_duration_minutes: int | None = Field(default=None, ge=0)
     traffic_delay_minutes: int | None = Field(default=None, ge=0)
     traffic_level: TrafficLevel | None = None
+    steps: list[RouteDirectionStep] = Field(default_factory=list)
 
 
 class RouteTrafficSummary(BaseModel):
@@ -78,5 +87,8 @@ class RouteSummaryResponse(BaseModel):
     total_duration_minutes: int = Field(ge=0)
     stops: list[RouteStop]
     legs: list[RouteLeg]
+    polyline: str | None = None
+    polyline_encoding: Literal["polyline5"] | None = None
+    arrival_points_verified: bool = False
     warnings: list[str] = Field(default_factory=list)
     traffic: RouteTrafficSummary | None = None

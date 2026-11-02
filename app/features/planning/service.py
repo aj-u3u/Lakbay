@@ -7,12 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.destinations.models import Destination
 from app.features.planning.costs import build_budget
+from app.features.planning.feedback import evaluate_preview
 from app.features.planning.repository import PlanningRepository
 from app.features.planning.routing import build_route_preview
 from app.features.planning.schemas import (
     PlanningActivityOption,
     PlanningAccommodationOption,
     PlanningDestination,
+    PlanningFeedbackRequest,
+    PlanningFeedbackResponse,
     PlanningNextAction,
     PlanningPreviewRequest,
     PlanningPreviewResponse,
@@ -28,6 +31,18 @@ class PlanningService:
     def __init__(self, session: AsyncSession, route_service: RouteService | None = None) -> None:
         self.planning = PlanningRepository(session)
         self.route_service = route_service
+
+    async def feedback(self, data: PlanningFeedbackRequest) -> PlanningFeedbackResponse:
+        preview = await self.preview(data)
+        active = await self.planning.list_active_destinations(data.state.destination_ids)
+        by_id = {item.destination_id: item for item in active}
+        destinations = [
+            by_id[item] for item in data.state.destination_ids if item in by_id
+        ]
+        return evaluate_preview(
+            preview, destinations,
+            traveling_with_children=data.traveling_with_children,
+        )
 
     async def preview(self, data: PlanningPreviewRequest) -> PlanningPreviewResponse:
         state = data.state

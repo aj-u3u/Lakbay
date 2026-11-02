@@ -30,13 +30,38 @@ The backend recalculates the preview, sends its budget lines and route to the
 configured AI model, and returns at least the configured number of validated
 options. Each option must reference every selected destination and catalog rate
 ID exactly; an omitted or substituted ID invalidates that model run. The
-response includes `selected_generation_run_id` and `planning_preview`. Its
+prompt and response also include `geo_analytics_context`. It ranks up to five
+interest matches **within the selected IDs** using the Phase 3 recommendation
+scorer. It uses request interests when supplied, otherwise planning-state
+interests. If a planning route summary exists for two or more selected destinations,
+it asks the Phase 15B service for scored groups (up to three). The grouping route
+covers the destinations in each group and excludes the trip origin; it is a
+separate route calculation from the origin-inclusive planning preview. Group
+scores, component scores, reasons, provider, estimated flag, and warnings retain
+their Phase 15B meaning. A group with unknown catalog destination costs is
+excluded rather than treated as free. With no eligible group, the list is empty
+and `grouping_status=no_eligible_groups`; with no grouping call, a route-backed
+selected set may still appear as `score_status=not_scored`.
+
+The context also includes the planning route's provider, order, duration,
+distance, estimated flag, arrival verification, and the budget's completeness,
+fit, subtotal, and total estimate when known. The prompt warns that an estimated
+route or unverified arrival does not establish feasibility. Grouping uses the
+existing per-user Phase 15B rate limit as well as the planning route limit.
+Its result is read-only and saved with the validated generation run for audit.
+No unselected recommendation ID is passed to the model or allowed in its output.
+
+The response includes `selected_generation_run_id`, `planning_preview`, and
+`geo_analytics_context`. The preview's
 `budget.lines` distinguish verified catalog charging units, catalog prices with
 assumed charging units, and traveler allowances. A catalog amount does not
 verify the number of charges, a return fare, availability, or route coverage.
 `estimated_total_cost` on an AI option and `estimated_cost` on an AI activity
 have `cost_source=ai_draft_estimate`; the backend preview budget is the cost
 projection used when saving. Missing costs remain visible as a partial preview.
+When Phase 15D age rules are supplied, the preview and prompt retain itemized
+adult and child lines and unresolved age bands. Those rules are traveler
+assumptions; AI does not decide whether a child qualifies for a discount.
 
 To save one option, send its `option_number` and
 `selected_generation_run_id` to `POST /api/v1/trips/from-ai-option`. The run
@@ -234,6 +259,28 @@ When `planning_state` is supplied, the model must return a JSON object containin
 `chat_response` and partial `state_updates`. The backend validates the patch,
 retains fields the traveler did not change, and returns:
 
+```json
+{
+  "chat_response": "I noted your departure city.",
+  "state_updates": {"origin": {"label": "Davao City"}}
+}
+```
+
+`origin` must be an object with `label`; a bare string is malformed. The prompt
+also tells the model not to infer overnight stays from trip days and not to
+claim that unconfirmed fares or meals are covered by a budget.
+The backend independently checks `night_count` and `return_to_origin` against
+the current traveler message. It accepts a night count when the traveler gives
+the count, clearly says day trip or no overnight stay, or answers the latest
+assistant question about nights with a count. It accepts a return preference
+when the traveler says round trip, one way, return or no return, or answers the
+latest assistant question about returning with yes or no. A model value that
+does not match that evidence is omitted; other valid fields can still apply,
+and the response asks the traveler to confirm the omitted detail. Repeating a
+value already present in the plan does not trigger a warning unless it
+conflicts with an explicit correction. Ambiguous choices such as “one or two
+nights” and “round trip or one way” do not confirm either field.
+
 - `planning.input_revision`: the echoed revision for stale-response handling.
 - `planning.state_updates`: the accepted changes to origin label, destinations,
   budget, travelers, duration, return preference, or interests. Origin
@@ -242,15 +289,46 @@ retains fields the traveler did not change, and returns:
   `invalid_output`.
 - `planning.preview`: the normal planning-preview response recalculated from the
   resulting state.
+- `planning.recommendations`: up to five active destinations that actually match
+  the current interests and have a verified visitor arrival point, no unresolved
+  non-road access hint, and a provider-confirmed route from the map-selected
+  origin for the single selected driving or walking mode. Haversine and public
+  transport estimates do not qualify. Candidates sort by the existing Phase 3
+  preference score, then destination ID. Each item includes its catalog ID,
+  score, matching reasons, destination estimate, route provider, mode, distance,
+  and duration. The estimate is not a full-trip budget or a current opening,
+  booking, or permit check. This lookup does not save a preference signal.
+- `planning.recommendation_total_candidates` counts all verified, reachable
+  preference matches, even when only the first five are returned.
+  `planning.recommendation_shortfall_reason` is null when at least five qualify;
+  otherwise it states why fewer qualify, including missing origin/mode, missing
+  arrival verification, non-road connections, or unconfirmed routes. An empty
+  preference match stays empty. With interests but fewer than five qualifying
+  places, the backend uses this reason as the chat reply instead of trusting
+  potentially conflicting model prose.
 
 The model cannot change transport, activity, accommodation, route, fuel, or
 pricing selections; Flutter sends those through `planning_state` or to
 `POST /api/v1/planning/preview`. Newly proposed destination IDs must be grounded
-in retrieved catalog context. Unsupported destination IDs or invalid structured
-output leave the current state intact, and the response still includes its
-preview. Flutter should retain the returned `preview.state`, increment its
-revision after user edits, and ignore responses for older revisions. Omitting
+in retrieved catalog context. Unsupported destination IDs leave that selection
+intact. If one allowed update field has a malformed value, the backend validates
+the remaining fields individually and may apply the safe ones. It replaces the
+model's reply with a notice naming the rejected detail so a false confirmation
+is not displayed. Unknown update fields, malformed top-level JSON, or an invalid
+final combined state still leave the current state intact. The response includes
+its preview in each case. Flutter should retain the returned `preview.state`,
+increment its revision after user edits, and ignore responses for older revisions. Omitting
 `planning_state` keeps the ordinary free-text chat flow.
+When any accepted `state_updates` change the plan, Flutter clears previously
+generated itinerary options even if `update_status` is `needs_clarification`
+because another proposed field could not be accepted.
+
+When a conversation changes selected destination IDs, the backend clears old
+transport, activity, accommodation, and price selections before building the
+next preview. The traveler confirms the new destination allowances and trip
+costs before generation. Flutter displays the catalog suggestions as selectable
+cards, carries the conversation and current state across turns, and sends the
+exact chosen generation run and option number when saving a trip.
 
 ## Response Shape
 
@@ -301,10 +379,11 @@ follow-up or say what information is missing instead of inventing exact facts.
 
 ## Planned AI Geo-Analytics Context
 
-The current AI itinerary endpoint uses selected destinations, accommodations,
+The AI itinerary endpoint uses selected destinations, accommodations,
 transportation options, budget, interests, travel style, and special
-requirements. Phase 15 should make the AI more route-aware by passing
-backend-calculated geo-analytics context into the prompt.
+requirements. Planning-enabled generation now passes the preview and selected-ID
+recommendations plus Phase 15B scored groups when a route can be calculated.
+Child-aware cost projections remain dependent on Phase 15D pricing rules.
 
 The backend should calculate facts first:
 

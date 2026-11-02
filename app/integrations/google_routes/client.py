@@ -10,7 +10,7 @@ from app.integrations.google_routes.errors import (
     GoogleRoutesQuotaError,
     GoogleRoutesRouteNotFoundError,
 )
-from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
+from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult, GoogleRouteStep
 
 _CACHE: dict[str, tuple[datetime, GoogleRouteResult]] = {}
 _REQUEST_COUNTS: dict[date, int] = {}
@@ -50,6 +50,7 @@ class GoogleRoutesClient:
                 total_static_duration_seconds=cached.total_static_duration_seconds,
                 legs=cached.legs,
                 cache_hit=True,
+                polyline=cached.polyline,
             )
 
         _require_daily_capacity(self.settings.google_routes_daily_request_limit)
@@ -91,9 +92,13 @@ def _request_headers(settings: Settings) -> dict[str, str]:
                 "routes.distanceMeters",
                 "routes.duration",
                 "routes.staticDuration",
+                "routes.polyline.encodedPolyline",
                 "routes.legs.distanceMeters",
                 "routes.legs.duration",
                 "routes.legs.staticDuration",
+                "routes.legs.steps.distanceMeters",
+                "routes.legs.steps.staticDuration",
+                "routes.legs.steps.navigationInstruction.instructions",
             ]
         ),
     }
@@ -165,6 +170,7 @@ def _parse_response(response: httpx.Response) -> GoogleRouteResult:
             static_duration_seconds if static_duration_seconds > 0 else duration_seconds
         ),
         legs=[_parse_leg(leg) for leg in route.get("legs") or []],
+        polyline=(route.get("polyline") or {}).get("encodedPolyline"),
     )
 
 
@@ -178,6 +184,15 @@ def _parse_leg(leg: dict) -> GoogleRouteLeg:
         static_duration_seconds=(
             static_duration_seconds if static_duration_seconds > 0 else duration_seconds
         ),
+        steps=[
+            GoogleRouteStep(
+                instruction=(step.get("navigationInstruction") or {}).get("instructions")
+                or "Continue",
+                distance_meters=float(step.get("distanceMeters") or 0),
+                duration_seconds=_duration_seconds(step.get("staticDuration")),
+            )
+            for step in leg.get("steps") or []
+        ],
     )
 
 

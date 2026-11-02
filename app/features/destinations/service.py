@@ -80,6 +80,43 @@ class DestinationService:
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
+        if "route_ready" in values and values["route_ready"] is None:
+            raise LakbayAPIError(
+                "route_ready must be true or false.",
+                code="invalid_route_ready",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
+        arrival_lat = values.get("arrival_lat", destination.arrival_lat)
+        arrival_lng = values.get("arrival_lng", destination.arrival_lng)
+        arrival_source_url = values.get("arrival_source_url", destination.arrival_source_url)
+        arrival_verified_at = values.get("arrival_verified_at", destination.arrival_verified_at)
+        route_ready = values.get("route_ready", destination.route_ready)
+        if (arrival_lat is None) != (arrival_lng is None):
+            raise LakbayAPIError(
+                "Arrival latitude and longitude must be provided together.",
+                code="invalid_arrival_point",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if route_ready and (
+            arrival_lat is None
+            or not arrival_source_url
+            or arrival_verified_at is None
+        ):
+            raise LakbayAPIError(
+                "A route-ready destination needs a sourced, verified arrival point.",
+                code="arrival_point_unverified",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+        if route_ready and {"arrival_lat", "arrival_lng"}.intersection(values) and (
+            "arrival_source_url" not in values or "arrival_verified_at" not in values
+        ):
+            raise LakbayAPIError(
+                "Reconfirm the source and time when changing a route-ready arrival point.",
+                code="arrival_point_reverification_required",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         updated_destination = await self.destinations.update(destination, values)
         await self.session.commit()
         await self.session.refresh(updated_destination)

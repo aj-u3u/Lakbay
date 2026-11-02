@@ -74,6 +74,42 @@ class PlanningAccommodationPricing(PlanningInput):
     night_count: int = Field(ge=1, le=30)
 
 
+class PlanningChildPriceBand(PlanningInput):
+    min_age: int = Field(ge=0, le=17)
+    max_age: int = Field(ge=0, le=17)
+    rate: Literal["free", "half", "full"]
+
+    @model_validator(mode="after")
+    def validate_range(self):
+        if self.min_age > self.max_age:
+            raise ValueError("min_age cannot exceed max_age.")
+        return self
+
+
+class PlanningAgePricingRule(PlanningInput):
+    category: Literal["destination", "activity", "transportation"]
+    reference_id: OptionId
+    adult_unit_amount: Money | None = None
+    child_bands: list[PlanningChildPriceBand] = Field(min_length=1, max_length=18)
+
+    @model_validator(mode="after")
+    def validate_rule(self):
+        prefix = f"{self.category}:"
+        if not self.reference_id.startswith(prefix):
+            raise ValueError("reference_id does not match the pricing category.")
+        if self.category == "transportation" and self.adult_unit_amount is not None:
+            raise ValueError("Transportation adult fare comes from the selected catalog rate.")
+        if self.category != "transportation" and self.adult_unit_amount is None:
+            raise ValueError("Destination and activity rules require an adult unit amount.")
+        covered = set()
+        for band in self.child_bands:
+            ages = set(range(band.min_age, band.max_age + 1))
+            if covered.intersection(ages):
+                raise ValueError("Child age bands cannot overlap.")
+            covered.update(ages)
+        return self
+
+
 class PlanningRoutePreferences(PlanningInput):
     optimize_order: bool = False
     road_access_confirmed: bool = False
@@ -96,6 +132,8 @@ class PlanningState(PlanningInput):
     total_budget: Budget | None = None
     budget_scope: Literal["whole_trip", "per_person"] = "whole_trip"
     traveler_count: int | None = Field(default=None, ge=1, le=100)
+    adult_count: int | None = Field(default=None, ge=0, le=100)
+    child_ages: list[int] = Field(default_factory=list, max_length=100)
     day_count: int | None = Field(default=None, ge=1, le=30)
     night_count: int | None = Field(default=None, ge=0, le=30)
     return_to_origin: bool | None = None
@@ -107,6 +145,7 @@ class PlanningState(PlanningInput):
     cost_allowances: list[PlanningCostAllowance] = Field(default_factory=list, max_length=100)
     transport_pricing: list[PlanningTransportPricing] = Field(default_factory=list, max_length=50)
     accommodation_pricing: list[PlanningAccommodationPricing] = Field(default_factory=list, max_length=10)
+    age_pricing_rules: list[PlanningAgePricingRule] = Field(default_factory=list, max_length=100)
     route_preferences: PlanningRoutePreferences | None = None
     fuel_assumptions: PlanningFuelAssumptions | None = None
 
@@ -133,6 +172,16 @@ class PlanningState(PlanningInput):
 
     @model_validator(mode="after")
     def validate_nights(self):
+        if any(age < 0 or age > 17 for age in self.child_ages):
+            raise ValueError("child_ages must be between 0 and 17 years.")
+        if self.child_ages and self.adult_count is None:
+            raise ValueError("adult_count is required when child_ages are supplied.")
+        if self.adult_count is not None and self.traveler_count is not None and (
+            self.adult_count + len(self.child_ages) != self.traveler_count
+        ):
+            raise ValueError("adult_count plus child_ages must equal traveler_count.")
+        if self.age_pricing_rules and not self.child_ages:
+            raise ValueError("age_pricing_rules require at least one child age.")
         if (
             self.day_count is not None
             and self.night_count is not None
@@ -146,6 +195,7 @@ class PlanningState(PlanningInput):
             allowance_keys,
             [item.option_id for item in self.transport_pricing],
             [item.accommodation_id for item in self.accommodation_pricing],
+            [(item.category, item.reference_id) for item in self.age_pricing_rules],
         ):
             if len(values) != len(set(values)):
                 raise ValueError("Allowance scopes and pricing assumption identifiers must be unique.")
@@ -157,13 +207,17 @@ class PlanningPreviewRequest(PlanningInput):
     state: PlanningState = Field(default_factory=PlanningState)
 
 
+class PlanningFeedbackRequest(PlanningPreviewRequest):
+    traveling_with_children: bool | None = None
+
+
 class PlanningDestination(BaseModel):
     destination_id: int
     name: str
     district: str | None
     location: str | None
     activities_description: str | None
-    catalog_estimated_cost: Decimal
+    catalog_estimated_cost: Decimal | None
     entrance_fee_description: str | None
 
 
@@ -241,6 +295,7 @@ class PlanningCostLine(BaseModel):
     source: Literal[
         "traveler_allowance", "catalog_price_with_assumed_basis", "included_in_allowance",
         "route_with_traveler_assumptions", "catalog_price_with_verified_basis",
+        "traveler_age_pricing_rule",
     ]
     unit_amount: Decimal | None = None
     quantity: int | None = None
@@ -305,3 +360,26 @@ class PlanningPreviewResponse(BaseModel):
     missing_inputs: list[str]
     selection_problems: list[PlanningSelectionProblem]
     next_actions: list[PlanningNextAction]
+
+
+class PlanningFeedbackFinding(BaseModel):
+    code: Literal[
+        "selection_invalid", "trip_details_missing", "catalog_cost_unknown",
+        "budget_incomplete", "over_budget", "arrival_unverified",
+        "route_not_requested", "route_needs_review", "route_estimated",
+        "route_order_not_compared", "travel_time_high", "walking_distance_high",
+        "activity_load_high", "child_suitability_review",
+    ]
+    category: Literal["data", "budget", "route", "pacing", "activities", "suitability"]
+    severity: Literal["required", "review", "info"]
+    message: str
+    fields: list[str] = Field(default_factory=list)
+    destination_ids: list[int] = Field(default_factory=list)
+
+
+class PlanningFeedbackResponse(BaseModel):
+    input_revision: int
+    traveling_with_children: bool | None
+    status: Literal["needs_details", "needs_review", "no_flagged_issues"]
+    findings: list[PlanningFeedbackFinding]
+    preview: PlanningPreviewResponse

@@ -111,6 +111,9 @@ class TripRouteCreate(BaseModel):
     stops: list["TripRouteStop"] = Field(min_length=1, max_length=30)
     legs: list["TripRouteLeg"] = Field(default_factory=list, max_length=30)
     warnings: list[str] = Field(default_factory=list, max_length=20)
+    polyline: str | None = None
+    polyline_encoding: Literal["polyline5"] | None = None
+    arrival_points_verified: bool = False
 
     @model_validator(mode="after")
     def validate_route_summary(self) -> "TripRouteCreate":
@@ -132,6 +135,7 @@ class TripRouteStop(BaseModel):
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
     is_origin: bool = False
+    coordinate_basis: Literal["origin", "verified_arrival", "attraction"] = "attraction"
 
     @model_validator(mode="after")
     def validate_origin_destination(self) -> "TripRouteStop":
@@ -153,6 +157,14 @@ class TripRouteLeg(BaseModel):
     distance_km: DistanceKm
     duration_minutes: int = Field(ge=0)
     is_estimated: bool
+    steps: list["TripRouteDirectionStep"] = Field(default_factory=list)
+
+
+class TripRouteDirectionStep(BaseModel):
+    order: PositiveInt
+    instruction: str = Field(min_length=1)
+    distance_meters: int = Field(ge=0)
+    duration_seconds: int = Field(ge=0)
 
 
 class TripMemberCreate(BaseModel):
@@ -219,6 +231,9 @@ class TripRouteResponse(BaseModel):
     stops: list[TripRouteStop]
     legs: list[TripRouteLeg]
     warnings: list[str]
+    polyline: str | None
+    polyline_encoding: Literal["polyline5"] | None
+    arrival_points_verified: bool
     created_at: datetime
     updated_at: datetime
 

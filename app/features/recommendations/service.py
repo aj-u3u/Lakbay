@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import LakbayAPIError
 from app.features.destinations.models import Destination
+from app.features.planning.routing import _has_non_road_access_hint
 from app.features.recommendations.models import (
     DestinationInteraction,
     DestinationPopularity,
@@ -15,10 +16,13 @@ from app.features.recommendations.schemas import (
     DestinationInteractionResponse,
     DestinationPopularityResponse,
     PreferenceSignalResponse,
+    PlanningRecommendationItem,
     RecommendationItem,
     RecommendationRequest,
     RecommendationResponse,
 )
+from app.features.routes.schemas import RouteCoordinate, RoutePreviewRequest, RouteSummaryResponse
+from app.features.routes.service import RouteService
 from app.features.users.models import User
 
 NON_REPEATABLE_INTERACTIONS = {"save", "rate", "add_to_itinerary"}
@@ -28,6 +32,120 @@ class RecommendationService:
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
         self.recommendations = RecommendationRepository(session)
+
+    async def rank_planning_candidates(
+        self,
+        *,
+        interests: list[str],
+        traveler_count: int | None,
+        origin: RouteCoordinate | None,
+        travel_mode: str | None,
+        route_service: RouteService | None,
+        limit: int = 5,
+    ) -> tuple[list[PlanningRecommendationItem], int, str | None]:
+        """Return only preference matches with verified arrivals and provider routes."""
+        if not interests:
+            return [], 0, "No travel interests were supplied, so there is no preference match to rank."
+        preference = RecommendationRequest(
+            preferred_categories=interests,
+            preferred_vibes=interests,
+            preferred_activities=interests,
+            group_friendly=True if traveler_count and traveler_count > 1 else None,
+            limit=limit,
+        )
+        destinations = await self.recommendations.list_active_destinations()
+        popularity = await self.recommendations.list_popularity()
+        matches = [
+            item
+            for destination in destinations
+            if (
+                item := self.score_destination(
+                    destination=destination,
+                    preference=preference,
+                    popularity=popularity.get(destination.destination_id),
+                )
+            ) is not None
+            and bool({"category", "vibes", "activities"} & set(item.matched_fields))
+        ]
+        matches.sort(key=lambda item: (-item.score, item.destination_id))
+        if not matches:
+            return [], 0, "No active catalog destination matches the supplied travel interests."
+
+        destinations_by_id = {item.destination_id: item for item in destinations}
+        verified = [
+            item for item in matches
+            if _has_verified_arrival(destinations_by_id[item.destination_id])
+        ]
+        unverified_count = len(matches) - len(verified)
+        road_candidates = [
+            item for item in verified
+            if not _has_non_road_access_hint(destinations_by_id[item.destination_id])
+        ]
+        non_road_count = len(verified) - len(road_candidates)
+        if not road_candidates:
+            return [], 0, (
+                f"No verified road candidates qualify from {len(matches)} preference matches: "
+                f"{unverified_count} lack a verified arrival point and "
+                f"{non_road_count} need a separate non-road connection."
+            )
+        if origin is None:
+            return [], 0, (
+                f"{len(matches)} preference matches found; {unverified_count} lack a verified "
+                f"arrival point and {non_road_count} need a non-road connection. Reachability "
+                "of the remaining candidates cannot be confirmed without a map-selected origin coordinate."
+            )
+        if travel_mode not in {"driving", "walking"}:
+            return [], 0, (
+                f"{len(matches)} preference matches found; {unverified_count} lack a verified "
+                f"arrival point and {non_road_count} need a non-road connection. A single "
+                "driving or walking mode is needed to confirm routes to the remaining candidates."
+            )
+        if route_service is None:
+            return [], 0, "Routing is unavailable, so no candidate can be confirmed reachable."
+
+        qualified: list[PlanningRecommendationItem] = []
+        route_failed_count = 0
+        for item in road_candidates:
+            try:
+                route = await route_service.preview_route(RoutePreviewRequest(
+                    destination_ids=[item.destination_id],
+                    origin=origin,
+                    travel_mode=travel_mode,
+                ))
+            except LakbayAPIError:
+                route_failed_count += 1
+                continue
+            if not _confirms_candidate_route(
+                route, destinations_by_id[item.destination_id], origin, travel_mode,
+            ):
+                route_failed_count += 1
+                continue
+            qualified.append(PlanningRecommendationItem(
+                **{
+                    **item.model_dump(),
+                    "reasons": [*item.reasons, "Provider route reaches the verified visitor arrival point."],
+                },
+                route_provider=route.route_provider,
+                travel_mode=travel_mode,
+                route_distance_km=route.total_distance_km,
+                route_duration_minutes=route.total_duration_minutes,
+            ))
+
+        # Preserve preference rank; a shorter confirmed trip breaks equal scores.
+        qualified.sort(key=lambda item: (
+            -item.score, item.route_duration_minutes,
+            item.route_distance_km, item.destination_id,
+        ))
+        total = len(qualified)
+        reason = None
+        if total < limit:
+            reason = (
+                f"Only {total} verified, reachable candidates qualify from {len(matches)} "
+                f"preference matches: {unverified_count} lack a verified arrival point, "
+                f"{non_road_count} need a separate non-road connection, and "
+                f"{route_failed_count} have no confirmed {travel_mode} route."
+            )
+        return qualified[:limit], total, reason
 
     async def recommend_destinations(
         self,
@@ -272,7 +390,10 @@ class RecommendationService:
     def _passes_hard_filters(self, *, destination: Destination, preference) -> bool:
         if (
             preference.max_estimated_cost is not None
-            and destination.estimated_cost > preference.max_estimated_cost
+            and (
+                destination.estimated_cost is None
+                or destination.estimated_cost > preference.max_estimated_cost
+            )
         ):
             return False
 
@@ -368,6 +489,48 @@ class RecommendationService:
             + Decimal(_int(popularity.add_to_itinerary_count) * 5)
             + (Decimal(popularity.average_rating or 0) * Decimal("2"))
         )
+
+
+def _has_verified_arrival(destination: Destination) -> bool:
+    return bool(
+        destination.route_ready
+        and destination.arrival_lat is not None
+        and destination.arrival_lng is not None
+        and destination.arrival_source_url
+        and destination.arrival_verified_at
+    )
+
+
+def _confirms_candidate_route(
+    route: RouteSummaryResponse,
+    destination: Destination,
+    origin: RouteCoordinate,
+    travel_mode: str,
+) -> bool:
+    if len(route.stops) != 2 or len(route.legs) != 1:
+        return False
+    start, end = route.stops
+    leg = route.legs[0]
+    return bool(
+        route.route_provider in {"osrm", "google_routes"}
+        and route.travel_mode == travel_mode
+        and not route.is_estimated
+        and route.arrival_points_verified
+        and start.is_origin and start.destination_id is None
+        and start.coordinate_basis == "origin"
+        and abs(start.lat - origin.lat) <= 0.000001
+        and abs(start.lng - origin.lng) <= 0.000001
+        and not end.is_origin
+        and end.destination_id == destination.destination_id
+        and end.coordinate_basis == "verified_arrival"
+        and abs(end.lat - destination.arrival_lat) <= 0.000001
+        and abs(end.lng - destination.arrival_lng) <= 0.000001
+        and leg.from_destination_id is None
+        and leg.to_destination_id == destination.destination_id
+        and not leg.is_estimated
+        and abs(route.total_distance_km - leg.distance_km) <= Decimal("0.01")
+        and abs(route.total_duration_minutes - leg.duration_minutes) <= 1
+    )
 
 
 def _match_list(

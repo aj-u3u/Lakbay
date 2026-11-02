@@ -1,7 +1,8 @@
 from datetime import datetime
 from decimal import Decimal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class DestinationBase(BaseModel):
@@ -14,8 +15,13 @@ class DestinationBase(BaseModel):
     activities: str | None = None
     lat: float = Field(ge=-90, le=90)
     lng: float = Field(ge=-180, le=180)
-    estimated_cost: Decimal = Field(
-        default=Decimal("0.00"),
+    arrival_lat: float | None = Field(default=None, ge=-90, le=90)
+    arrival_lng: float | None = Field(default=None, ge=-180, le=180)
+    arrival_source_url: str | None = Field(default=None, max_length=2048)
+    arrival_verified_at: datetime | None = None
+    route_ready: bool = False
+    estimated_cost: Decimal | None = Field(
+        default=None,
         ge=0,
         max_digits=10,
         decimal_places=2,
@@ -42,6 +48,25 @@ class DestinationBase(BaseModel):
     transport_accessibility: str | None = Field(default=None, max_length=100)
     image_url: str | None = Field(default=None, max_length=2048)
 
+    @field_validator("arrival_source_url")
+    @classmethod
+    def validate_arrival_source_url(cls, value: str | None) -> str | None:
+        return _validate_arrival_source_url(value)
+
+    @model_validator(mode="after")
+    def validate_arrival_point(self) -> "DestinationBase":
+        if (self.arrival_lat is None) != (self.arrival_lng is None):
+            raise ValueError("arrival_lat and arrival_lng must be provided together")
+        if self.route_ready and (
+            self.arrival_lat is None
+            or not self.arrival_source_url
+            or self.arrival_verified_at is None
+        ):
+            raise ValueError(
+                "route_ready requires arrival coordinates, source URL, and verification time"
+            )
+        return self
+
 
 class DestinationCreate(DestinationBase):
     pass
@@ -57,6 +82,11 @@ class DestinationUpdate(BaseModel):
     activities: str | None = None
     lat: float | None = Field(default=None, ge=-90, le=90)
     lng: float | None = Field(default=None, ge=-180, le=180)
+    arrival_lat: float | None = Field(default=None, ge=-90, le=90)
+    arrival_lng: float | None = Field(default=None, ge=-180, le=180)
+    arrival_source_url: str | None = Field(default=None, max_length=2048)
+    arrival_verified_at: datetime | None = None
+    route_ready: bool | None = None
     estimated_cost: Decimal | None = Field(
         default=None,
         ge=0,
@@ -86,16 +116,28 @@ class DestinationUpdate(BaseModel):
     image_url: str | None = Field(default=None, max_length=2048)
     is_active: bool | None = None
 
+    @field_validator("arrival_source_url")
+    @classmethod
+    def validate_arrival_source_url(cls, value: str | None) -> str | None:
+        return _validate_arrival_source_url(value)
+
 
 class DestinationResponse(DestinationBase):
-    # A catalog cost can be unknown even when older create requests require a price.
-    estimated_cost: Decimal | None = None
     destination_id: int
     is_active: bool
     created_at: datetime
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+def _validate_arrival_source_url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError("arrival_source_url must be an HTTP or HTTPS URL")
+    return value
 
 
 class DestinationListQuery(BaseModel):

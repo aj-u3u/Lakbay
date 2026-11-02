@@ -120,6 +120,11 @@ Done when:
 
 - Admins can preload destinations.
 - The system has at least five tourist locations per target district.
+
+On 1 November 2026 the configured Neon catalog had 30 active destinations:
+five in each target district. The numeric Phase 2 coverage target is met.
+All 30 remain `route_ready=false`; visitor arrival and access verification
+continues separately. See the [coverage review](phase2_coverage_arrival_continuation_2026-11-01.md).
 - Users can browse and filter destinations.
 
 Current implementation notes:
@@ -134,6 +139,10 @@ Current implementation notes:
   limit of `100`.
 - API and database validation enforce basic numeric ranges for coordinates,
   costs, capacity, and travel duration.
+- Attraction coordinates remain separate from optional verified visitor arrival
+  coordinates. New destinations default to `route_ready=false`; admin review
+  supplies arrival coordinates, source, and verification time before routing
+  uses the arrival point.
 - Starter Davao destination seed data lives in
   `app/seeds/davao_destinations.py`.
 - Rate currency and charging unit columns were added in `dfc235ae4bed`.
@@ -541,6 +550,19 @@ Done when:
 - AI and recommendation metrics can be exported or reviewed.
 - The backend is ready for Flutter integration testing and user assessment.
 
+Current implementation increment:
+
+- `GET /api/v1/evaluation/summary` provides admin-only, read-only AI attempt,
+  catalog engagement, and destination-readiness aggregates from existing tables.
+  Catalog interactions are not attributed to recommendation impressions, so the
+  response does not claim recommendation accuracy.
+- Phase 14 endpoint/security tests and an offline Alembic upgrade/downgrade SQL
+  smoke test are in `tests/test_phase14_evaluation.py` and
+  `tests/test_phase14_migrations.py`. Live Postgres migration reversal, external
+  provider checks, and device integration remain separate gates.
+- The response contract and verification steps are in
+  `docs/phase14_evaluation.md`.
+
 ## Phase 15: AI Geo-Analytics Planning Enhancements
 
 Purpose: address panel recommendations without rewriting the working backend.
@@ -605,6 +627,14 @@ Done when:
 - Users can see where estimated costs come from before saving a trip.
 - The budget projection can be passed to AI as controlled context.
 
+Implemented increment: the planning preview returns destination-scoped activity
+options and requires an explicit cost assumption for each selected activity.
+Both Flutter chat review sheets now let travelers select those returned options
+and mark each as a separate whole-trip estimate or explicitly included in a
+destination or food allowance. The backend preview handles the total and rejects
+overlapping coverage. Activity fees and durations remain unknown in the catalog;
+structured activity prices are future data work.
+
 ### Phase 15D: Child-Aware Costing
 
 Purpose: support trips that include children whose fees may be free, half price,
@@ -620,6 +650,16 @@ Done when:
 
 - Budget estimates can represent adult and child costs fairly.
 - Child-aware rules can later be reused by expenses and reports.
+
+Implemented backend increment: `POST /api/v1/planning/preview` accepts optional
+`adult_count`, `child_ages`, and nonoverlapping free/half/full age-band rules for
+selected destinations, activities, and per-person catalog transport. Missing
+child prices keep the projection partial; traveler rules are labeled as
+assumptions. Existing whole-trip allowances remain valid. Both Flutter chat
+review sheets collect party ages and allow a mutually exclusive whole-trip
+allowance or age-based rule for each destination. Activity and per-person
+transport child age-band controls remain pending. No schema or expense sharing changed.
+See `docs/child_aware_costing.md`.
 
 ### Phase 15E: AI Geo-Analytics Itinerary Context
 
@@ -640,11 +680,20 @@ Done when:
 - AI itinerary options are based on route-aware and budget-aware context.
 - AI still uses only allowed destination, accommodation, and transportation IDs.
 
-Current implementation increment: planning-enabled itinerary generation reuses
-the stateless planning preview for catalog selections, cost provenance, and route
-context. A chosen validated option can be saved with that preview and route in
-Phase 7 trip records. Destination-group scoring remains a separate input for
-future integration.
+Implemented: planning-enabled itinerary generation reuses the stateless planning
+preview for selected catalog IDs, cost provenance, and origin-inclusive route
+context. It ranks interest matches among those selected IDs and, when a route
+summary exists for at least two stops, reuses Phase 15B to score eligible
+destination groups. The prompt, API response, and generation-run audit summary
+carry these results, travel mode, route provider/estimate/arrival verification,
+budget completeness, and warnings. The group calculation has its own route calls
+and per-user limiter. Unknown-cost destinations are excluded from scored groups;
+an empty group result is explicit. Every AI option still must use exactly the
+selected IDs and pass backend budget validation. A chosen validated option can
+be saved with its preview and route in Phase 7 trip records. Optional Phase 15D
+age rules now flow through the same preview budget and AI prompt. Live route
+readiness depends on verified visitor
+arrival points in the catalog.
 
 ### Phase 15F: Itinerary Feedback
 
@@ -661,6 +710,19 @@ Done when:
 
 - Flutter can show actionable itinerary feedback such as over-budget warnings,
   high travel-time warnings, or child-pricing notes.
+
+Current implementation increment:
+
+- `POST /api/v1/planning/feedback` reuses the stateless planning preview and
+  returns structured advisory findings for missing data, budget fit, arrival
+  verification, route quality, pacing, activity load, and kid-friendly flags.
+  It does not infer child prices or compare unrequested route alternatives.
+- The request/response contract and review thresholds are in
+  `docs/itinerary_feedback.md`; focused tests are in
+  `tests/test_phase15f_itinerary_feedback.py`.
+- The traveler app now reviews these findings before saving a generated option
+  in either chat planning UI. Its dialog tests cover acknowledgment, required
+  findings, failed checks, child choice, and a narrow mobile layout.
 
 ### Phase 15G: Capstone Diagram And Objective Alignment
 

@@ -371,6 +371,62 @@ def test_user_can_save_and_get_trip_route(client) -> None:
     assert get_response.json()["trip_id"] == trip["trip_id"]
 
 
+def test_saved_trip_route_keeps_map_line_and_directions(client) -> None:
+    admin = admin_headers(client)
+    verified = {
+        "arrival_source_url": "https://example.com/visitor-gate",
+        "arrival_verified_at": "2026-10-29T00:00:00Z",
+        "route_ready": True,
+    }
+    destination_a = create_destination(
+        client, admin,
+        {**DESTINATION_A, **verified, "arrival_lat": 7.07, "arrival_lng": 125.61},
+    )
+    destination_b = create_destination(
+        client, admin,
+        {**DESTINATION_B, **verified, "arrival_lat": 7.10, "arrival_lng": 125.62},
+    )
+    headers = user_headers(client)
+    trip = create_trip(
+        client, headers,
+        [destination_a["destination_id"], destination_b["destination_id"]],
+    )
+    payload = two_stop_route_payload(
+        destination_a["destination_id"], destination_b["destination_id"],
+    )
+    payload["polyline"] = "encoded-route"
+    payload["polyline_encoding"] = "polyline5"
+    payload["arrival_points_verified"] = True
+    payload["stops"][0]["coordinate_basis"] = "verified_arrival"
+    payload["stops"][1]["coordinate_basis"] = "verified_arrival"
+    payload["stops"][0]["lat"] = 7.07
+    payload["stops"][0]["lng"] = 125.61
+    payload["stops"][1]["lat"] = 7.10
+    payload["stops"][1]["lng"] = 125.62
+    payload["legs"][0]["steps"] = [
+        {"order": 1, "instruction": "Turn right", "distance_meters": 100,
+         "duration_seconds": 20},
+    ]
+
+    saved = client.post(
+        f"/api/v1/trips/{trip['trip_id']}/route", headers=headers, json=payload,
+    )
+    assert saved.status_code == 200
+    loaded = client.get(f"/api/v1/trips/{trip['trip_id']}/route", headers=headers)
+    assert loaded.status_code == 200
+    assert loaded.json()["polyline"] == "encoded-route"
+    assert loaded.json()["arrival_points_verified"] is True
+    assert loaded.json()["stops"][0]["coordinate_basis"] == "verified_arrival"
+    assert loaded.json()["legs"][0]["steps"][0]["instruction"] == "Turn right"
+
+    payload["stops"][1]["lat"] = 7.11
+    rejected = client.post(
+        f"/api/v1/trips/{trip['trip_id']}/route", headers=headers, json=payload,
+    )
+    assert rejected.status_code == 400
+    assert rejected.json()["error"]["code"] == "trip_route_arrival_unverified"
+
+
 def test_user_can_replace_saved_trip_route(client) -> None:
     destination_a, _ = create_destinations(client)
     headers = user_headers(client)

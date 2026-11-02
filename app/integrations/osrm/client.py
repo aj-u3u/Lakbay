@@ -1,3 +1,5 @@
+from math import isfinite
+
 import httpx
 
 from app.core.config import Settings, get_settings
@@ -7,7 +9,10 @@ from app.integrations.osrm.errors import (
     OSRMConfigurationError,
     OSRMRouteNotFoundError,
 )
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult
+from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
+
+
+MAX_PREVIEW_WAYPOINT_SNAP_METERS = 250.0
 
 
 class OSRMClient:
@@ -23,8 +28,10 @@ class OSRMClient:
         profile = self._profile_for_mode(travel_mode)
         body = await self._get_json(
             f"/route/v1/{profile}/{_coordinates_path(coordinates)}",
-            params={"overview": "false", "steps": "false"},
+            params={"overview": "simplified", "steps": "true", "geometries": "polyline"},
         )
+
+        _require_near_route_waypoints(body, len(coordinates))
 
         return _parse_route_response(body)
 
@@ -38,25 +45,26 @@ class OSRMClient:
     ) -> OSRMRouteResult:
         profile = self._profile_for_mode(travel_mode)
         source = "first" if preserve_first else "any"
-        destination = "any"
+        destination = "any" if roundtrip else "last"
 
-        if not roundtrip and not preserve_first:
-            # OSRM does not support roundtrip=false with source=any and
-            # destination=any, so keep the first coordinate as the start.
+        if not roundtrip:
+            # OSRM Trip only supports an open route with a fixed first and
+            # last coordinate. The interior stops can still be reordered.
             source = "first"
 
         body = await self._get_json(
             f"/trip/v1/{profile}/{_coordinates_path(coordinates)}",
             params={
-                "overview": "false",
-                "steps": "false",
+                "overview": "simplified",
+                "steps": "true",
+                "geometries": "polyline",
                 "roundtrip": str(roundtrip).lower(),
                 "source": source,
                 "destination": destination,
             },
         )
 
-        return _parse_trip_response(body)
+        return _parse_trip_response(body, expected_count=len(coordinates))
 
     async def _get_json(self, path: str, *, params: dict[str, str]) -> dict:
         if not self.settings.osrm_base_url:
@@ -120,6 +128,25 @@ def _coordinates_path(coordinates: list[RouteCoordinate]) -> str:
     return ";".join(f"{item.lng:.6f},{item.lat:.6f}" for item in coordinates)
 
 
+def _require_near_route_waypoints(body: dict, expected_count: int) -> None:
+    """A distant OSRM snap is not evidence of a route to the requested point."""
+    waypoints = body.get("waypoints")
+    if not isinstance(waypoints, list) or len(waypoints) != expected_count:
+        raise OSRMRouteNotFoundError("OSRM did not confirm every route waypoint.")
+    for waypoint in waypoints:
+        if not isinstance(waypoint, dict):
+            raise OSRMRouteNotFoundError("OSRM returned an invalid route waypoint.")
+        distance = waypoint.get("distance")
+        if (
+            not isinstance(distance, (int, float)) or isinstance(distance, bool)
+            or not isfinite(distance) or distance < 0
+            or distance > MAX_PREVIEW_WAYPOINT_SNAP_METERS
+        ):
+            raise OSRMRouteNotFoundError(
+                "OSRM snapped a route waypoint too far from the requested point."
+            )
+
+
 def _parse_route_response(body: dict) -> OSRMRouteResult:
     routes = body.get("routes") or []
 
@@ -132,21 +159,44 @@ def _parse_route_response(body: dict) -> OSRMRouteResult:
         total_distance_meters=float(route.get("distance") or 0),
         total_duration_seconds=float(route.get("duration") or 0),
         legs=_parse_legs(route),
+        polyline=route.get("geometry"),
     )
 
 
-def _parse_trip_response(body: dict) -> OSRMRouteResult:
-    trips = body.get("trips") or []
-    waypoints = body.get("waypoints") or []
+def _parse_trip_response(body: dict, expected_count: int) -> OSRMRouteResult:
+    trips = body.get("trips")
+    waypoints = body.get("waypoints")
 
-    if not trips:
+    if not isinstance(trips, list) or not trips:
         raise OSRMRouteNotFoundError("OSRM did not return a trip.")
+    if len(trips) != 1 or not isinstance(trips[0], dict):
+        raise OSRMClientError("OSRM did not return exactly one trip.")
+    if not isinstance(waypoints, list) or len(waypoints) != expected_count:
+        raise OSRMClientError("OSRM returned an unexpected number of trip waypoints.")
+
+    waypoint_indices = []
+    for waypoint in waypoints:
+        if not isinstance(waypoint, dict):
+            raise OSRMClientError("OSRM returned an invalid trip waypoint.")
+        waypoint_index = waypoint.get("waypoint_index")
+        trips_index = waypoint.get("trips_index")
+        if (
+            not isinstance(waypoint_index, int) or isinstance(waypoint_index, bool)
+            or not isinstance(trips_index, int) or isinstance(trips_index, bool)
+        ):
+            raise OSRMClientError("OSRM returned invalid trip waypoint indices.")
+        if trips_index != 0:
+            raise OSRMClientError("OSRM assigned a waypoint to another trip.")
+        waypoint_indices.append(waypoint_index)
+
+    if set(waypoint_indices) != set(range(expected_count)):
+        raise OSRMClientError("OSRM returned an invalid trip stop order.")
 
     ordered_indices = [
         input_index
         for input_index, waypoint in sorted(
             enumerate(waypoints),
-            key=lambda item: item[1].get("waypoint_index", 0),
+            key=lambda item: item[1]["waypoint_index"],
         )
     ]
     trip = trips[0]
@@ -156,6 +206,7 @@ def _parse_trip_response(body: dict) -> OSRMRouteResult:
         total_duration_seconds=float(trip.get("duration") or 0),
         legs=_parse_legs(trip),
         stop_order=ordered_indices,
+        polyline=trip.get("geometry"),
     )
 
 
@@ -164,6 +215,17 @@ def _parse_legs(route: dict) -> list[OSRMLeg]:
         OSRMLeg(
             distance_meters=float(leg.get("distance") or 0),
             duration_seconds=float(leg.get("duration") or 0),
+            steps=[
+                OSRMStep(
+                    distance_meters=float(step.get("distance") or 0),
+                    duration_seconds=float(step.get("duration") or 0),
+                    maneuver_type=(step.get("maneuver") or {}).get("type") or "continue",
+                    modifier=(step.get("maneuver") or {}).get("modifier"),
+                    road_name=step.get("name") or None,
+                    exit_number=(step.get("maneuver") or {}).get("exit"),
+                )
+                for step in leg.get("steps") or []
+            ],
         )
         for leg in route.get("legs") or []
     ]

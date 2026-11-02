@@ -3,7 +3,7 @@ from app.integrations.google_routes.errors import GoogleRoutesClientError
 from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
 from app.integrations.osrm.client import get_osrm_client
 from app.integrations.osrm.errors import OSRMClientError
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult
+from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
 
 
 DESTINATION_A = {
@@ -200,6 +200,59 @@ def test_route_preview_uses_osrm_for_driving(client) -> None:
     ]
     assert body["legs"][0]["distance_km"] == "12.00"
     assert fake_osrm.preview_calls[0]["travel_mode"] == "driving"
+    assert body["arrival_points_verified"] is False
+    assert body["stops"][0]["coordinate_basis"] == "attraction"
+    assert body["legs"][0]["steps"] == []
+    assert any("planning preview" in warning for warning in body["warnings"])
+
+
+def test_route_preview_uses_verified_arrival_and_returns_directions(client) -> None:
+    headers = admin_headers(client)
+    verified = {
+        "arrival_lat": 7.07,
+        "arrival_lng": 125.61,
+        "arrival_source_url": "https://example.com/arrival",
+        "arrival_verified_at": "2026-10-29T00:00:00Z",
+        "route_ready": True,
+    }
+    first = create_destination(client, headers, {**DESTINATION_A, **verified})
+    second = create_destination(
+        client, headers,
+        {**DESTINATION_B, **verified, "arrival_lat": 7.10, "arrival_lng": 125.62},
+    )
+    fake_osrm = FakeOSRMClient(
+        preview_result=OSRMRouteResult(
+            total_distance_meters=1200,
+            total_duration_seconds=300,
+            polyline="encoded-route",
+            legs=[OSRMLeg(
+                distance_meters=1200,
+                duration_seconds=300,
+                steps=[OSRMStep(
+                    distance_meters=1200,
+                    duration_seconds=300,
+                    maneuver_type="turn",
+                    modifier="right",
+                    road_name="Test Road",
+                )],
+            )],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+    response = client.post(
+        "/api/v1/routes/preview",
+        headers=user_headers(client),
+        json={"destination_ids": [first["destination_id"], second["destination_id"]]},
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["arrival_points_verified"] is True
+    assert body["stops"][0]["coordinate_basis"] == "verified_arrival"
+    assert body["stops"][0]["lat"] == 7.07
+    assert fake_osrm.preview_calls[0]["coordinates"][0].lat == 7.07
+    assert body["polyline"] == "encoded-route"
+    assert body["polyline_encoding"] == "polyline5"
+    assert body["legs"][0]["steps"][0]["instruction"] == "Turn right onto Test Road"
 
 
 def test_route_preview_uses_google_live_traffic_when_requested(client) -> None:
@@ -286,6 +339,49 @@ def test_route_preview_falls_back_to_osrm_when_google_traffic_fails(client) -> N
     assert fake_osrm.preview_calls[0]["travel_mode"] == "driving"
 
 
+def test_route_preview_falls_back_to_osrm_when_google_leg_count_mismatches(client) -> None:
+    destination_a, destination_b, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(
+        preview_result=OSRMRouteResult(
+            total_distance_meters=12000,
+            total_duration_seconds=1500,
+            legs=[OSRMLeg(distance_meters=12000, duration_seconds=1500)],
+        ),
+    )
+    fake_google = FakeGoogleRoutesClient(
+        result=GoogleRouteResult(
+            total_distance_meters=12000,
+            total_duration_seconds=1500,
+            total_static_duration_seconds=1500,
+            legs=[],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+    client.app.dependency_overrides[get_google_routes_client] = lambda: fake_google
+
+    response = client.post(
+        "/api/v1/routes/preview",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+            ],
+            "travel_mode": "driving",
+            "use_live_traffic": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "osrm"
+    assert body["is_estimated"] is False
+    assert body["total_distance_km"] == "12.00"
+    assert body["traffic"] is None
+    assert "Google Routes returned a leg count" in body["warnings"][0]
+    assert len(fake_google.calls) == len(fake_osrm.preview_calls) == 1
+
+
 def test_route_optimize_uses_osrm_stop_order(client) -> None:
     destination_a, destination_b, destination_c = create_route_destinations(client)
     fake_osrm = FakeOSRMClient(
@@ -326,6 +422,95 @@ def test_route_optimize_uses_osrm_stop_order(client) -> None:
     assert len(body["legs"]) == 2
     assert "suggested route order" in body["warnings"][0]
     assert fake_osrm.optimize_calls[0]["preserve_first"] is True
+
+
+def test_route_optimize_keeps_osrm_result_when_google_leg_count_mismatches(client) -> None:
+    destination_a, destination_b, destination_c = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(
+        optimize_result=OSRMRouteResult(
+            total_distance_meters=30000,
+            total_duration_seconds=3600,
+            legs=[
+                OSRMLeg(distance_meters=10000, duration_seconds=1200),
+                OSRMLeg(distance_meters=20000, duration_seconds=2400),
+            ],
+            stop_order=[0, 2, 1],
+        ),
+    )
+    fake_google = FakeGoogleRoutesClient(
+        result=GoogleRouteResult(
+            total_distance_meters=30000,
+            total_duration_seconds=3600,
+            total_static_duration_seconds=3600,
+            legs=[],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+    client.app.dependency_overrides[get_google_routes_client] = lambda: fake_google
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+                destination_c["destination_id"],
+            ],
+            "travel_mode": "driving",
+            "use_live_traffic": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "osrm"
+    assert body["is_estimated"] is False
+    assert body["total_distance_km"] == "30.00"
+    assert [stop["destination_id"] for stop in body["stops"]] == [
+        destination_a["destination_id"],
+        destination_c["destination_id"],
+        destination_b["destination_id"],
+    ]
+    assert any("Google Routes returned a leg count" in warning for warning in body["warnings"])
+    assert any("not guaranteed to be mathematically optimal" in warning for warning in body["warnings"])
+    assert len(fake_google.calls) == len(fake_osrm.optimize_calls) == 1
+
+
+def test_route_optimize_estimates_when_osrm_fails_and_google_leg_count_mismatches(client) -> None:
+    destination_a, destination_b, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(error=OSRMClientError("OSRM is down."))
+    fake_google = FakeGoogleRoutesClient(
+        result=GoogleRouteResult(
+            total_distance_meters=12000,
+            total_duration_seconds=1500,
+            total_static_duration_seconds=1500,
+            legs=[],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+    client.app.dependency_overrides[get_google_routes_client] = lambda: fake_google
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+            ],
+            "travel_mode": "driving",
+            "use_live_traffic": True,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "haversine"
+    assert body["is_estimated"] is True
+    assert any("Google Routes returned a leg count" in warning for warning in body["warnings"])
+    assert any("OSRM optimization was unavailable" in warning for warning in body["warnings"])
+    assert len(fake_google.calls) == len(fake_osrm.optimize_calls) == 1
 
 
 def test_route_preview_falls_back_to_haversine_when_osrm_fails(client) -> None:

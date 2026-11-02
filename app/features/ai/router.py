@@ -27,7 +27,17 @@ def get_ai_chat_route_service(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> RouteService | None:
     state = data.planning_state
-    if state is None or state.route_preferences is None:
+    if state is None:
+        return None
+    needs_candidate_routes = bool(
+        state.origin is not None
+        and state.origin.lat is not None
+        and state.origin.lng is not None
+        and state.selected_transport_option_ids in (
+            ["mode:personal_vehicle"], ["mode:walking"],
+        )
+    )
+    if state.route_preferences is None and not needs_candidate_routes:
         return None
     get_planning_route_limiter().check(current_user.user_id)
     return RouteService(session, get_osrm_client())

@@ -26,6 +26,25 @@ class Destination(Base):
             name="ck_destinations_lng_range",
         ),
         CheckConstraint(
+            "(arrival_lat IS NULL AND arrival_lng IS NULL) OR "
+            "(arrival_lat IS NOT NULL AND arrival_lng IS NOT NULL)",
+            name="ck_destinations_arrival_pair",
+        ),
+        CheckConstraint(
+            "arrival_lat IS NULL OR (arrival_lat >= -90 AND arrival_lat <= 90)",
+            name="ck_destinations_arrival_lat_range",
+        ),
+        CheckConstraint(
+            "arrival_lng IS NULL OR (arrival_lng >= -180 AND arrival_lng <= 180)",
+            name="ck_destinations_arrival_lng_range",
+        ),
+        CheckConstraint(
+            "route_ready = false OR "
+            "(arrival_lat IS NOT NULL AND arrival_lng IS NOT NULL AND "
+            "arrival_source_url IS NOT NULL AND arrival_verified_at IS NOT NULL)",
+            name="ck_destinations_route_ready_arrival",
+        ),
+        CheckConstraint(
             "estimated_cost >= 0",
             name="ck_destinations_estimated_cost_non_negative",
         ),
@@ -42,10 +61,15 @@ class Destination(Base):
     activities: Mapped[str | None] = mapped_column(Text)
     lat: Mapped[float] = mapped_column(nullable=False)
     lng: Mapped[float] = mapped_column(nullable=False)
+    arrival_lat: Mapped[float | None] = mapped_column(nullable=True)
+    arrival_lng: Mapped[float | None] = mapped_column(nullable=True)
+    arrival_source_url: Mapped[str | None] = mapped_column(String(2048))
+    arrival_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    route_ready: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     geom: Mapped[object | None] = mapped_column(
         Geography(geometry_type="POINT", srid=4326, spatial_index=False),
     )
-    estimated_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     entrance_fee: Mapped[str | None] = mapped_column(String(255))
     overnight_fee: Mapped[str | None] = mapped_column(String(255))
     operating_hours: Mapped[str | None] = mapped_column(String(255))

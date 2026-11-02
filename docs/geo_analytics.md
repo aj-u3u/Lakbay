@@ -1,7 +1,8 @@
 # Geo-Analytics Enhancement Plan
 
 This document describes the geo-analytics plan and the implemented Phase 15B
-destination-grouping endpoint. Later AI and routing enhancements remain planned.
+destination-grouping endpoint. Planning-enabled AI generation also consumes its
+scored groups when the selected journey has a route summary.
 
 ## Phase 15B Implementation
 
@@ -66,6 +67,14 @@ share of destinations flagged accordingly.
 transport, lodging, meals, and other expenses, so the full trip budget endpoint
 remains necessary. Haversine and public-transport estimates retain the route
 service's provider, estimated flag, and warnings. The endpoint makes no AI call.
+
+Phase 15E generation calls this same service for selected destinations only,
+using the planning travel mode and whole-trip budget as a destination-cost ceiling.
+It requests groups of up to three destinations and returns up to three scored
+groups to the AI context. These group routes exclude the trip origin; the
+origin-inclusive planning route remains the authoritative whole-journey summary.
+The generation path uses the same grouping limiter. Unknown catalog costs can
+leave no scored groups, and estimated routes retain their warnings.
 
 `GEO_GROUP_REQUESTS_PER_MINUTE` defaults to 10 per authenticated user. Excess
 requests return 429 with `geo_group_rate_limit_exceeded`. This development

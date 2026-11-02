@@ -14,7 +14,7 @@ from app.core.config import get_settings
 from app.core.dependencies import get_current_user
 from app.core.exceptions import LakbayAPIError
 from app.db.session import get_db_session
-from app.features.planning.schemas import PlanningPreviewRequest
+from app.features.planning.schemas import PlanningFeedbackRequest
 from app.features.routes.service import RouteService
 from app.features.users.models import User
 from app.integrations.osrm.client import get_osrm_client
@@ -68,7 +68,7 @@ def get_planning_route_limiter() -> PlanningRouteLimiter:
 
 
 def enforce_planning_route_limit(
-    data: PlanningPreviewRequest,
+    data: PlanningFeedbackRequest,
     current_user: Annotated[User, Depends(get_current_user)],
     limiter: Annotated[PlanningRouteLimiter, Depends(get_planning_route_limiter)],
 ) -> None:
@@ -77,7 +77,7 @@ def enforce_planning_route_limit(
 
 
 def get_planning_route_service(
-    data: PlanningPreviewRequest,
+    data: PlanningFeedbackRequest,
     session: Annotated[AsyncSession, Depends(get_db_session)],
     route_limit: Annotated[None, Depends(enforce_planning_route_limit)],
 ) -> RouteService | None:

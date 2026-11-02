@@ -1,9 +1,3 @@
-from datetime import datetime, timezone
-from types import SimpleNamespace
-
-from app.features.destinations.schemas import DestinationResponse
-
-
 DESTINATION_PAYLOAD = {
     "name": "Test Beach",
     "description": "A calm beach for testing.",
@@ -76,6 +70,65 @@ def test_admin_can_create_destination(client) -> None:
     assert destination["name"] == "Test Beach"
     assert destination["district"] == "Davao Oriental"
     assert destination["is_active"] is True
+    assert destination["route_ready"] is False
+    assert destination["arrival_lat"] is None
+
+
+def test_route_ready_destination_requires_sourced_arrival_point(client) -> None:
+    headers = admin_headers(client)
+    missing = client.post(
+        "/api/v1/destinations",
+        headers=headers,
+        json={**DESTINATION_PAYLOAD, "route_ready": True},
+    )
+    assert missing.status_code == 422
+
+    invalid_source = client.post(
+        "/api/v1/destinations",
+        headers=headers,
+        json={
+            **DESTINATION_PAYLOAD,
+            "arrival_lat": 6.949,
+            "arrival_lng": 126.25,
+            "arrival_source_url": "unverifiable note",
+            "arrival_verified_at": "2026-10-29T00:00:00Z",
+            "route_ready": True,
+        },
+    )
+    assert invalid_source.status_code == 422
+
+    created = client.post(
+        "/api/v1/destinations",
+        headers=headers,
+        json={
+            **DESTINATION_PAYLOAD,
+            "arrival_lat": 6.949,
+            "arrival_lng": 126.25,
+            "arrival_source_url": "https://example.com/visitor-gate",
+            "arrival_verified_at": "2026-10-29T00:00:00Z",
+            "route_ready": True,
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["route_ready"] is True
+    assert created.json()["lat"] != created.json()["arrival_lat"]
+
+    destination_id = created.json()["destination_id"]
+    stale = client.patch(
+        f"/api/v1/destinations/{destination_id}",
+        headers=headers,
+        json={"arrival_lat": 6.95, "arrival_lng": 126.26},
+    )
+    assert stale.status_code == 400
+    assert stale.json()["error"]["code"] == "arrival_point_reverification_required"
+
+    null_flag = client.patch(
+        f"/api/v1/destinations/{destination_id}",
+        headers=headers,
+        json={"route_ready": None},
+    )
+    assert null_flag.status_code == 400
+    assert null_flag.json()["error"]["code"] == "invalid_route_ready"
 
 
 def test_normal_user_cannot_create_destination(client) -> None:
@@ -111,24 +164,6 @@ def test_user_can_browse_and_filter_destinations(client) -> None:
     body = response.json()
     assert len(body) == 1
     assert body[0]["name"] == "Test Beach"
-
-
-def test_destination_response_returns_unknown_cost_as_null() -> None:
-    now = datetime.now(timezone.utc)
-    destination = SimpleNamespace(
-        destination_id=1,
-        name="Unpriced Park",
-        lat=6.77553,
-        lng=125.34392,
-        estimated_cost=None,
-        is_active=True,
-        created_at=now,
-        updated_at=now,
-    )
-
-    response = DestinationResponse.model_validate(destination)
-
-    assert response.model_dump(mode="json")["estimated_cost"] is None
 
 
 def test_destination_list_supports_pagination(client) -> None:

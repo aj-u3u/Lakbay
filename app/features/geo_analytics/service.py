@@ -103,8 +103,16 @@ class GeoAnalyticsService:
         if len(eligible) < len(rows):
             warnings.append("Some destinations did not match the saved preferences.")
 
+        unknown_cost_ids = [
+            item.destination_id for item in eligible if item.estimated_cost is None
+        ]
+        if unknown_cost_ids:
+            warnings.append("Destinations with unknown costs were excluded from cost-scored groups.")
         candidates: list[Candidate] = []
-        ordered = sorted(eligible, key=lambda item: item.destination_id)
+        ordered = sorted(
+            (item for item in eligible if item.estimated_cost is not None),
+            key=lambda item: item.destination_id,
+        )
         for group in combinations(ordered, data.group_size):
             max_distance = max(
                 _haversine_km(start, end) for start, end in combinations(group, 2)

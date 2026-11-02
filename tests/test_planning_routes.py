@@ -570,8 +570,10 @@ def test_optimizer_result_cannot_move_requested_origin_and_price_different_journ
     )
 
     assert body["state"]["destination_ids"] == ids
-    assert body["route"]["status"] == "needs_review"
-    assert body["route"]["summary"] is None
+    assert body["route"]["status"] == "calculated"
+    assert body["route"]["summary"]["route_provider"] == "haversine"
+    assert body["route"]["summary"]["stops"][0]["destination_id"] is None
+    assert body["route"]["summary"]["stops"][-1]["destination_id"] is None
     assert body["fuel"]["amount"] is None
     assert body["budget"]["total_estimate"] is None
     assert fake.optimize_calls[0]["preserve_first"] is True

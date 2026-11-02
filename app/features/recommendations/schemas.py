@@ -15,9 +15,9 @@ PreferenceText = Annotated[
 class RecommendationRequest(BaseModel):
     preferred_categories: list[PreferenceText] = Field(
         default_factory=list,
-        max_length=10,
+        max_length=15,
     )
-    preferred_vibes: list[PreferenceText] = Field(default_factory=list, max_length=10)
+    preferred_vibes: list[PreferenceText] = Field(default_factory=list, max_length=15)
     preferred_activities: list[PreferenceText] = Field(
         default_factory=list,
         max_length=15,
@@ -73,10 +73,17 @@ class RecommendationItem(BaseModel):
     name: str
     district: str | None
     category: str | None
-    estimated_cost: Decimal
+    estimated_cost: Decimal | None
     score: float
     matched_fields: list[str]
     reasons: list[str]
+
+
+class PlanningRecommendationItem(RecommendationItem):
+    route_provider: str
+    travel_mode: Literal["driving", "walking"]
+    route_distance_km: Decimal
+    route_duration_minutes: int
 
 
 class RecommendationResponse(BaseModel):

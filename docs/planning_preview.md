@@ -7,6 +7,8 @@ The preview-to-AI save extension now uses this preview as generation context.
 Verified catalog `charging_unit` values appear as known rate bases; legacy null
 units still require explicit traveler assumptions. See `docs/ai_itineraries.md`
 for option generation and `docs/trips.md` for atomic save and restart behavior.
+Phase 15D adds optional request-level child ages and explicit free/half/full
+pricing bands to this same budget contract; see `docs/child_aware_costing.md`.
 Requested on: 2026-10-03.
 Approved on: 2026-10-03.
 The complete preview described below is the target behavior. The phased rollout
@@ -254,6 +256,14 @@ selection problems and a partial estimate instead of duplicate charges. Invalid
 or unselected activity IDs also require correction. A zero allowance is an
 explicit traveler estimate; it never marks the catalog destination, activity,
 room, or transport as verified free.
+
+The two Flutter chat review sheets use the returned activity IDs for selection.
+For each selected activity, the traveler confirms a separate whole-trip amount
+or inclusion in a destination or food allowance. Submission accepts destination
+inclusion only when that destination uses a whole-trip allowance, rather than
+an age-based fee rule. Unavailable saved activity IDs are shown for removal.
+These choices remain traveler estimates; the backend preview calculates the
+itemized total and generation readiness.
 
 ### Phase 2 Day-Trip Example
 

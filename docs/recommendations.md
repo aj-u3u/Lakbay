@@ -136,6 +136,34 @@ popularity_score =
 + average_rating * 2
 ```
 
+## Route-feasible suggestions in planning chat
+
+When the traveler has not selected destinations, planning chat uses the Phase 3
+preference score to find active catalog matches for the stated interests. It
+never fills an empty interest match with unrelated places. To qualify for the
+planning chat's top five, a match must also have a sourced, dated visitor
+arrival coordinate marked `route_ready`, have no unresolved non-road connection,
+and receive a non-estimated driving or walking route from the map-selected
+origin. The route must cover the requested origin and verified arrival point,
+mode, destination ID, leg, distance, and duration. OSRM preview waypoints must
+also snap within 250 meters of the requested coordinates. Equal preference scores are
+ordered by confirmed travel time, then distance and destination ID.
+
+The response includes `recommendation_total_candidates`, the top five
+`recommendations`, and `recommendation_shortfall_reason` when fewer qualify.
+The explanation reports an empty interest match or counts unverified arrivals,
+non-road connections, and failed route checks. A missing origin, unsupported mode, or unavailable
+routing provider also produces an explicit reason. The regular
+`POST /api/v1/recommendations` endpoint remains a preference-only catalog
+ranking and must not be described as route-feasible.
+
+As checked on 1 November 2026, the configured Neon catalog had 18 active
+destinations and **zero verified arrival points**. Route-feasible planning
+suggestions therefore correctly return no candidates from that dataset. The
+[arrival review](davao_region_access_arrival_review_2026-10-29_README.md)
+records why its inspected sites have not yet been marked route-ready. A place
+must not be promoted using its rough attraction coordinate as a visitor gate.
+
 ## Planned Geo-Analytics Grouping
 
 Phase 15 should not replace this recommendation formula. It should group and

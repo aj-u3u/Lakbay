@@ -2,6 +2,7 @@
 
 import asyncio
 import importlib
+import json
 
 from fastapi.testclient import TestClient
 from alembic.migration import MigrationContext
@@ -125,6 +126,12 @@ def test_selected_ai_itinerary_costs_and_route_survive_app_restart(tmp_path, mon
         )
         assert generated.status_code == 200, generated.text
         body = generated.json()
+        geo = json.loads(fake.calls[0]["messages"][1]["content"])["geo_analytics_context"]
+        assert geo["selected_destination_ids"] == [destination_id]
+        assert geo["budget_projection"]["total_estimate"] == "900.00"
+        assert geo["route_summary"]["destination_order"] == [destination_id]
+        assert geo["route_summary"]["is_estimated"] == body["planning_preview"]["route"]["summary"]["is_estimated"]
+        assert geo["destination_groups"] == []
         assert len(body["options"]) == 5
         preview = body["planning_preview"]
         assert preview["budget"]["completeness"] == "complete"

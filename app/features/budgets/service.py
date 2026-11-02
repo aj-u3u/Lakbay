@@ -47,6 +47,18 @@ class BudgetService:
             destination_ids=selected_destination_ids,
         )
 
+        unknown_cost_ids = [
+            destination.destination_id for destination in destinations
+            if destination.estimated_cost is None
+        ]
+        if unknown_cost_ids:
+            raise LakbayAPIError(
+                "A budget estimate needs costs for every selected destination.",
+                code="destination_cost_unknown",
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                details={"destination_ids": unknown_cost_ids},
+            )
+
         destination_total = _sum_money(
             destination.estimated_cost for destination in destinations
         )

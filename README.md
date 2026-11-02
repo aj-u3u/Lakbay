@@ -77,6 +77,24 @@ For the admin browser and Android client setup, see
 
 ## Current Endpoint Groups
 
+Phase 14 evaluation (admin only):
+
+```text
+GET /api/v1/evaluation/summary?window_days=30
+```
+
+See [`docs/phase14_evaluation.md`](docs/phase14_evaluation.md) for metric
+definitions and verification limits.
+
+Pre-trip feedback:
+
+```text
+POST /api/v1/planning/feedback
+```
+
+See [`docs/itinerary_feedback.md`](docs/itinerary_feedback.md) for advisory
+findings and review thresholds.
+
 Authentication and users:
 
 ```text

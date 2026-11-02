@@ -1,3 +1,5 @@
+import json
+import re
 from decimal import Decimal
 from time import perf_counter
 
@@ -9,6 +11,7 @@ from app.core.config import Settings, get_settings
 from app.core.exceptions import LakbayAPIError
 from app.features.accommodations.models import Accommodation
 from app.features.ai.models import AIGenerationRun
+from app.features.ai.geo_context import selected_geo_inputs
 from app.features.ai.repository import AIItineraryRepository
 from app.features.ai.rag import VectorRAGRetriever
 from app.features.ai.schemas import (
@@ -16,6 +19,7 @@ from app.features.ai.schemas import (
     AIChatResponse,
     AIPlanningChatOutput,
     AIPlanningChatResult,
+    AIPlanningStateUpdates,
     AIItineraryGenerateRequest,
     AIItineraryGenerateResponse,
     AIModelRunResult,
@@ -28,6 +32,8 @@ from app.features.ai.validators import (
 from app.features.destinations.models import Destination
 from app.features.planning.schemas import PlanningOrigin, PlanningPreviewRequest, PlanningPreviewResponse, PlanningState
 from app.features.planning.service import PlanningService
+from app.features.recommendations.service import RecommendationService
+from app.features.routes.schemas import RouteCoordinate
 from app.features.routes.service import RouteService
 from app.features.transportations.models import Transportation
 from app.features.users.models import User
@@ -41,8 +47,10 @@ from app.integrations.groq.model_selector import (
 )
 from app.integrations.groq.prompts import (
     CHAT_PROMPT_VERSION,
+    PLANNING_PROMPT_VERSION,
     PROMPT_VERSION,
     build_chat_messages,
+    build_geo_analytics_context,
     build_itinerary_messages,
 )
 
@@ -95,6 +103,22 @@ class AIItineraryService:
             destination_ids=set(data.destination_ids),
         )
 
+        geo_analytics_context = None
+        if planning_preview is not None:
+            recommendations, scored_groups = await selected_geo_inputs(
+                session=self.session,
+                user=user,
+                preview=planning_preview,
+                destinations=destinations,
+                routes=self.route_service,
+                interests=data.interests,
+            )
+            geo_analytics_context = build_geo_analytics_context(
+                planning_preview,
+                recommendations=recommendations,
+                scored_groups=scored_groups,
+            )
+
         selections = self._select_models(settings=settings, data=data)
         catalog_payload = _build_catalog_payload(
             destinations=destinations,
@@ -127,6 +151,7 @@ class AIItineraryService:
             catalog=catalog_payload,
             option_count=settings.ai_itinerary_option_count,
             planning_preview=planning_preview,
+            geo_analytics_context=geo_analytics_context,
         )
 
         model_runs: list[AIModelRunResult] = []
@@ -141,6 +166,7 @@ class AIItineraryService:
                 catalog=validator_catalog,
                 option_count=settings.ai_itinerary_option_count,
                 planning_preview=planning_preview,
+                geo_analytics_context=geo_analytics_context,
             )
             model_runs.append(run_result)
 
@@ -169,6 +195,7 @@ class AIItineraryService:
                 run.ai_generation_run_id for run in model_runs if run.status == "succeeded"
             ) if planning_preview else None,
             planning_preview=planning_preview,
+            geo_analytics_context=geo_analytics_context,
         )
 
     async def chat(
@@ -396,13 +423,16 @@ class AIItineraryService:
         catalog: AIItineraryCatalog,
         option_count: int,
         planning_preview: PlanningPreviewResponse | None = None,
+        geo_analytics_context: dict | None = None,
     ) -> AIModelRunResult:
         run = await self.ai.create_generation_run(
             user_id=user.user_id,
             request_purpose=REQUEST_PURPOSE,
             model_role=selection.model_role,
             model_id=selection.model_id,
-            prompt_version=PROMPT_VERSION,
+            prompt_version=(
+                PLANNING_PROMPT_VERSION if planning_preview is not None else PROMPT_VERSION
+            ),
             input_summary=_build_input_summary(data),
             fallback_used=selection.fallback_used,
         )
@@ -435,6 +465,7 @@ class AIItineraryService:
                     **({
                         "options": [option.model_dump(mode="json") for option in options],
                         "planning_preview": planning_preview.model_dump(mode="json"),
+                        "geo_analytics_context": geo_analytics_context,
                     } if planning_preview is not None else {}),
                 },
             )
@@ -570,7 +601,10 @@ def _build_catalog_payload(
                 "category": destination.category,
                 "vibes": destination.vibes,
                 "activities": destination.activities,
-                "estimated_cost": str(destination.estimated_cost),
+                "estimated_cost": (
+                    str(destination.estimated_cost)
+                    if destination.estimated_cost is not None else None
+                ),
                 "entrance_fee": destination.entrance_fee,
                 "overnight_fee": destination.overnight_fee,
                 "operating_hours": destination.operating_hours,
@@ -691,10 +725,10 @@ async def _build_planning_chat_result(
         "I couldn't safely update your plan from that response. Your current "
         "preview is shown below; try restating the change or use the preview controls."
     )
-    try:
-        output = AIPlanningChatOutput.model_validate_json(_strip_json_fence(content))
-    except ValidationError:
-        output = None
+    output, rejected_fields = _parse_planning_chat_output(content)
+    if output is not None:
+        output, unconfirmed_fields = _reject_unconfirmed_trip_details(output, data)
+        rejected_fields.extend(unconfirmed_fields)
 
     update_status = "invalid_output"
     validation_status = "invalid"
@@ -702,8 +736,13 @@ async def _build_planning_chat_result(
     changes_json: dict = {}
     next_state = current_state
     if output is not None:
+        # The recovered output is validated before use; the run table's
+        # validation-status constraint does not define a separate partial value.
         validation_status = "valid"
-        chat_response = output.chat_response.strip()
+        chat_response = (
+            _partial_planning_reply(rejected_fields)
+            if rejected_fields else output.chat_response.strip()
+        )
         changes = output.state_updates.model_dump(exclude_unset=True, mode="python")
         changes_json = output.state_updates.model_dump(exclude_unset=True, mode="json")
         update_status = "no_changes"
@@ -745,8 +784,23 @@ async def _build_planning_chat_result(
 
         try:
             if changes:
+                state_values = current_state.model_dump()
+                if (
+                    "destination_ids" in changes
+                    and changes["destination_ids"] != current_state.destination_ids
+                ):
+                    # Choices and allowances belong to the old destinations.
+                    state_values.update(
+                        selected_transport_option_ids=[],
+                        selected_activity_option_ids=[],
+                        selected_accommodation_ids=[],
+                        cost_allowances=[],
+                        transport_pricing=[],
+                        accommodation_pricing=[],
+                        age_pricing_rules=[],
+                    )
                 next_state = PlanningState.model_validate(
-                    {**current_state.model_dump(), **changes},
+                    {**state_values, **changes},
                 )
                 if update_status != "needs_clarification":
                     update_status = "applied"
@@ -765,6 +819,37 @@ async def _build_planning_chat_result(
             state=next_state,
         ),
     )
+    recommendations = []
+    recommendation_total_candidates = 0
+    recommendation_shortfall_reason = None
+    if not next_state.destination_ids:
+        (
+            recommendations,
+            recommendation_total_candidates,
+            recommendation_shortfall_reason,
+        ) = await RecommendationService(session).rank_planning_candidates(
+            interests=next_state.interests,
+            traveler_count=next_state.traveler_count,
+            origin=(
+                RouteCoordinate(
+                    label=next_state.origin.label,
+                    lat=next_state.origin.lat,
+                    lng=next_state.origin.lng,
+                )
+                if next_state.origin is not None
+                and next_state.origin.lat is not None
+                and next_state.origin.lng is not None
+                else None
+            ),
+            travel_mode={
+                ("mode:personal_vehicle",): "driving",
+                ("mode:walking",): "walking",
+            }.get(tuple(next_state.selected_transport_option_ids)),
+            route_service=route_service,
+        )
+        if next_state.interests and recommendation_shortfall_reason is not None:
+            # Catalog and route checks are authoritative over model prose.
+            chat_response = recommendation_shortfall_reason
     return (
         chat_response,
         AIPlanningChatResult(
@@ -772,6 +857,9 @@ async def _build_planning_chat_result(
             state_updates=changes_json,
             update_status=update_status,
             preview=preview,
+            recommendations=recommendations,
+            recommendation_total_candidates=recommendation_total_candidates,
+            recommendation_shortfall_reason=recommendation_shortfall_reason,
         ),
         validation_status,
     )
@@ -782,6 +870,179 @@ def _strip_json_fence(content: str) -> str:
     if value.startswith("```") and value.endswith("```"):
         value = value.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
     return value
+
+
+def _parse_planning_chat_output(
+    content: str,
+) -> tuple[AIPlanningChatOutput | None, list[str]]:
+    """Retain valid allowlisted fields when a sibling field has bad shape."""
+    cleaned = _strip_json_fence(content)
+    try:
+        return AIPlanningChatOutput.model_validate_json(cleaned), []
+    except ValidationError:
+        pass
+
+    try:
+        raw = json.loads(cleaned)
+    except (TypeError, ValueError):
+        return None, []
+    if not isinstance(raw, dict) or set(raw) != {"chat_response", "state_updates"}:
+        return None, []
+    updates = raw["state_updates"]
+    if not isinstance(updates, dict):
+        return None, []
+    allowed_fields = set(AIPlanningStateUpdates.model_fields)
+    if set(updates) - allowed_fields:
+        # Unsupported selections are never silently accepted or ignored.
+        return None, []
+
+    valid_updates: dict = {}
+    rejected_fields: list[str] = []
+    for field_name, value in updates.items():
+        try:
+            validated = AIPlanningStateUpdates.model_validate({field_name: value})
+        except ValidationError:
+            rejected_fields.append(field_name)
+            continue
+        valid_updates[field_name] = validated.model_dump(
+            exclude_unset=True, mode="python",
+        )[field_name]
+    if not rejected_fields:
+        return None, []
+    try:
+        output = AIPlanningChatOutput.model_validate({
+            "chat_response": raw["chat_response"],
+            "state_updates": valid_updates,
+        })
+    except ValidationError:
+        return None, []
+    return output, rejected_fields
+
+
+_NIGHT_WORDS = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+_NIGHT_NUMBER = r"\d+|zero|one|two|three|four|five|six|seven|eight|nine|ten"
+
+
+def _number_from_text(value: str) -> int:
+    return _NIGHT_WORDS.get(value.casefold(), int(value) if value.isdigit() else -1)
+
+
+def _confirmed_night_count(data: AIChatRequest) -> int | None:
+    message = data.message.casefold().strip()
+    if re.search(
+        r"\b(?:same[ -]?day|no overnight|without overnight|no nights?|"
+        r"not staying overnight|won't stay overnight|will not stay overnight)\b",
+        message,
+    ):
+        return 0
+    if re.search(r"\bday[ -]?trip\b", message) and not re.search(
+        r"\b(?:[2-9]|[1-9]\d+|two|three|four|five|six|seven|eight|nine|ten)[ -]?day[ -]?trip\b",
+        message,
+    ):
+        return 0
+    matches = re.findall(
+        rf"\b({_NIGHT_NUMBER})\s*(?:nights?|overnights?(?:\s+stays?)?)\b",
+        message,
+    )
+    if matches:
+        counts = {_number_from_text(value) for value in matches}
+        return counts.pop() if len(counts) == 1 else None
+    if data.history and data.history[-1].role == "assistant":
+        question = data.history[-1].content.casefold()
+        if re.search(r"\b(?:nights?|overnights?)\b", question):
+            bare_number = re.fullmatch(rf"\s*({_NIGHT_NUMBER})\s*", message)
+            if bare_number:
+                return _number_from_text(bare_number.group(1))
+    return None
+
+
+def _confirmed_return_to_origin(data: AIChatRequest) -> bool | None:
+    message = data.message.casefold().strip()
+    no_return_pattern = (
+        r"\b(?:one[ -]?way|no return|no round[ -]?trip|not return(?:ing)?|"
+        r"don't return|won't return|will not return|not going back|"
+        r"don't go back|without (?:a )?return)\b"
+    )
+    says_no_return = re.search(no_return_pattern, message)
+    says_return = re.search(
+        r"\b(?:round[ -]?trip|return(?:ing)? (?:to|back|fare|bus|trip)|"
+        r"go(?:ing)? back|back to|will return|include (?:the )?return fare)\b",
+        re.sub(no_return_pattern, "", message),
+    )
+    if says_no_return and says_return:
+        return None
+    if says_no_return:
+        return False
+    if says_return:
+        return True
+    if data.history and data.history[-1].role == "assistant":
+        question = data.history[-1].content.casefold()
+        if re.search(r"\b(?:return|round[ -]?trip|back to)\b", question):
+            if re.fullmatch(r"(?:yes|yes please|yep|sure)", message):
+                return True
+            if re.fullmatch(r"(?:no|no thanks|no thank you|nope)", message):
+                return False
+    return None
+
+
+def _reject_unconfirmed_trip_details(
+    output: AIPlanningChatOutput,
+    data: AIChatRequest,
+) -> tuple[AIPlanningChatOutput, list[str]]:
+    updates = output.state_updates.model_dump(exclude_unset=True, mode="python")
+    rejected: list[str] = []
+    confirmed_values = {
+        "night_count": _confirmed_night_count(data),
+        "return_to_origin": _confirmed_return_to_origin(data),
+    }
+    for field_name, confirmed_value in confirmed_values.items():
+        if field_name not in updates:
+            continue
+        if confirmed_value is not None and updates[field_name] == confirmed_value:
+            continue
+        if confirmed_value is None and data.planning_state is not None and updates[field_name] == getattr(
+            data.planning_state, field_name,
+        ):
+            continue
+        updates.pop(field_name)
+        rejected.append(field_name)
+    if not rejected:
+        return output, []
+    return AIPlanningChatOutput(
+        chat_response=output.chat_response,
+        state_updates=AIPlanningStateUpdates.model_validate(updates),
+    ), rejected
+
+
+def _partial_planning_reply(rejected_fields: list[str]) -> str:
+    labels = {
+        "origin": "starting place",
+        "destination_ids": "destination",
+        "total_budget": "budget",
+        "budget_scope": "budget scope",
+        "traveler_count": "traveler count",
+        "day_count": "day count",
+        "night_count": "overnight stay",
+        "return_to_origin": "return trip",
+        "interests": "travel interests",
+    }
+    names = ", ".join(labels[field] for field in rejected_fields)
+    return (
+        f"I could not use the {names}; please confirm that detail in the plan review. "
+        "Any other valid changes are shown in your plan below."
+    )
 
 
 def _build_run_result(

@@ -1,5 +1,18 @@
 # Destination Data Guide
 
+## Arrival point for routing
+
+`lat` and `lng` identify the attraction for discovery. `arrival_lat` and
+`arrival_lng` identify a reviewed visitor gate, parking area, trailhead, or
+pier. Admins can set `route_ready=true` only when the arrival pair has an
+`arrival_source_url` and `arrival_verified_at`. New destinations default to
+`route_ready=false`; do not promote candidate map pins automatically.
+
+Route readiness covers the coordinate used for routing. Check opening status,
+required permits or bookings, access mode, and seasonal closures separately
+before treating a destination as available to travelers. For islands, route to
+a verified pier and model the boat crossing as a separate transport leg.
+
 This document explains the Phase 2 destination, accommodation, and
 transportation API in plain terms.
 
@@ -8,6 +21,15 @@ transportation API in plain terms.
 Phase 2 gives Lakbay a clean travel data foundation. Admins can manage Davao
 Region destinations, stay options, and transportation estimates. Travelers can
 browse active destinations and see available rates.
+
+`estimated_cost=null` means the destination cost is unknown; `0.00` means a
+known zero planning estimate. An omitted create value is stored as null.
+Budget estimates return `destination_cost_unknown` with the affected IDs when
+selected destinations lack a cost. A maximum-cost recommendation filter
+excludes unknown-cost destinations; an uncapped discovery request can return
+them with `estimated_cost=null`. Group scoring omits unknown-cost destinations
+and warns that they were excluded. Admins may update a cost to a sourced
+estimate later, or clear it back to null when the prior estimate is unreliable.
 
 ## Public Endpoints
 
@@ -179,6 +201,23 @@ python -m app.seeds.davao_destinations
 The seed script is idempotent by destination name. Running it again skips
 destinations that already exist, but still checks for missing accommodation and
 transportation seed rows under those destinations.
+
+To load only the five independently reviewed public visitor attractions, use
+`python -m app.seeds.davao_destinations --curated-only`. This excludes the older
+starter batch and adds no accommodation or transportation rates. The evidence,
+coordinate provenance, fee limitations, and routing gaps are recorded in
+[`davao_curated_visitor_seed_2026-11-01.md`](davao_curated_visitor_seed_2026-11-01.md).
+
+To load only the four discovery-only attractions with unknown costs, use
+`python -m app.seeds.davao_destinations --discovery-only` after migration
+`95bb71db451f`. The [four-place source and import review](davao_discovery_visitor_seed_2026-11-01.md)
+records their approximate coordinates and remaining access work.
+
+To load the separate eight-place Phase 2 coverage batch, use
+`python -m app.seeds.davao_destinations --coverage-only` after the same
+migration. Its [source review](davao_coverage_completion_seed_2026-11-01.md)
+records each attraction point and unresolved visitor rules. The configured
+Neon catalog now has five active destinations in each target district.
 
 ## Testing
 

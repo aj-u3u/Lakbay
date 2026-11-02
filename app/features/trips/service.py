@@ -374,6 +374,43 @@ class TripService:
                 details={"destination_ids": sorted(set(invalid_destination_ids))},
             )
 
+        destination_by_id = {
+            item.destination_id: item.destination for item in trip.destinations
+        }
+        verified_stops = [
+            stop for stop in data.stops if not stop.is_origin
+        ]
+        for stop in verified_stops:
+            if stop.coordinate_basis != "verified_arrival":
+                continue
+            destination = destination_by_id.get(stop.destination_id)
+            if (
+                destination is None
+                or not destination.route_ready
+                or destination.arrival_lat is None
+                or destination.arrival_lng is None
+                or not destination.arrival_source_url
+                or destination.arrival_verified_at is None
+                or abs(stop.lat - destination.arrival_lat) > 0.000001
+                or abs(stop.lng - destination.arrival_lng) > 0.000001
+            ):
+                raise LakbayAPIError(
+                    "A saved route's verified arrival point must match the reviewed destination.",
+                    code="trip_route_arrival_unverified",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
+        all_arrivals_verified = bool(verified_stops) and all(
+            stop.coordinate_basis == "verified_arrival" for stop in verified_stops
+        )
+        if data.arrival_points_verified != all_arrivals_verified or (
+            not all_arrivals_verified and any(leg.steps for leg in data.legs)
+        ):
+            raise LakbayAPIError(
+                "Verified directions require reviewed arrival points at every destination.",
+                code="trip_route_arrival_unverified",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
+
         route = await self.trips.save_route(trip=trip, data=data)
         await self.notifications.notify_trip_route_updated(actor=user, trip=trip)
         await self.session.commit()

@@ -25,7 +25,9 @@ Before asking Codex to make changes, check these files:
 - `docs/reports.md`: Phase 11 report summary and PDF download guide.
 - `docs/reviews.md`: Phase 12 reviews and feedback guide.
 - `docs/notifications.md`: Phase 13 in-app notifications guide.
+- `docs/phase14_evaluation.md`: Phase 14 evaluation endpoint and verification gates.
 - `docs/geo_analytics.md`: Phase 15 geo-analytics enhancement plan.
+- `docs/itinerary_feedback.md`: Phase 15F pre-trip feedback contract and rules.
 - `docs/capstone_alignment.md`: panel comment, diagram, and objective notes.
 
 The most important rule:

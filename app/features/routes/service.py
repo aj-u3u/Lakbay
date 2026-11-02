@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
+from typing import Literal
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,7 @@ from app.features.destinations.models import Destination
 from app.features.routes.repository import RouteRepository
 from app.features.routes.schemas import (
     RouteCoordinate,
+    RouteDirectionStep,
     RouteLeg,
     RouteOptimizeRequest,
     RoutePreviewRequest,
@@ -25,7 +27,7 @@ from app.integrations.google_routes.errors import GoogleRoutesClientError
 from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
 from app.integrations.osrm.client import OSRMClient
 from app.integrations.osrm.errors import OSRMClientError
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult
+from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
 
 EARTH_RADIUS_KM = 6371.0
 ZERO_DISTANCE = Decimal("0.00")
@@ -43,6 +45,7 @@ class RoutePlanStop:
     lat: float
     lng: float
     is_origin: bool = False
+    coordinate_basis: Literal["origin", "verified_arrival", "attraction"] = "attraction"
 
     @property
     def coordinate(self) -> RouteCoordinate:
@@ -86,20 +89,13 @@ class RouteService:
                 is_estimated=False,
             )
 
-        live_traffic_warning = None
-        if _can_use_live_traffic(data, route_stops, self.google_routes_client):
-            try:
-                google_result = await self.google_routes_client.compute_route(
-                    travel_mode=data.travel_mode,
-                    coordinates=[stop.coordinate for stop in route_stops],
-                )
-                return _google_routes_response(
-                    travel_mode=data.travel_mode,
-                    stops=route_stops,
-                    google_result=google_result,
-                )
-            except GoogleRoutesClientError as exc:
-                live_traffic_warning = _traffic_warning(exc)
+        traffic_response, live_traffic_warning = await self._try_live_traffic(
+            data, route_stops,
+        )
+        if traffic_response is not None:
+            return traffic_response
+
+        warnings = [live_traffic_warning] if live_traffic_warning else []
 
         try:
             osrm_result = await self.osrm_client.preview_route(
@@ -111,12 +107,10 @@ class RouteService:
                 travel_mode=data.travel_mode,
                 stops=route_stops,
                 osrm_result=osrm_result,
-                warning=live_traffic_warning,
+                warnings=warnings,
             )
         except (OSRMClientError, ValueError):
-            warnings = ["OSRM was unavailable, so Haversine estimates were used."]
-            if live_traffic_warning:
-                warnings.insert(0, live_traffic_warning)
+            warnings.append("OSRM was unavailable, so Haversine estimates were used.")
 
             return _estimated_response(
                 travel_mode=data.travel_mode,
@@ -157,6 +151,10 @@ class RouteService:
             )
 
         preserve_first = data.origin is not None or data.preserve_first_destination
+        order_warning = (
+            "OSRM Trip returns a suggested route order; it is not "
+            "guaranteed to be mathematically optimal."
+        )
 
         try:
             osrm_result = await self.osrm_client.optimize_route(
@@ -165,37 +163,15 @@ class RouteService:
                 roundtrip=data.return_to_origin,
                 preserve_first=preserve_first,
             )
-            ordered_stops = _apply_stop_order(stops, osrm_result.stop_order)
+            ordered_stops = _apply_stop_order(
+                stops, osrm_result.stop_order, preserve_first=preserve_first,
+            )
             route_stops = _append_return_stop(ordered_stops, data.return_to_origin)
-
-            live_traffic_warning = None
-            if _can_use_live_traffic(data, route_stops, self.google_routes_client):
-                try:
-                    google_result = await self.google_routes_client.compute_route(
-                        travel_mode=data.travel_mode,
-                        coordinates=[stop.coordinate for stop in route_stops],
-                    )
-                    return _google_routes_response(
-                        travel_mode=data.travel_mode,
-                        stops=route_stops,
-                        google_result=google_result,
-                        warning=(
-                            "OSRM was used to suggest destination order; "
-                            "Google Routes added live traffic ETA."
-                        ),
-                    )
-                except GoogleRoutesClientError as exc:
-                    live_traffic_warning = _traffic_warning(exc)
-
-            return _osrm_response(
+            osrm_response = _osrm_response(
                 travel_mode=data.travel_mode,
                 stops=route_stops,
                 osrm_result=osrm_result,
-                warning=(
-                    live_traffic_warning
-                    or "OSRM Trip returns a suggested route order; it is not "
-                    "guaranteed to be mathematically optimal."
-                ),
+                warnings=[order_warning],
             )
         except (OSRMClientError, ValueError):
             ordered_stops = _nearest_neighbor_order(
@@ -204,32 +180,23 @@ class RouteService:
             )
             route_stops = _append_return_stop(ordered_stops, data.return_to_origin)
 
-            live_traffic_warning = None
-            if _can_use_live_traffic(data, route_stops, self.google_routes_client):
-                try:
-                    google_result = await self.google_routes_client.compute_route(
-                        travel_mode=data.travel_mode,
-                        coordinates=[stop.coordinate for stop in route_stops],
-                    )
-                    return _google_routes_response(
-                        travel_mode=data.travel_mode,
-                        stops=route_stops,
-                        google_result=google_result,
-                        warning=(
-                            "OSRM optimization was unavailable, so Haversine "
-                            "nearest-neighbor ordering was used before adding "
-                            "live traffic ETA."
-                        ),
-                    )
-                except GoogleRoutesClientError as exc:
-                    live_traffic_warning = _traffic_warning(exc)
+            traffic_response, live_traffic_warning = await self._try_live_traffic(
+                data,
+                route_stops,
+                success_warnings=[
+                    "OSRM optimization was unavailable, so Haversine "
+                    "nearest-neighbor ordering was used before adding "
+                    "live traffic ETA.",
+                ],
+            )
+            if traffic_response is not None:
+                return traffic_response
 
-            warnings = [
+            warnings = [live_traffic_warning] if live_traffic_warning else []
+            warnings.append(
                 "OSRM optimization was unavailable, so a Haversine "
-                "nearest-neighbor estimate was used.",
-            ]
-            if live_traffic_warning:
-                warnings.insert(0, live_traffic_warning)
+                "nearest-neighbor estimate was used."
+            )
 
             return _estimated_response(
                 travel_mode=data.travel_mode,
@@ -237,6 +204,45 @@ class RouteService:
                 route_provider="haversine",
                 warnings=warnings,
             )
+
+        traffic_response, live_traffic_warning = await self._try_live_traffic(
+            data,
+            route_stops,
+            success_warnings=[
+                order_warning,
+                "OSRM was used to suggest destination order; "
+                "Google Routes added live traffic ETA.",
+            ],
+        )
+        if traffic_response is not None:
+            return traffic_response
+        if live_traffic_warning:
+            osrm_response.warnings.insert(0, live_traffic_warning)
+        return osrm_response
+
+    async def _try_live_traffic(
+        self,
+        data: RoutePreviewRequest | RouteOptimizeRequest,
+        stops: list[RoutePlanStop],
+        *,
+        success_warnings: list[str] | None = None,
+    ) -> tuple[RouteSummaryResponse | None, str | None]:
+        if not _can_use_live_traffic(data, stops, self.google_routes_client):
+            return None, None
+
+        try:
+            google_result = await self.google_routes_client.compute_route(
+                travel_mode=data.travel_mode,
+                coordinates=[stop.coordinate for stop in stops],
+            )
+            return _google_routes_response(
+                travel_mode=data.travel_mode,
+                stops=stops,
+                google_result=google_result,
+                warnings=success_warnings,
+            ), None
+        except (GoogleRoutesClientError, ValueError) as exc:
+            return None, _traffic_warning(exc)
 
     async def _build_stops(
         self,
@@ -288,6 +294,7 @@ class RouteService:
                     lat=data.origin.lat,
                     lng=data.origin.lng,
                     is_origin=True,
+                    coordinate_basis="origin",
                 )
             )
 
@@ -318,11 +325,19 @@ class RouteService:
 
 
 def _destination_to_stop(destination: Destination) -> RoutePlanStop:
+    has_verified_arrival = bool(
+        destination.route_ready
+        and destination.arrival_lat is not None
+        and destination.arrival_lng is not None
+        and destination.arrival_source_url
+        and destination.arrival_verified_at
+    )
     return RoutePlanStop(
         destination_id=destination.destination_id,
         name=destination.name,
-        lat=destination.lat,
-        lng=destination.lng,
+        lat=destination.arrival_lat if has_verified_arrival else destination.lat,
+        lng=destination.arrival_lng if has_verified_arrival else destination.lng,
+        coordinate_basis="verified_arrival" if has_verified_arrival else "attraction",
     )
 
 
@@ -339,12 +354,17 @@ def _append_return_stop(
 def _apply_stop_order(
     stops: list[RoutePlanStop],
     stop_order: list[int] | None,
+    *,
+    preserve_first: bool,
 ) -> list[RoutePlanStop]:
     if stop_order is None:
         raise ValueError("OSRM did not return an optimized stop order.")
 
     if sorted(stop_order) != list(range(len(stops))):
         raise ValueError("OSRM returned an invalid optimized stop order.")
+
+    if preserve_first and stop_order[0] != 0:
+        raise ValueError("OSRM moved the preserved first stop.")
 
     return [stops[index] for index in stop_order]
 
@@ -354,21 +374,24 @@ def _osrm_response(
     travel_mode: TravelMode,
     stops: list[RoutePlanStop],
     osrm_result: OSRMRouteResult,
-    warning: str | None = None,
+    warnings: list[str] | None = None,
 ) -> RouteSummaryResponse:
     expected_leg_count = max(len(stops) - 1, 0)
 
     if len(osrm_result.legs) != expected_leg_count:
         raise ValueError("OSRM returned a leg count that does not match the stops.")
 
+    verified = _arrival_points_verified(stops)
     legs = [
-        _route_leg_from_osrm(order=index, start=start, end=end, leg=leg)
+        _route_leg_from_osrm(
+            order=index, start=start, end=end, leg=leg, show_steps=verified,
+        )
         for index, (start, end, leg) in enumerate(
             zip(stops, stops[1:], osrm_result.legs),
             start=1,
         )
     ]
-    warnings = [warning] if warning else []
+    response_warnings = [*(warnings or []), *_arrival_warnings(stops)]
 
     return RouteSummaryResponse(
         travel_mode=travel_mode,
@@ -378,7 +401,10 @@ def _osrm_response(
         total_duration_minutes=_duration_minutes(osrm_result.total_duration_seconds),
         stops=_response_stops(stops),
         legs=legs,
-        warnings=warnings,
+        polyline=osrm_result.polyline,
+        polyline_encoding="polyline5" if osrm_result.polyline else None,
+        arrival_points_verified=verified,
+        warnings=response_warnings,
     )
 
 
@@ -387,7 +413,7 @@ def _google_routes_response(
     travel_mode: TravelMode,
     stops: list[RoutePlanStop],
     google_result: GoogleRouteResult,
-    warning: str | None = None,
+    warnings: list[str] | None = None,
 ) -> RouteSummaryResponse:
     expected_leg_count = max(len(stops) - 1, 0)
 
@@ -400,14 +426,17 @@ def _google_routes_response(
     )
     delay_minutes = max(live_duration_minutes - normal_duration_minutes, 0)
     traffic_level = _traffic_level(delay_minutes)
+    verified = _arrival_points_verified(stops)
     legs = [
-        _route_leg_from_google(order=index, start=start, end=end, leg=leg)
+        _route_leg_from_google(
+            order=index, start=start, end=end, leg=leg, show_steps=verified,
+        )
         for index, (start, end, leg) in enumerate(
             zip(stops, stops[1:], google_result.legs),
             start=1,
         )
     ]
-    warnings = [warning] if warning else []
+    response_warnings = [*(warnings or []), *_arrival_warnings(stops)]
 
     return RouteSummaryResponse(
         travel_mode=travel_mode,
@@ -417,7 +446,10 @@ def _google_routes_response(
         total_duration_minutes=live_duration_minutes,
         stops=_response_stops(stops),
         legs=legs,
-        warnings=warnings,
+        polyline=google_result.polyline,
+        polyline_encoding="polyline5" if google_result.polyline else None,
+        arrival_points_verified=verified,
+        warnings=response_warnings,
         traffic=RouteTrafficSummary(
             provider="google_routes",
             live_duration_minutes=live_duration_minutes,
@@ -449,7 +481,8 @@ def _estimated_response(
         total_duration_minutes=total_duration,
         stops=_response_stops(stops),
         legs=legs,
-        warnings=warnings,
+        warnings=[*warnings, *_arrival_warnings(stops)],
+        arrival_points_verified=_arrival_points_verified(stops),
     )
 
 
@@ -468,7 +501,8 @@ def _empty_route_response(
         total_duration_minutes=0,
         stops=_response_stops(stops),
         legs=[],
-        warnings=[],
+        warnings=_arrival_warnings(stops),
+        arrival_points_verified=_arrival_points_verified(stops),
     )
 
 
@@ -478,6 +512,7 @@ def _route_leg_from_osrm(
     start: RoutePlanStop,
     end: RoutePlanStop,
     leg: OSRMLeg,
+    show_steps: bool,
 ) -> RouteLeg:
     return RouteLeg(
         order=order,
@@ -488,6 +523,15 @@ def _route_leg_from_osrm(
         distance_km=_distance_km(leg.distance_meters / 1000),
         duration_minutes=_duration_minutes(leg.duration_seconds),
         is_estimated=False,
+        steps=[
+            RouteDirectionStep(
+                order=index,
+                instruction=_osrm_instruction(step),
+                distance_meters=round(step.distance_meters),
+                duration_seconds=round(step.duration_seconds),
+            )
+            for index, step in enumerate(leg.steps, start=1)
+        ] if show_steps else [],
     )
 
 
@@ -497,6 +541,7 @@ def _route_leg_from_google(
     start: RoutePlanStop,
     end: RoutePlanStop,
     leg: GoogleRouteLeg,
+    show_steps: bool,
 ) -> RouteLeg:
     live_duration = _duration_minutes(leg.duration_seconds)
     normal_duration = _duration_minutes(leg.static_duration_seconds)
@@ -514,6 +559,15 @@ def _route_leg_from_google(
         normal_duration_minutes=normal_duration,
         traffic_delay_minutes=delay_minutes,
         traffic_level=_traffic_level(delay_minutes),
+        steps=[
+            RouteDirectionStep(
+                order=index,
+                instruction=step.instruction,
+                distance_meters=round(step.distance_meters),
+                duration_seconds=round(step.duration_seconds),
+            )
+            for index, step in enumerate(leg.steps, start=1)
+        ] if show_steps else [],
     )
 
 
@@ -551,9 +605,46 @@ def _response_stops(stops: list[RoutePlanStop]) -> list[RouteStop]:
             lat=stop.lat,
             lng=stop.lng,
             is_origin=stop.is_origin,
+            coordinate_basis=stop.coordinate_basis,
         )
         for index, stop in enumerate(stops, start=1)
     ]
+
+
+def _arrival_points_verified(stops: list[RoutePlanStop]) -> bool:
+    destinations = [stop for stop in stops if not stop.is_origin]
+    return bool(destinations) and all(
+        stop.coordinate_basis == "verified_arrival" for stop in destinations
+    )
+
+
+def _arrival_warnings(stops: list[RoutePlanStop]) -> list[str]:
+    if _arrival_points_verified(stops) or not any(not stop.is_origin for stop in stops):
+        return []
+    return [
+        "Some stops use attraction coordinates. This route is a planning preview; "
+        "confirm visitor entrances before using directions."
+    ]
+
+
+def _osrm_instruction(step: OSRMStep) -> str:
+    road = f" onto {step.road_name}" if step.road_name else ""
+    maneuver = step.maneuver_type.replace("_", " ").lower()
+    modifier = (step.modifier or "").replace("uturn", "U-turn")
+    if maneuver == "depart":
+        return f"Start{road}" if road else "Start the route"
+    if maneuver == "arrive":
+        return "Arrive at the destination"
+    if maneuver in {"roundabout", "rotary"}:
+        exit_text = f" and take exit {step.exit_number}" if step.exit_number else ""
+        return f"Enter the roundabout{exit_text}{road}"
+    if maneuver == "turn":
+        return f"Turn {modifier}{road}".strip()
+    if maneuver == "continue":
+        return f"Continue{road}" if road else "Continue"
+    if maneuver == "merge":
+        return f"Merge {modifier}{road}".strip()
+    return f"{maneuver.capitalize()} {modifier}{road}".strip()
 
 
 def _nearest_neighbor_order(
@@ -650,7 +741,7 @@ def _can_use_live_traffic(
     )
 
 
-def _traffic_warning(exc: GoogleRoutesClientError) -> str:
+def _traffic_warning(exc: GoogleRoutesClientError | ValueError) -> str:
     return f"Live traffic was unavailable ({exc}); route fallback was used."
 
 
