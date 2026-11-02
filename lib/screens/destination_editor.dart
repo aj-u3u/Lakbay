@@ -73,8 +73,7 @@ class _DestinationEditorState extends State<DestinationEditor> {
     super.initState();
     final record = widget.destination ?? <String, dynamic>{};
     for (final key in _textKeys) {
-      final value =
-          record[key]?.toString() ?? (key == 'estimated_cost' ? '0.00' : '');
+      final value = record[key]?.toString() ?? '';
       _controllers[key] = TextEditingController(text: value);
     }
     for (final key in destinationSuitability.keys) {
@@ -138,7 +137,7 @@ class _DestinationEditorState extends State<DestinationEditor> {
       final text = _controllers[key]!.text.trim();
       payload[key] = switch (key) {
         'lat' || 'lng' => double.parse(text),
-        'name' || 'estimated_cost' => text,
+        'name' => text,
         _ => text.isEmpty ? null : text,
       };
     }
@@ -365,11 +364,11 @@ class _DestinationEditorState extends State<DestinationEditor> {
                             _pair(
                               _field(
                                 'estimated_cost',
-                                'Estimated cost (PHP) *',
+                                'Estimated cost (PHP)',
                                 numeric: true,
                                 validator: _cost,
                                 helper:
-                                    'Non-negative amount, up to two decimal places.',
+                                    'Leave blank if unknown. Enter 0 only for a known zero cost.',
                               ),
                               _field(
                                 'budget_class',
@@ -556,7 +555,8 @@ class _DestinationEditorState extends State<DestinationEditor> {
   }
 
   String? _cost(String? value) {
-    if (!RegExp(r'^\d{1,8}(\.\d{1,2})?$').hasMatch(value?.trim() ?? '')) {
+    final text = value?.trim() ?? '';
+    if (text.isNotEmpty && !RegExp(r'^\d{1,8}(\.\d{1,2})?$').hasMatch(text)) {
       return 'Enter 0 to 99,999,999.99 with at most two decimal places.';
     }
     return null;

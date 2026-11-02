@@ -93,7 +93,7 @@ void main() {
       expect(adminIsSaving.value, isFalse);
 
       await _enter(tester, 'Latitude *', '7.02');
-      await _enter(tester, 'Estimated cost (PHP) *', '1500.001');
+      await _enter(tester, 'Estimated cost (PHP)', '1500.001');
       await _tapVisible(
         tester,
         find.widgetWithText(FilledButton, 'Save destination'),
@@ -106,13 +106,82 @@ void main() {
         findsOneWidget,
       );
       final field = tester.widget<TextFormField>(
-        find.widgetWithText(TextFormField, 'Estimated cost (PHP) *'),
+        find.widgetWithText(TextFormField, 'Estimated cost (PHP)'),
       );
       expect(field.controller!.text, '1500.001');
       expect(adminHasUnsavedChanges.value, isTrue);
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+
+  testWidgets('blank cost clears an existing estimate', (tester) async {
+    final requests = <http.Request>[];
+    final api = _api((request) async {
+      requests.add(request);
+      return http.Response(
+        jsonEncode({..._destination, 'estimated_cost': null}),
+        200,
+      );
+    });
+    addTearDown(api.close);
+    await _pumpEditor(tester, api);
+    await _enter(tester, 'Estimated cost (PHP)', '');
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Save destination'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(jsonDecode(requests.single.body), {'estimated_cost': null});
+  });
+
+  testWidgets('zero cost is sent as a known zero', (tester) async {
+    final requests = <http.Request>[];
+    final api = _api((request) async {
+      requests.add(request);
+      return http.Response(
+        jsonEncode({..._destination, 'estimated_cost': '0.00'}),
+        200,
+      );
+    });
+    addTearDown(api.close);
+    await _pumpEditor(tester, api);
+    await _enter(tester, 'Estimated cost (PHP)', '0');
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Save destination'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(jsonDecode(requests.single.body), {'estimated_cost': '0'});
+  });
+
+  testWidgets('new destination leaves unknown cost as null', (tester) async {
+    final requests = <http.Request>[];
+    final api = _api((request) async {
+      requests.add(request);
+      return http.Response(
+        jsonEncode({..._destination, 'estimated_cost': null}),
+        201,
+      );
+    });
+    addTearDown(api.close);
+    await _pumpEditor(tester, api, destination: null);
+    await _enter(tester, 'Destination name *', 'New Park');
+    await _enter(tester, 'Latitude *', '7.01');
+    await _enter(tester, 'Longitude *', '125.43');
+    await _tapVisible(
+      tester,
+      find.widgetWithText(FilledButton, 'Save destination'),
+    );
+    await tester.pumpAndSettle();
+
+    expect(requests, hasLength(1));
+    expect(requests.single.method, 'POST');
+    expect((jsonDecode(requests.single.body) as Map)['estimated_cost'], isNull);
+  });
 
   testWidgets('dirty Cancel keeps entered values until discard is confirmed', (
     tester,
@@ -217,6 +286,7 @@ ApiService _api(Future<http.Response> Function(http.Request) handler) =>
 Future<void> _pumpEditor(
   WidgetTester tester,
   ApiService api, {
+  Map<String, dynamic>? destination = _destination,
   ValueChanged<Map<String, dynamic>>? onSaved,
   VoidCallback? onCancel,
 }) async {
@@ -234,7 +304,7 @@ Future<void> _pumpEditor(
           body: open
               ? DestinationEditor(
                   api: api,
-                  destination: _destination,
+                  destination: destination,
                   onSaved: (record) {
                     onSaved?.call(record);
                     setState(() {

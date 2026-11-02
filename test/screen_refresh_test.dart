@@ -111,7 +111,10 @@ void main() {
       client: MockClient((request) async {
         if (request.method == 'PATCH') {
           expect(request.url.path, '/api/v1/accommodations/10');
-          price = (jsonDecode(request.body) as Map)['price'].toString();
+          final payload = jsonDecode(request.body) as Map;
+          expect(payload['currency'], 'PHP');
+          expect(payload['charging_unit'], 'per_room_per_night');
+          price = payload['price'].toString();
           return http.Response('{"accommodation_id":10}', 200);
         }
         if (request.url.path.endsWith('/accommodations')) {
@@ -124,6 +127,8 @@ void main() {
                 'name': 'Test Room',
                 'room_type': 'Double',
                 'price': price,
+                'currency': 'PHP',
+                'charging_unit': 'per_room_per_night',
                 'capacity': 2,
                 'description': 'PHP per room/night',
                 'is_available': true,
@@ -150,7 +155,7 @@ void main() {
     await tester.tap(find.text('Save rate'));
     await tester.pumpAndSettle();
     expect(rateReads, 3);
-    expect(find.text('1600.50'), findsOneWidget);
+    expect(find.text('₱1600.50 / room / night'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
 }

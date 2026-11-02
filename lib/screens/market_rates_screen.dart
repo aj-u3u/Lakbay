@@ -499,7 +499,17 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
 
   String _price(Map<String, dynamic> record) {
     final value = num.tryParse(record['price']?.toString() ?? '');
-    return value == null ? '—' : value.toStringAsFixed(2);
+    if (value == null) return '—';
+    final currency = record['currency']?.toString() ?? 'PHP';
+    final unit = switch (record['charging_unit']?.toString()) {
+      'per_room_per_night' => 'room / night',
+      'per_room_per_stay' => 'room / stay',
+      'per_person' => 'person / one-way leg',
+      'per_vehicle' => 'vehicle / one-way leg',
+      'per_group' => 'group / one-way leg',
+      _ => 'basis unverified',
+    };
+    return '${currency == 'PHP' ? '₱' : '$currency '}${value.toStringAsFixed(2)} / $unit';
   }
 
   String _duration(Map<String, dynamic> record) {
@@ -569,7 +579,12 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
         return DataRow(
           cells: tab == 0
               ? [
-                  DataCell(_cell(_text(record, 'name'), strong: true)),
+                  DataCell(
+                    _cell(
+                      '#${record['accommodation_id']} · ${_text(record, 'name')}',
+                      strong: true,
+                    ),
+                  ),
                   DataCell(_cell(_text(record, 'room_type'), width: 140)),
                   DataCell(Text(_price(record))),
                   DataCell(Text(_text(record, 'capacity'))),
@@ -579,7 +594,7 @@ class _MarketRatesScreenState extends State<MarketRatesScreen>
               : [
                   DataCell(
                     _cell(
-                      '${_text(record, 'vehicle_type')} · ${_text(record, 'transport_mode')}',
+                      '#${record['transportation_id']} · ${_text(record, 'vehicle_type')} · ${_text(record, 'transport_mode')}',
                       strong: true,
                     ),
                   ),
@@ -746,6 +761,7 @@ class _RateEditorState extends State<_RateEditor> {
   bool _saving = false;
   bool _dirty = false;
   bool _closing = false;
+  String? _chargingUnit;
   Object? _error;
 
   @override
@@ -770,6 +786,7 @@ class _RateEditorState extends State<_RateEditor> {
       );
     }
     _available = widget.initial?['is_available'] != false;
+    _chargingUnit = widget.initial?['charging_unit']?.toString();
   }
 
   @override
@@ -922,6 +939,8 @@ class _RateEditorState extends State<_RateEditor> {
       data['duration_minutes'] = minutes.isEmpty ? null : int.parse(minutes);
     }
     data['is_available'] = _available;
+    data['currency'] = 'PHP';
+    data['charging_unit'] = _chargingUnit;
     try {
       await widget.onSave(data);
       if (!mounted) return;
@@ -964,7 +983,7 @@ class _RateEditorState extends State<_RateEditor> {
                 ),
                 const SizedBox(height: 8),
                 const Text(
-                  'Required fields are marked *. Price has no predefined currency or billing unit.',
+                  'Required fields are marked *. All rates use Philippine pesos (PHP). Select how this price is charged.',
                 ),
                 const SizedBox(height: 24),
                 if (widget.accommodation) ...[
@@ -1004,13 +1023,7 @@ class _RateEditorState extends State<_RateEditor> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _field(
-                    'description',
-                    'Description',
-                    lines: 3,
-                    helper:
-                        'Include the currency and billing basis when known.',
-                  ),
+                  _field('description', 'Description', lines: 3),
                 ] else ...[
                   _pair(
                     _field(
@@ -1071,14 +1084,43 @@ class _RateEditorState extends State<_RateEditor> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _field(
-                    'notes',
-                    'Notes',
-                    lines: 3,
-                    helper:
-                        'Include the currency and billing basis when known.',
-                  ),
+                  _field('notes', 'Notes', lines: 3),
                 ],
+                const SizedBox(height: 16),
+                DropdownButtonFormField<String>(
+                  initialValue: _chargingUnit,
+                  decoration: const InputDecoration(
+                    labelText: 'Charging unit *',
+                  ),
+                  items:
+                      (widget.accommodation
+                              ? const {
+                                  'per_room_per_night': 'Per room per night',
+                                  'per_room_per_stay': 'Per room per stay',
+                                }
+                              : const {
+                                  'per_person': 'Per person per one-way leg',
+                                  'per_vehicle': 'Per vehicle per one-way leg',
+                                  'per_group': 'Per group per one-way leg',
+                                })
+                          .entries
+                          .map(
+                            (entry) => DropdownMenuItem(
+                              value: entry.key,
+                              child: Text(entry.value),
+                            ),
+                          )
+                          .toList(),
+                  onChanged: _saving
+                      ? null
+                      : (value) => setState(() {
+                          _chargingUnit = value;
+                          _dirty = true;
+                        }),
+                  validator: (value) => value == null
+                      ? 'Choose how this price is charged.'
+                      : null,
+                ),
                 const SizedBox(height: 16),
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,

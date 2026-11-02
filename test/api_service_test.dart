@@ -250,6 +250,75 @@ void main() {
     },
   );
 
+  test('admin rate create, edit and deactivation keep one record ID', () async {
+    Map<String, dynamic>? record;
+    final api = ApiService(
+      tokenProvider: () async => 'admin-token',
+      client: MockClient((request) async {
+        if (request.method != 'GET') {
+          expect(request.headers['Authorization'], 'Bearer admin-token');
+        }
+        if (request.method == 'POST') {
+          expect(request.url.path, '/api/v1/destinations/8/transportations');
+          final payload = jsonDecode(request.body) as Map<String, dynamic>;
+          expect(payload['currency'], 'PHP');
+          expect(payload['charging_unit'], 'per_vehicle');
+          record = {
+            ...payload,
+            'transportation_id': 77,
+            'destination_id': 8,
+            'is_available': true,
+          };
+          return http.Response(jsonEncode(record), 201);
+        }
+        if (request.method == 'PATCH') {
+          expect(request.url.path, '/api/v1/transportations/77');
+          record = {
+            ...record!,
+            ...(jsonDecode(request.body) as Map<String, dynamic>),
+          };
+          return http.Response(jsonEncode(record), 200);
+        }
+        if (request.method == 'DELETE') {
+          expect(request.url.path, '/api/v1/transportations/77');
+          record = {...record!, 'is_available': false};
+          return http.Response(jsonEncode(record), 200);
+        }
+        expect(request.url.path, '/api/v1/destinations/8/transportations');
+        return http.Response(
+          jsonEncode(record?['is_available'] == true ? [record] : []),
+          200,
+        );
+      }),
+    );
+    addTearDown(api.close);
+    final created = await api.createTransportRate({
+      'destination_id': 8,
+      'vehicle_type': 'Van',
+      'transport_mode': 'public_transport',
+      'route_from': 'Davao',
+      'route_to': 'Samal',
+      'price': '500.00',
+      'currency': 'PHP',
+      'charging_unit': 'per_vehicle',
+    });
+    expect(created['transportation_id'], 77);
+    expect(
+      (await api.getTransportRates(
+        destinationId: '8',
+      )).single['transportation_id'],
+      77,
+    );
+    final edited = await api.updateTransportRate('77', {'price': '550.00'});
+    expect(edited['transportation_id'], 77);
+    expect(
+      (await api.getTransportRates(destinationId: '8')).single['price'],
+      '550.00',
+    );
+    expect(await api.deleteTransportRate('77'), isTrue);
+    expect(await api.getTransportRates(destinationId: '8'), isEmpty);
+  });
+
   test(
     'permission errors preserve status and never become an empty list',
     () async {
