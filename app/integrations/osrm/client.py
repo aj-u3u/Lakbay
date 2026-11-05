@@ -26,9 +26,11 @@ class OSRMClient:
         coordinates: list[RouteCoordinate],
     ) -> OSRMRouteResult:
         profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
         body = await self._get_json(
             f"/route/v1/{profile}/{_coordinates_path(coordinates)}",
             params={"overview": "simplified", "steps": "true", "geometries": "polyline"},
+            base_url=base_url,
         )
 
         _require_near_route_waypoints(body, len(coordinates))
@@ -44,6 +46,7 @@ class OSRMClient:
         preserve_first: bool,
     ) -> OSRMRouteResult:
         profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
         source = "first" if preserve_first else "any"
         destination = "any" if roundtrip else "last"
 
@@ -62,16 +65,16 @@ class OSRMClient:
                 "source": source,
                 "destination": destination,
             },
+            base_url=base_url,
         )
 
         return _parse_trip_response(body, expected_count=len(coordinates))
 
-    async def _get_json(self, path: str, *, params: dict[str, str]) -> dict:
-        if not self.settings.osrm_base_url:
-            raise OSRMConfigurationError("OSRM_BASE_URL is not configured.")
-
+    async def _get_json(
+        self, path: str, *, params: dict[str, str], base_url: str
+    ) -> dict:
         async with httpx.AsyncClient(
-            base_url=self.settings.osrm_base_url.rstrip("/"),
+            base_url=base_url.rstrip("/"),
             timeout=self.settings.osrm_request_timeout_seconds,
         ) as client:
             try:
@@ -118,6 +121,27 @@ class OSRMClient:
             return self.settings.osrm_profile_walking
 
         raise OSRMConfigurationError("OSRM does not support public_transport mode.")
+
+    def _base_url_for_mode(self, travel_mode: TravelMode) -> str:
+        if travel_mode == "driving":
+            base_url = self.settings.osrm_base_url
+            setting_name = "OSRM_BASE_URL"
+        elif travel_mode == "walking":
+            base_url = self.settings.osrm_walking_base_url
+            setting_name = "OSRM_WALKING_BASE_URL"
+        else:
+            raise OSRMConfigurationError("OSRM does not support public_transport mode.")
+        if not base_url:
+            raise OSRMConfigurationError(f"{setting_name} is not configured.")
+        if (
+            travel_mode == "walking"
+            and self.settings.osrm_base_url
+            and base_url.rstrip("/") == self.settings.osrm_base_url.rstrip("/")
+        ):
+            raise OSRMConfigurationError(
+                "OSRM_WALKING_BASE_URL must use a separate foot-profile service."
+            )
+        return base_url
 
 
 def get_osrm_client() -> OSRMClient:

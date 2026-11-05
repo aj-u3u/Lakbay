@@ -240,16 +240,17 @@ Start with these modes:
 - `walking`
 - `public_transport`
 
-OSRM commonly supports road-network profiles such as driving and walking,
-depending on the hosted OSRM setup. Public transport is more complex because it
-usually requires transit schedule data, so Lakbay should initially treat
+OSRM can prepare separate driving and walking graphs, depending on the hosted
+setup. The service URL must actually point to the matching graph; a different
+profile word in the URL does not switch graphs. Public transport is more complex
+because it usually requires transit schedule data, so Lakbay should initially treat
 `public_transport` as an estimated mode unless a proper transit data provider is
 added later.
 
 Recommended behavior:
 
 - `driving`: use OSRM driving profile.
-- `walking`: use OSRM walking profile if available.
+- `walking`: use a separately configured OSRM foot-profile service if available.
 - `public_transport`: use stored transportation rates and estimated durations,
   then clearly mark the result as estimated.
 
@@ -412,6 +413,7 @@ Use these variables in `.env`:
 
 ```env
 OSRM_BASE_URL=https://router.project-osrm.org
+OSRM_WALKING_BASE_URL=
 OSRM_REQUEST_TIMEOUT_SECONDS=30
 OSRM_PROFILE_DRIVING=driving
 OSRM_PROFILE_WALKING=walking
@@ -422,8 +424,12 @@ ROUTE_MAX_DESTINATIONS=10
 production or formal high-volume testing, use a hosted routing provider or a
 self-hosted OSRM server.
 
-If `OSRM_BASE_URL` is missing or OSRM fails, the backend returns a Haversine
-estimate with `is_estimated=true`.
+`OSRM_BASE_URL` serves driving. Configure `OSRM_WALKING_BASE_URL` only with a
+separately verified foot-profile graph. The public demo's `/walking/` path is
+not sufficient evidence of a walking graph. Without a walking service, walking
+returns a Haversine estimate with `is_estimated=true` and no turn-by-turn line.
+If the selected service is missing or fails, the backend returns the same
+clearly labeled estimate.
 
 For route previews, the OSRM client checks the provider's waypoint snap
 distances. Every requested point must have a returned waypoint within 250 meters.

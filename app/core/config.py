@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     ai_model_comparison_enabled: bool = False
 
     osrm_base_url: str | None = None
+    osrm_walking_base_url: str | None = None
     osrm_request_timeout_seconds: int = Field(default=30, ge=1, le=120)
     osrm_profile_driving: str = "driving"
     osrm_profile_walking: str = "walking"
