@@ -1,3 +1,4 @@
+import logging
 from dataclasses import dataclass
 from decimal import Decimal
 from math import asin, cos, radians, sin, sqrt
@@ -37,6 +38,8 @@ FALLBACK_SPEED_KMH = {
     "public_transport": Decimal("30"),
 }
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass(frozen=True)
 class RoutePlanStop:
@@ -68,6 +71,13 @@ class RouteService:
         data: RoutePreviewRequest,
     ) -> RouteSummaryResponse:
         stops = await self._build_stops(data)
+        return await self._preview_stops(data, stops)
+
+    async def _preview_stops(
+        self,
+        data: RoutePreviewRequest | RouteOptimizeRequest,
+        stops: list[RoutePlanStop],
+    ) -> RouteSummaryResponse:
         route_stops = _append_return_stop(stops, data.return_to_origin)
 
         if data.travel_mode == "public_transport":
@@ -109,7 +119,9 @@ class RouteService:
                 osrm_result=osrm_result,
                 warnings=warnings,
             )
-        except (OSRMClientError, ValueError):
+        except (OSRMClientError, ValueError) as exc:
+            if data.travel_mode == "driving":
+                logger.warning("Driving OSRM route lookup failed: %s", exc)
             warnings.append("OSRM was unavailable, so Haversine estimates were used.")
 
             return _estimated_response(
@@ -150,6 +162,11 @@ class RouteService:
                 is_estimated=False,
             )
 
+        # A fixed origin and one destination have no visit order to optimize.
+        # OSRM Route also checks whether both coordinates snap near the road.
+        if data.origin is not None and len(data.destination_ids) == 1:
+            return await self._preview_stops(data, stops)
+
         preserve_first = data.origin is not None or data.preserve_first_destination
         order_warning = (
             "OSRM Trip returns a suggested route order; it is not "
@@ -173,7 +190,9 @@ class RouteService:
                 osrm_result=osrm_result,
                 warnings=[order_warning],
             )
-        except (OSRMClientError, ValueError):
+        except (OSRMClientError, ValueError) as exc:
+            if data.travel_mode == "driving":
+                logger.warning("Driving OSRM trip lookup failed: %s", exc)
             ordered_stops = _nearest_neighbor_order(
                 stops,
                 preserve_first=preserve_first,

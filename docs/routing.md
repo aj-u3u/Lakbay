@@ -173,7 +173,11 @@ logic.
 Current implementation:
 
 - OSRM Route is used for fixed-order route preview.
-- OSRM Trip is used for suggested route order when available.
+- A request to optimize one destination from an origin also uses OSRM Route:
+  there is no destination order to optimize. This applies to the traveler
+  Location & Route card and checks the road snap at both endpoints.
+- OSRM Trip is used for suggested route order when multiple destinations are
+  selected.
 - Haversine distance is used as a fallback estimate.
 - Haversine nearest-neighbor is used as the fallback optimization method.
 
@@ -423,6 +427,11 @@ ROUTE_MAX_DESTINATIONS=10
 `OSRM_BASE_URL` may point to the public demo server during development. Before
 production or formal high-volume testing, use a hosted routing provider or a
 self-hosted OSRM server.
+The deployed service needs its own `OSRM_BASE_URL` environment variable; a
+developer's local `.env` does not configure Render. If Drive shows
+`route_provider=haversine` and `is_estimated=true`, check that setting and the
+backend's `Driving OSRM route lookup failed` log before treating the result as
+a road route.
 
 `OSRM_BASE_URL` serves driving. Configure `OSRM_WALKING_BASE_URL` only with a
 separately verified foot-profile graph. The public demo's `/walking/` path is
@@ -433,6 +442,9 @@ clearly labeled estimate.
 
 For route previews, the OSRM client checks the provider's waypoint snap
 distances. Every requested point must have a returned waypoint within 250 meters.
+A one-destination route from an origin uses the same check even when the client
+calls `/routes/optimize`. If the driving lookup fails, the backend logs the
+OSRM error and returns a labeled Haversine estimate with no road geometry.
 A missing waypoint or a more distant road snap makes the provider route
 unconfirmed, so the route service returns a clearly labeled estimate instead.
 This avoids presenting a road path to a nearby but different location as a
