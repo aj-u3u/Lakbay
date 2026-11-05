@@ -17,6 +17,11 @@ class Sidebar extends StatelessWidget {
     ),
     (label: 'Destinations', route: '/destinations', icon: Icons.place_outlined),
     (
+      label: 'Place review',
+      route: '/destination-candidates',
+      icon: Icons.fact_check_outlined,
+    ),
+    (
       label: 'Market Rates',
       route: '/market-rates',
       icon: Icons.payments_outlined,

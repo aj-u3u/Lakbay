@@ -11,6 +11,62 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  test('candidate review calls use the protected admin endpoints', () async {
+    final requests = <http.Request>[];
+    final api = ApiService(
+      tokenProvider: () async => 'admin-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'GET') {
+          return http.Response(
+            '[{"candidate_id":7,"review_status":"staged"}]',
+            200,
+          );
+        }
+        return http.Response(
+          '{"candidate_id":7,"review_status":"staged"}',
+          200,
+        );
+      }),
+    );
+    addTearDown(api.close);
+
+    final candidates = await api.getDestinationCandidates(
+      limit: 50,
+      offset: 50,
+    );
+    expect(candidates.single['candidate_id'], 7);
+    await api.updateDestinationCandidate(7, {'category': 'garden'});
+    await api.rejectDestinationCandidate(7, 'Not open to visitors');
+    await api.publishDestinationCandidate(7);
+
+    expect(requests.map((request) => request.method), [
+      'GET',
+      'PATCH',
+      'POST',
+      'POST',
+    ]);
+    expect(requests.map((request) => request.url.path), [
+      '/api/v1/admin/destination-candidates',
+      '/api/v1/admin/destination-candidates/7',
+      '/api/v1/admin/destination-candidates/7/reject',
+      '/api/v1/admin/destination-candidates/7/publish',
+    ]);
+    expect(requests.first.url.queryParameters, {
+      'review_status': 'staged',
+      'limit': '50',
+      'offset': '50',
+    });
+    expect(
+      requests.every(
+        (request) => request.headers['Authorization'] == 'Bearer admin-token',
+      ),
+      isTrue,
+    );
+    expect(jsonDecode(requests[1].body), {'category': 'garden'});
+    expect(jsonDecode(requests[2].body), {'reason': 'Not open to visitors'});
+  });
+
   test('expired access token rotates the session and retries once', () async {
     final session = SessionManager.instance;
     await session.saveSession(

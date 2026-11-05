@@ -236,6 +236,40 @@ class ApiService {
     }
   }
 
+  Future<List<dynamic>> getDestinationCandidates({
+    String reviewStatus = 'staged',
+    int limit = 50,
+    int offset = 0,
+  }) async => _list(
+    await _request(
+      'GET',
+      '/admin/destination-candidates?review_status=${Uri.encodeQueryComponent(reviewStatus)}&limit=$limit&offset=$offset',
+    ),
+  );
+
+  Future<Map<String, dynamic>> updateDestinationCandidate(
+    int id,
+    Map<String, dynamic> data,
+  ) async => _object(
+    await _request('PATCH', '/admin/destination-candidates/$id', data: data),
+  );
+
+  Future<Map<String, dynamic>> rejectDestinationCandidate(
+    int id,
+    String reason,
+  ) async => _object(
+    await _request(
+      'POST',
+      '/admin/destination-candidates/$id/reject',
+      data: {'reason': reason},
+    ),
+  );
+
+  Future<Map<String, dynamic>> publishDestinationCandidate(int id) async =>
+      _object(
+        await _request('POST', '/admin/destination-candidates/$id/publish'),
+      );
+
   Future<Map<String, dynamic>> createDestination(
     Map<String, dynamic> data,
   ) async => _object(await _request('POST', '/destinations', data: data));

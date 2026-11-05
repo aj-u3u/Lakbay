@@ -6,6 +6,7 @@ import 'services/session_manager.dart';
 import 'screens/login_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/destinations_screen.dart';
+import 'screens/destination_candidates_screen.dart';
 import 'screens/market_rates_screen.dart';
 import 'screens/users_screen.dart';
 import 'screens/reviews_screen.dart';
@@ -44,6 +45,7 @@ class LakbayAdminApp extends StatelessWidget {
     final page = switch (settings.name) {
       '/login' => const LoginScreen(),
       '/destinations' => DestinationsScreen(initialDestination: destination),
+      '/destination-candidates' => const DestinationCandidatesScreen(),
       '/market-rates' => const MarketRatesScreen(),
       '/transport' => const MarketRatesScreen(initialTab: 1),
       '/accommodation' => const MarketRatesScreen(),
