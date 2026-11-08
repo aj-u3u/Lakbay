@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from pydantic import BaseModel, Field, PositiveInt, model_validator
 
-from app.features.routes.schemas import TravelMode
+from app.features.routes.schemas import RouteSummaryResponse, TravelMode
 
 
 class DestinationGroupsRequest(BaseModel):
@@ -41,6 +41,7 @@ class GroupScoreBreakdown(BaseModel):
 class DestinationGroup(BaseModel):
     destination_ids: list[int]
     route_order: list[int]
+    route: RouteSummaryResponse
     score: float
     scores: GroupScoreBreakdown
     estimated_destination_cost: Decimal

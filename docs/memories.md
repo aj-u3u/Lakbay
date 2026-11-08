@@ -131,8 +131,9 @@ status = deleted
 
 Deleted memories are hidden from normal list and detail endpoints.
 
-The Cloudinary asset is not deleted in Phase 10. Asset cleanup can be added in a
-future admin/storage maintenance phase.
+The Cloudinary asset is not deleted by this API operation. A separate operator
+command can preview one soft-deleted memory and, with an exact public-ID
+confirmation, delete its Cloudinary image. See `docs/provider_usage.md`.
 
 ## Testing
 

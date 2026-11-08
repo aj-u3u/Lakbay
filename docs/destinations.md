@@ -232,3 +232,67 @@ Run the full suite:
 ```bash
 python -m pytest -q
 ```
+
+## OSM candidate review queue
+
+The Phase 2 OSM review queue is **admin only**. It stores candidate places separately
+from public `destinations`. Staged and rejected candidates are absent from
+traveler browse, recommendations, itineraries, and route planning. The source
+inventory and first-pass decisions are in
+[`davao_region_osm_catalog_review_2026-11-04.md`](davao_region_osm_catalog_review_2026-11-04.md).
+
+Migration `2026_11_04_0800` creates `destination_candidates` with a unique OSM
+type/ID, source URL and tag, proposed place pin, review fields, and a link to a
+published destination. It does not change the existing `destinations` table.
+Review the migration before applying it to the intended database.
+
+Preview the 648 unique visitor candidates from the six province/city inventories:
+
+```bash
+python -m scripts.stage_osm_destination_candidates
+```
+
+After the migration is applied, stage them once with:
+
+```bash
+python -m scripts.stage_osm_destination_candidates --apply
+```
+
+The command is idempotent by OSM type and ID. It leaves the 1,261 special cases
+and 14 restricted or closed source rows in the review file for separate work.
+Staging does **not** publish any place. A repeated run does not overwrite admin
+edits or a published candidate.
+
+On 4 November 2026, migration `2026_11_04_0800` was applied to the configured
+Neon database and the importer staged 648 unique candidates. A second run
+inserted zero rows. Read-back found 648 staged candidates, zero published
+candidates, and the original 30 active destinations.
+
+| Admin endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/admin/destination-candidates` | Stage one additional reviewed OSM object, including a special case from the audit. The OSM URL must match its type and ID. |
+| `GET /api/v1/admin/destination-candidates?review_status=staged&limit=50&offset=0` | List the queue; `review_status` can be `staged`, `rejected`, or `published`. |
+| `GET /api/v1/admin/destination-candidates/{candidate_id}` | Read one candidate and its OSM source. |
+| `PATCH /api/v1/admin/destination-candidates/{candidate_id}` | Correct name, pin, category, description, activities, fees, hours, visitor purpose, and access evidence. |
+| `POST /api/v1/admin/destination-candidates/{candidate_id}/reject` | Reject with `{"reason":"..."}`. |
+| `POST /api/v1/admin/destination-candidates/{candidate_id}/publish` | Create one active destination and link it to the reviewed candidate. |
+
+An admin can add verified fees, activities, hours, and description while a
+candidate is staged. Unknown values stay null. The suggested OSM category is
+only a clue; the admin must confirm `district`, enter a catalog `category`, and
+write a `visitor_purpose`
+before publishing. Publication also requires `access_policy` (`public`,
+`customers`, or `permit`), an HTTP(S) `access_source_url`, and a timezone-aware
+`access_verified_at`. The admin should use current operator, government, or
+other reliable access evidence. `review_notes` can record remaining questions.
+The publish action blocks a nearby catalog place with the same name and links
+the new record to its OSM candidate. Admins should still check aliases and
+different OSM objects that represent one venue.
+
+Published destinations use the reviewed attraction `lat`/`lng`, with
+`route_ready=false` and no arrival coordinates. Their public pin can appear
+through the normal destination API. A gate, trailhead, or receiving pier needs
+separate verification before turn-by-turn directions are enabled. Later fee or
+activity edits use the existing admin `PATCH /api/v1/destinations/{id}` endpoint.
+The backend queue has no Flutter admin screen in this change; that client can
+use these endpoints when its UI is added.

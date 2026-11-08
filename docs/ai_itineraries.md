@@ -190,6 +190,22 @@ Field notes:
   two comparison model variables.
 - `allow_fallback=true` lets the service try `GROQ_MODEL_FALLBACK` if the first
   model fails or returns invalid output.
+- Itinerary generation sends a strict Groq JSON schema. Configure models that
+  support strict structured output; the service still checks option count, days,
+  every selected destination ID (with or without a planning preview), budget,
+  and whether each option total equals the sum of its activity costs after the
+  model responds. The chat endpoint continues to use ordinary text responses.
+- Every returned option includes `quality_warnings`. Lakbay flags current
+  opening hours as unverified because the destination catalog has no hours
+  verification timestamp. It also flags ferry or boat access when no selected
+  catalog fare has a known charging unit, draft group costs, and route times
+  when no planning preview was supplied. These warnings are shown with the
+  options in the Flutter planner. They do not verify live hours, fares, or
+  arrival access.
+- If any option omits a selected destination or its total disagrees with its
+  activity costs, that model run is invalid. The service can try a configured
+  fallback; if no model passes, the endpoint returns `ai_generation_failed`
+  instead of showing an incomplete itinerary.
 
 ## Free-Text Chat RAG Example
 

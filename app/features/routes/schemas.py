@@ -26,6 +26,9 @@ class RouteBaseRequest(BaseModel):
         if len(self.destination_ids) != len(set(self.destination_ids)):
             raise ValueError("destination_ids must not contain duplicate IDs")
 
+        if self.return_to_origin and self.origin is None:
+            raise ValueError("return_to_origin requires origin")
+
         return self
 
 
@@ -34,7 +37,14 @@ class RoutePreviewRequest(RouteBaseRequest):
 
 
 class RouteOptimizeRequest(RouteBaseRequest):
-    preserve_first_destination: bool = True
+    preserve_first_destination: bool = Field(
+        default=True,
+        description=(
+            "When origin is absent, keep the first listed destination as the start. "
+            "When origin is provided, it is always the fixed first stop and this "
+            "setting has no effect."
+        ),
+    )
 
 
 class RouteStop(BaseModel):
@@ -69,6 +79,18 @@ class RouteLeg(BaseModel):
     steps: list[RouteDirectionStep] = Field(default_factory=list)
 
 
+class RouteFerryCrossing(BaseModel):
+    """A boat crossing inside a road route, such as a RoRo ferry to Samal."""
+
+    name: str | None = None
+    distance_km: DistanceKm
+    duration_minutes: int = Field(ge=0)
+    from_lat: float | None = None
+    from_lng: float | None = None
+    to_lat: float | None = None
+    to_lng: float | None = None
+
+
 class RouteTrafficSummary(BaseModel):
     provider: str
     live_duration_minutes: int = Field(ge=0)
@@ -92,3 +114,6 @@ class RouteSummaryResponse(BaseModel):
     arrival_points_verified: bool = False
     warnings: list[str] = Field(default_factory=list)
     traffic: RouteTrafficSummary | None = None
+    # Boat parts of the route. The total time includes the crossing but not
+    # waiting at the pier.
+    ferry_crossings: list[RouteFerryCrossing] = Field(default_factory=list)

@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import LakbayAPIError
+from app.core.provider_usage import ProviderLimiter
 from app.features.accommodations.models import Accommodation
 from app.features.ai.models import AIGenerationRun
 from app.features.ai.geo_context import selected_geo_inputs
@@ -38,7 +39,8 @@ from app.features.routes.service import RouteService
 from app.features.transportations.models import Transportation
 from app.features.users.models import User
 from app.integrations.groq.client import GroqClient
-from app.integrations.groq.errors import GroqClientError
+from app.integrations.groq.errors import GroqClientError, GroqRateLimitError
+from app.integrations.groq.itinerary_schema import ITINERARY_RESPONSE_FORMAT
 from app.integrations.groq.model_selector import (
     ModelSelection,
     select_comparison_models,
@@ -56,6 +58,26 @@ from app.integrations.groq.prompts import (
 
 REQUEST_PURPOSE = "itinerary_generation"
 CHAT_REQUEST_PURPOSE = "travel_chat"
+_ai_user_limiter = ProviderLimiter()
+
+
+def _reserve_user_ai_call(user_id: int, settings: Settings) -> None:
+    _ai_user_limiter.reserve(
+        f"groq:user:{user_id}",
+        limit=settings.groq_user_requests_per_minute,
+        code="ai_user_rate_limit_exceeded",
+        message="Too many AI requests. Please try again shortly.",
+    )
+
+
+def _groq_rate_limit_response(exc: GroqRateLimitError) -> LakbayAPIError:
+    return LakbayAPIError(
+        exc.message,
+        code="groq_rate_limit_exceeded",
+        status_code=429,
+        details={"retry_after_seconds": exc.retry_after_seconds},
+        headers={"Retry-After": str(exc.retry_after_seconds)},
+    )
 
 
 class AIItineraryService:
@@ -136,7 +158,7 @@ class AIItineraryService:
             total_budget=Decimal(data.total_budget),
             day_count=data.day_count,
             minimum_option_count=settings.ai_itinerary_option_count,
-            required_destination_ids=set(data.destination_ids) if planning_preview else None,
+            required_destination_ids=set(data.destination_ids),
             required_accommodation_ids=set(data.accommodation_ids) if planning_preview else None,
             required_transportation_ids=set(data.transportation_ids) if planning_preview else None,
             accommodation_destination_ids={
@@ -153,6 +175,12 @@ class AIItineraryService:
             planning_preview=planning_preview,
             geo_analytics_context=geo_analytics_context,
         )
+        quality_warnings = _itinerary_quality_warnings(
+            destinations=destinations,
+            transportations=transportations,
+            traveler_count=data.traveler_count,
+            planning_preview=planning_preview,
+        )
 
         model_runs: list[AIModelRunResult] = []
         primary_options = []
@@ -167,6 +195,7 @@ class AIItineraryService:
                 option_count=settings.ai_itinerary_option_count,
                 planning_preview=planning_preview,
                 geo_analytics_context=geo_analytics_context,
+                quality_warnings=quality_warnings,
             )
             model_runs.append(run_result)
 
@@ -231,6 +260,7 @@ class AIItineraryService:
         failed_runs: list[dict] = []
 
         for selection in selections:
+            _reserve_user_ai_call(user.user_id, settings)
             run = await self.ai.create_generation_run(
                 user_id=user.user_id,
                 request_purpose=CHAT_REQUEST_PURPOSE,
@@ -321,6 +351,8 @@ class AIItineraryService:
                 )
                 await self.session.commit()
                 await self.session.refresh(updated_run)
+                if isinstance(exc, GroqRateLimitError):
+                    raise _groq_rate_limit_response(exc) from exc
                 failed_runs.append(
                     {
                         "ai_generation_run_id": updated_run.ai_generation_run_id,
@@ -424,7 +456,9 @@ class AIItineraryService:
         option_count: int,
         planning_preview: PlanningPreviewResponse | None = None,
         geo_analytics_context: dict | None = None,
+        quality_warnings: list[str] | None = None,
     ) -> AIModelRunResult:
+        _reserve_user_ai_call(user.user_id, get_settings())
         run = await self.ai.create_generation_run(
             user_id=user.user_id,
             request_purpose=REQUEST_PURPOSE,
@@ -445,12 +479,17 @@ class AIItineraryService:
             completion = await self.groq_client.create_chat_completion(
                 model=selection.model_id,
                 messages=messages,
+                response_format=ITINERARY_RESPONSE_FORMAT,
             )
             response_time_ms = _elapsed_ms(started_at)
             options = parse_and_validate_itinerary_output(
                 content=completion.content,
                 catalog=catalog,
             )
+            options = [
+                option.model_copy(update={"quality_warnings": list(quality_warnings or [])})
+                for option in options
+            ]
             updated_run = await self.ai.update_generation_run(
                 run,
                 status="succeeded",
@@ -496,6 +535,9 @@ class AIItineraryService:
             )
             await self.session.commit()
             await self.session.refresh(updated_run)
+
+            if isinstance(exc, GroqRateLimitError):
+                raise _groq_rate_limit_response(exc) from exc
 
             return _build_run_result(run=updated_run, options=[])
 
@@ -583,6 +625,50 @@ class AIItineraryService:
                 code="transportation_destination_mismatch",
                 details={"transportation_ids": mismatched_transportation_ids},
             )
+
+
+def _itinerary_quality_warnings(
+    *,
+    destinations: list[Destination],
+    transportations: list[Transportation],
+    traveler_count: int,
+    planning_preview: PlanningPreviewResponse | None,
+) -> list[str]:
+    warnings: list[str] = []
+    for destination in destinations:
+        warnings.append(
+            f"Current opening hours for {destination.name} are not verified by Lakbay; "
+            "confirm before traveling."
+        )
+        access_text = " ".join(
+            part for part in (destination.description, destination.how_to_get_there) if part
+        )
+        if re.search(r"\b(ferry|boat)\b", access_text, flags=re.IGNORECASE):
+            has_priced_ferry = any(
+                transportation.destination_id == destination.destination_id
+                and transportation.charging_unit is not None
+                and re.search(
+                    r"\b(ferry|boat)\b",
+                    " ".join((transportation.vehicle_type, transportation.transport_mode)),
+                    flags=re.IGNORECASE,
+                )
+                for transportation in transportations
+            )
+            if not has_priced_ferry:
+                warnings.append(
+                    f"The ferry or boat fare for {destination.name} has no selected "
+                    "catalog rate with a known charging unit; confirm and add this cost."
+                )
+
+    if traveler_count > 1:
+        warnings.append(
+            f"AI costs are draft estimates; confirm the full cost for {traveler_count} travelers."
+        )
+    if planning_preview is None:
+        warnings.append(
+            "Travel times and visitor arrival access have not been checked against a route."
+        )
+    return warnings
 
 
 def _build_catalog_payload(

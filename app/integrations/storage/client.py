@@ -93,6 +93,47 @@ class CloudinaryStorageClient:
             resource_type=result.get("resource_type"),
         )
 
+    async def delete_image(self, public_id: str) -> str:
+        """Destroy one image asset after the caller has checked its ownership."""
+        self._require_configured()
+        try:
+            import cloudinary
+            import cloudinary.uploader
+        except ImportError as exc:
+            raise LakbayAPIError(
+                "Cloudinary support is not installed.",
+                code="storage_dependency_missing",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            ) from exc
+
+        cloudinary.config(
+            cloud_name=self.settings.cloudinary_cloud_name,
+            api_key=self.settings.cloudinary_api_key,
+            api_secret=self.settings.cloudinary_api_secret,
+            secure=True,
+        )
+        try:
+            result = await run_in_threadpool(
+                cloudinary.uploader.destroy,
+                public_id,
+                resource_type="image",
+                invalidate=True,
+            )
+        except Exception as exc:
+            raise LakbayAPIError(
+                "Cloudinary image deletion failed.",
+                code="storage_delete_failed",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+            ) from exc
+        outcome = result.get("result") if isinstance(result, dict) else None
+        if outcome not in {"ok", "not found"}:
+            raise LakbayAPIError(
+                "Cloudinary deletion returned an unexpected result.",
+                code="storage_delete_invalid_response",
+                status_code=status.HTTP_502_BAD_GATEWAY,
+            )
+        return outcome
+
     def _require_configured(self) -> None:
         missing = [
             name

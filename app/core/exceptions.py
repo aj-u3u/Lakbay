@@ -20,11 +20,13 @@ class LakbayAPIError(Exception):
         code: str = "bad_request",
         status_code: int = status.HTTP_400_BAD_REQUEST,
         details: Any | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.message = message
         self.code = code
         self.status_code = status_code
         self.details = details
+        self.headers = headers
 
 
 def build_error_content(
@@ -52,6 +54,7 @@ def register_exception_handlers(app: FastAPI) -> None:
     ) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
+            headers=exc.headers,
             content=build_error_content(
                 code=exc.code,
                 message=exc.message,

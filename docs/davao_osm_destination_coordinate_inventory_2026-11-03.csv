@@ -1,0 +1,42 @@
+area,osm_name,latitude,longitude,osm_type,osm_id,osm_url,coordinate_kind,review_note
+Davao City,Abreeza Ayala Mall Davao,7.0912032,125.6115610,way,117593466,https://www.openstreetmap.org/way/117593466,representative_point,Public entrance not verified
+Davao City,Davao Crocodile Park & Zoo,7.0971131,125.5989595,way,81347693,https://www.openstreetmap.org/way/81347693,representative_point,Public entrance not verified
+Davao City,Eden Nature Park and Resort,7.0282403,125.4017550,way,1135430452,https://www.openstreetmap.org/way/1135430452,representative_point,Public entrance not verified
+Davao City,Long Hua Temple,7.0955718,125.6206482,way,139555365,https://www.openstreetmap.org/way/139555365,representative_point,Also documented as Lon Wa Buddhist Temple; public entrance not verified
+Davao City,Malagos Garden Resort,7.1910411,125.4276581,way,976238615,https://www.openstreetmap.org/way/976238615,representative_point,Public entrance not verified
+Davao City,Museo Dabawenyo,7.0793875,125.6044903,node,13179862776,https://www.openstreetmap.org/node/13179862776,node_point,Public door not verified
+Davao City,National Museum of the Philippines - Davao,7.0702233,125.6091628,way,1153418558,https://www.openstreetmap.org/way/1153418558,representative_point,Public door not verified
+Davao City,People's Park,7.0709328,125.6087877,way,28993492,https://www.openstreetmap.org/way/28993492,representative_point,Public gate not verified
+Davao City,Philippine Eagle Center,7.1848752,125.4152870,node,747886405,https://www.openstreetmap.org/node/747886405,node_point,Attraction point; public entrance not verified
+Davao City,SM Lanang Premier,7.0989732,125.6307653,way,1200041101,https://www.openstreetmap.org/way/1200041101,representative_point,Select relevant public entrance or drop-off
+Davao del Norte,Agriya,7.2935954,125.6851259,node,14282996052,https://www.openstreetmap.org/node/14282996052,node_point,OSM park feature; distinct from Agriya township; public entrance not verified
+Davao del Norte,Aqua Water Park,7.0870452,125.6666218,node,9211408403,https://www.openstreetmap.org/node/9211408403,node_point,Arrival pier and entrance not verified
+Davao del Norte,Christ the King Cathedral,7.4412082,125.7999089,way,828786282,https://www.openstreetmap.org/way/828786282,representative_point,Public entrance not verified
+Davao del Norte,Hagimit Falls,7.0666419,125.7230055,node,1223930550,https://www.openstreetmap.org/node/1223930550,node_point,Waterfall point; ticket or parking area not verified
+Davao del Norte,Monfort Bat Sanctuary,7.1655368,125.6927417,way,666853611,https://www.openstreetmap.org/way/666853611,representative_point,Public entrance not verified
+Davao del Norte,Panabo City Park,7.2996292,125.6813143,way,614154998,https://www.openstreetmap.org/way/614154998,representative_point,Public gate not verified
+Davao del Norte,Panabo City Seawall and Park,7.2875033,125.6928574,way,1304265317,https://www.openstreetmap.org/way/1304265317,representative_point,Public approach not verified
+Davao del Norte,Panabo Mangroves Forest Park,7.2698402,125.6803912,way,1436929311,https://www.openstreetmap.org/way/1436929311,representative_point,Boardwalk entrance not verified
+Davao del Sur,Camp Sabros Mountain Resort,6.9054365,125.3470619,way,1454653112,https://www.openstreetmap.org/way/1454653112,representative_point,Parking and public approach not verified
+Davao del Sur,Digos City Eco Park and Arboretum,6.7755018,125.3439083,way,1382022448,https://www.openstreetmap.org/way/1382022448,representative_point,Public entrance not verified
+Davao del Sur,Mount Apo,6.9873416,125.2709954,node,416326155,https://www.openstreetmap.org/node/416326155,node_point,Summit; not a trailhead or road arrival
+Davao del Sur,Rizal Park,6.7444181,125.3555565,way,97188461,https://www.openstreetmap.org/way/97188461,representative_point,Public entrance not verified
+Davao del Sur,Tudaya Falls,6.9590797,125.3554587,node,5062921518,https://www.openstreetmap.org/node/5062921518,node_point,Waterfall point; approved trailhead not verified
+Davao Oriental,Aliwagwag Falls,7.7404501,126.3014983,node,5799152058,https://www.openstreetmap.org/node/5799152058,node_point,Waterfall point; ecopark entrance and current access not verified
+Davao Oriental,Cape San Agustin,6.2693185,126.1929652,node,4385211700,https://www.openstreetmap.org/node/4385211700,node_point,Cape point; ecopark entrance not verified
+Davao Oriental,Dahican Beach,6.9243488,126.2808986,way,651370443,https://www.openstreetmap.org/way/651370443,representative_point,Beach has multiple potential public approaches
+Davao Oriental,El Salvador del Mundo Parish,7.3277005,126.5658774,way,322426196,https://www.openstreetmap.org/way/322426196,representative_point,Also documented as San Salvador del Mundo Church; public entrance not verified
+Davao Oriental,Subangan,6.9442424,126.2483375,way,1328605333,https://www.openstreetmap.org/way/1328605333,representative_point,Subangan Museum; public entrance not verified
+Davao de Oro,Bilawa Falls,7.4012153,126.0291511,node,6035786485,https://www.openstreetmap.org/node/6035786485,node_point,Also documented as Bilawa Mainit Falls; trailhead not verified
+Davao de Oro,Kopiat Island,7.2773718,125.8320025,way,4243814,https://www.openstreetmap.org/way/4243814,representative_point,Island point; boat landing not verified
+Davao de Oro,Lake Leonard Eco-Tourism Park,7.3979217,126.0575963,node,7170393085,https://www.openstreetmap.org/node/7170393085,node_point,Public entrance not verified
+Davao de Oro,Mainit Sulfuric Hot Spring,7.4013531,126.0288832,way,1000619479,https://www.openstreetmap.org/way/1000619479,representative_point,Do not equate automatically with Lakbay Mainit Hot Springs
+Davao de Oro,Mount Candalaga,7.2954594,126.1961424,node,8148289068,https://www.openstreetmap.org/node/8148289068,node_point,Summit; not a trailhead or public arrival
+Davao de Oro,New Barili Heights & Sights,7.3541053,126.0113611,node,9671315617,https://www.openstreetmap.org/node/9671315617,node_point,Public approach not verified
+Davao de Oro,Pyalitan Falls,7.2991848,126.1706967,node,7345718185,https://www.openstreetmap.org/node/7345718185,node_point,Waterfall point; road or trail arrival not verified
+Davao de Oro,Tagbibinta Falls,7.3163971,126.1718680,node,7076360886,https://www.openstreetmap.org/node/7076360886,node_point,Waterfall point; ticket or parking area not verified
+Davao Occidental,Balut Island,5.4017256,125.3852859,relation,7129791,https://www.openstreetmap.org/relation/7129791,representative_point,Island point; receiving pier not verified
+Davao Occidental,DDG Beach Resort,6.6230303,125.4336855,node,10111274417,https://www.openstreetmap.org/node/10111274417,node_point,Public entrance not verified
+Davao Occidental,Joyce Paradise,5.9622850,125.6777536,way,916520663,https://www.openstreetmap.org/way/916520663,representative_point,Venue near Christ the Redeemer; statue point not separately verified
+Davao Occidental,Little Boracay Beach Resort,6.5651682,125.4968126,way,1104821790,https://www.openstreetmap.org/way/1104821790,representative_point,Confirm intended beach or resort and public entrance
+Davao Occidental,Miskeen Beach Resort,6.4913065,125.5796917,node,12452684186,https://www.openstreetmap.org/node/12452684186,node_point,Also documented as Meskeen Resort or Malita Dives; operator and entrance not verified

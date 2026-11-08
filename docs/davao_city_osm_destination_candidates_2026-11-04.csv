@@ -1,0 +1,793 @@
+﻿osm_name,latitude,longitude,osm_type,osm_id,osm_url,tag_key,tag_value,coordinate_basis,arrival_verified,snapshot_date
+Global Art,7.0818698,125.6134256,node,12378367466,https://www.openstreetmap.org/node/12378367466,amenity,arts_centre,mapped_node,no,2026-11-03
+LCB Performing Arts Studio,7.0846429,125.6206258,node,1240619227,https://www.openstreetmap.org/node/1240619227,amenity,arts_centre,mapped_node,no,2026-11-03
+RMC Educational Media Center,7.0766862,125.6025391,node,1240974323,https://www.openstreetmap.org/node/1240974323,amenity,arts_centre,mapped_node,no,2026-11-03
+SGI Davao Culture Center,7.0626766,125.5642967,node,1226398113,https://www.openstreetmap.org/node/1226398113,amenity,arts_centre,mapped_node,no,2026-11-03
+The Broadway Melodies,7.0557919,125.5568065,node,1226725478,https://www.openstreetmap.org/node/1226725478,amenity,arts_centre,mapped_node,no,2026-11-03
+Tribu K'Mindanawan Cultural Village,7.098208,125.600053,node,1229486513,https://www.openstreetmap.org/node/1229486513,amenity,arts_centre,mapped_node,no,2026-11-03
+7th Avenue Alliance Church,7.060578400000001,125.5608974526406,way,139547192,https://www.openstreetmap.org/way/139547192,amenity,place_of_worship,polygon_interior,no,2026-11-03
+AIM (UPC) Bible School Davao City,7.1191402,125.6551599,node,4830046921,https://www.openstreetmap.org/node/4830046921,amenity,place_of_worship,mapped_node,no,2026-11-03
+Al Ziddig Mosque,7.1328783,125.65914427633513,way,157523508,https://www.openstreetmap.org/way/157523508,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Al Ziddig Mosque,7.1144674000000006,125.63868615,way,275375827,https://www.openstreetmap.org/way/275375827,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Alliance Church,7.08517035,125.50758164992546,way,1038989571,https://www.openstreetmap.org/way/1038989571,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Ascension Of The Lord Parish,7.0600380000000005,125.57484525881029,way,144188829,https://www.openstreetmap.org/way/144188829,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Assembly of God Church Inc,7.0858643,125.6231205,node,1226695165,https://www.openstreetmap.org/node/1226695165,amenity,place_of_worship,mapped_node,no,2026-11-03
+Bago General Baptist Church,7.0548573999999995,125.51193739022887,way,1446213205,https://www.openstreetmap.org/way/1446213205,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Bajada Bible Baptist Church,7.0886674,125.60818310065332,way,326046207,https://www.openstreetmap.org/way/326046207,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Baptist Church,7.0531987,125.5672828,node,7034631794,https://www.openstreetmap.org/node/7034631794,amenity,place_of_worship,mapped_node,no,2026-11-03
+Bell Church,7.0820486,125.6162722,node,11703284363,https://www.openstreetmap.org/node/11703284363,amenity,place_of_worship,mapped_node,no,2026-11-03
+Benedictine Sisters,7.4706863,125.2453929,node,1229350507,https://www.openstreetmap.org/node/1229350507,amenity,place_of_worship,mapped_node,no,2026-11-03
+Berean Bible Baptist Church,7.0869425,125.4911159,way,1051250887,https://www.openstreetmap.org/way/1051250887,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Bethel of Praise,7.1024466,125.5957672,node,5186386821,https://www.openstreetmap.org/node/5186386821,amenity,place_of_worship,mapped_node,no,2026-11-03
+Bethel Temple,7.187919900000001,125.45928047132834,way,326046672,https://www.openstreetmap.org/way/326046672,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Bible Bapstist Fellowship Church,7.06199735,125.55803961497978,way,326046778,https://www.openstreetmap.org/way/326046778,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Bible Baptist Church,7.0712052,125.6166252941602,way,142916810,https://www.openstreetmap.org/way/142916810,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Birhen sa Fatima Chapel,7.1862614,125.4024606,node,13461599701,https://www.openstreetmap.org/node/13461599701,amenity,place_of_worship,mapped_node,no,2026-11-03
+Birhen sa Lourdes Chapel,7.084528150000001,125.53435729616382,way,1467226903,https://www.openstreetmap.org/way/1467226903,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Birhen sa Lourdes Chapel,7.1797589,125.3692096,node,13461659701,https://www.openstreetmap.org/node/13461659701,amenity,place_of_worship,mapped_node,no,2026-11-03
+Buhangin Friends Church,7.1059014,125.6140174,node,7086408192,https://www.openstreetmap.org/node/7086408192,amenity,place_of_worship,mapped_node,no,2026-11-03
+Buhangin Seventh Day Adventist Church,7.1123664,125.62049985,way,428385593,https://www.openstreetmap.org/way/428385593,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Camacop Tamayong Evangelical Church,7.142498,125.3942609,node,8075988917,https://www.openstreetmap.org/node/8075988917,amenity,place_of_worship,mapped_node,no,2026-11-03
+Carmelite Missionaries,7.158037050000001,125.55022849999999,way,326047381,https://www.openstreetmap.org/way/326047381,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Carmelite Sisters of Sacred Heart,7.19348235,125.63270264487622,way,326047565,https://www.openstreetmap.org/way/326047565,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Cataluna Grande Christian Fellowship,7.07437605,125.54711221410676,way,326047700,https://www.openstreetmap.org/way/326047700,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Cathedral of the Risen Lord,7.07650755,125.60410740595856,way,934498199,https://www.openstreetmap.org/way/934498199,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Catigan Alliance Gospel Church,7.00308965,125.41820634999999,way,322417201,https://www.openstreetmap.org/way/322417201,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Cawayan Alliance Church,7.156761,125.4106864,node,6235504186,https://www.openstreetmap.org/node/6235504186,amenity,place_of_worship,mapped_node,no,2026-11-03
+CB Sisters,7.0461867,125.56738225734554,way,326047347,https://www.openstreetmap.org/way/326047347,amenity,place_of_worship,polygon_interior,no,2026-11-03
+CCF,7.0709782,125.6116344,node,4113171304,https://www.openstreetmap.org/node/4113171304,amenity,place_of_worship,mapped_node,no,2026-11-03
+CCF Church,7.06578,125.618146,node,6255818018,https://www.openstreetmap.org/node/6255818018,amenity,place_of_worship,mapped_node,no,2026-11-03
+Centennial Baptist Church,7.1299318,125.62505575,way,326047766,https://www.openstreetmap.org/way/326047766,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Chapel of Our Lady of the Assumption,7.071510399999999,125.61325279930838,way,438772011,https://www.openstreetmap.org/way/438772011,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Choi Sing Temple,7.0566566,125.5905344290975,way,998794884,https://www.openstreetmap.org/way/998794884,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ Commission Fellowship,7.08755415,125.61078170682816,way,326046213,https://www.openstreetmap.org/way/326046213,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ Fellowship Church,7.07534525,125.60663059419758,way,142917888,https://www.openstreetmap.org/way/142917888,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ for All Nations Cathedral,7.0704519,125.61265914858409,way,32684870,https://www.openstreetmap.org/way/32684870,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ Our Savior - Lutheran Church,7.0471304,125.56691741184761,way,326047261,https://www.openstreetmap.org/way/326047261,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ the King,7.0342192,125.5046133628355,way,326048382,https://www.openstreetmap.org/way/326048382,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ the King,7.0388907,125.5329469785766,way,326048452,https://www.openstreetmap.org/way/326048452,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ the King,7.0994745,125.6036072,node,1588246349,https://www.openstreetmap.org/node/1588246349,amenity,place_of_worship,mapped_node,no,2026-11-03
+Christ the King Chapel,7.0916031,125.62912449999999,way,1449411612,https://www.openstreetmap.org/way/1449411612,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christ's Commission Fellowship,7.0920932,125.6109267,node,12880089920,https://www.openstreetmap.org/node/12880089920,amenity,place_of_worship,mapped_node,no,2026-11-03
+Christian Alliance Church,7.1147214000000005,125.4285418385071,way,326048539,https://www.openstreetmap.org/way/326048539,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christian Fellowship Church,7.16813945,125.47022490843374,way,326048637,https://www.openstreetmap.org/way/326048637,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Christian Fellowship of Davao,7.0857569,125.6099224,node,13301194110,https://www.openstreetmap.org/node/13301194110,amenity,place_of_worship,mapped_node,no,2026-11-03
+Christian Fellowship of Davao,7.0857569,125.6099224,node,13301587032,https://www.openstreetmap.org/node/13301587032,amenity,place_of_worship,mapped_node,no,2026-11-03
+Church of Christ,7.0704283,125.6191643,node,1242823572,https://www.openstreetmap.org/node/1242823572,amenity,place_of_worship,mapped_node,no,2026-11-03
+Church of Christ,7.055888250000001,125.5472423,way,1574062193,https://www.openstreetmap.org/way/1574062193,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Church of God,7.0905854,125.6332629,node,3718514899,https://www.openstreetmap.org/node/3718514899,amenity,place_of_worship,mapped_node,no,2026-11-03
+Church of St. George,7.118479349999999,125.61900459568426,way,505957837,https://www.openstreetmap.org/way/505957837,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Church of St. Matrona of Moscow,7.077832450000001,125.60406610000001,way,662272801,https://www.openstreetmap.org/way/662272801,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Church of the Garden of Zion Ministries,7.066399,125.6165937,node,6255818025,https://www.openstreetmap.org/node/6255818025,amenity,place_of_worship,mapped_node,no,2026-11-03
+Church of the Risen Savior,7.0901246,125.50560882574055,way,678544416,https://www.openstreetmap.org/way/678544416,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Citi Baptist Church of Davao,7.072967,125.6013009,node,5464809822,https://www.openstreetmap.org/node/5464809822,amenity,place_of_worship,mapped_node,no,2026-11-03
+Communal Bible Baptist Church,7.1338447,125.6341513,node,13247149153,https://www.openstreetmap.org/node/13247149153,amenity,place_of_worship,mapped_node,no,2026-11-03
+Communal Seventh Day Adventist Church,7.1314909,125.6317669,node,13226996779,https://www.openstreetmap.org/node/13226996779,amenity,place_of_worship,mapped_node,no,2026-11-03
+Datu Loho Mosque,7.08372535,125.58613799612081,way,934797517,https://www.openstreetmap.org/way/934797517,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Bible Community,7.07571465,125.60557654143543,way,144204299,https://www.openstreetmap.org/way/144204299,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Chinese Baptist Church,7.077217,125.61530665000001,way,502535577,https://www.openstreetmap.org/way/502535577,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Christian Church,7.114235949999999,125.61306240143833,way,144189817,https://www.openstreetmap.org/way/144189817,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao City Alliance Gospel Church,7.0759299,125.6170224632933,way,275384990,https://www.openstreetmap.org/way/275384990,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao City Foursquare Gospel Church,7.073642700000001,125.60469018677011,way,36705887,https://www.openstreetmap.org/way/36705887,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Elim Church,7.1483179,125.61539625229933,way,326048779,https://www.openstreetmap.org/way/326048779,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Evangelical Church,7.0774572,125.6120025177193,way,868048846,https://www.openstreetmap.org/way/868048846,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao First Church,7.060599,125.5869644,node,13274900331,https://www.openstreetmap.org/node/13274900331,amenity,place_of_worship,mapped_node,no,2026-11-03
+Davao Indian Temple,7.0580541,125.5923775,way,326049494,https://www.openstreetmap.org/way/326049494,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao International Baptist Church,7.07395345,125.60676344999999,way,326049702,https://www.openstreetmap.org/way/326049702,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Korean Shelter Church,7.08462065,125.61076444536184,way,326046293,https://www.openstreetmap.org/way/326046293,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Music Theological Seminary,7.11261335,125.63176903323348,way,326050173,https://www.openstreetmap.org/way/326050173,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Davao Presbyterian Church,7.0620667,125.56412785744057,way,326050681,https://www.openstreetmap.org/way/326050681,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Destiny Christian Church,7.061246,125.5870002,node,4787315513,https://www.openstreetmap.org/node/4787315513,amenity,place_of_worship,mapped_node,no,2026-11-03
+Divine Mercy Chapel,7.07895365,125.54355541590908,way,1256392341,https://www.openstreetmap.org/way/1256392341,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Dominican House of Prayer,7.0736746,125.57971463152411,way,178766574,https://www.openstreetmap.org/way/178766574,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Dominican Sisters of the Trinity Covenant,7.09568915,125.62327794999999,way,139558060,https://www.openstreetmap.org/way/139558060,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Ecoland Muslim Center,7.05136445,125.58805332488578,way,326050964,https://www.openstreetmap.org/way/326050964,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Emunah Family Church,7.059848799999999,125.55368346892803,way,1447386166,https://www.openstreetmap.org/way/1447386166,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Evangel Baptist Mission Church,7.1341926,125.6261653,node,13070546743,https://www.openstreetmap.org/node/13070546743,amenity,place_of_worship,mapped_node,no,2026-11-03
+Evangel Family Church,7.0778253,125.602531,node,12377572669,https://www.openstreetmap.org/node/12377572669,amenity,place_of_worship,mapped_node,no,2026-11-03
+Faith Baptist Church,7.0776485,125.6010014,node,11952186043,https://www.openstreetmap.org/node/11952186043,amenity,place_of_worship,mapped_node,no,2026-11-03
+Faith Tabernacle,7.0896762,125.5846212,node,11681793943,https://www.openstreetmap.org/node/11681793943,amenity,place_of_worship,mapped_node,no,2026-11-03
+Faith Tabernacle Church,7.0677556500000005,125.61320985098885,way,477320533,https://www.openstreetmap.org/way/477320533,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Faith Tabernacle City Church,7.1030578,125.64221911866619,way,1414842967,https://www.openstreetmap.org/way/1414842967,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Family Circus Ministry,7.0609146,125.6122295,node,1395957059,https://www.openstreetmap.org/node/1395957059,amenity,place_of_worship,mapped_node,no,2026-11-03
+Fatima Chapel,7.0514752,125.5699044,node,6935198588,https://www.openstreetmap.org/node/6935198588,amenity,place_of_worship,mapped_node,no,2026-11-03
+Fellowship@Bajada,7.0901189,125.6090298,node,5180990121,https://www.openstreetmap.org/node/5180990121,amenity,place_of_worship,mapped_node,no,2026-11-03
+First Buhangin Baptist Church,7.10614205,125.6134511524151,way,485975258,https://www.openstreetmap.org/way/485975258,amenity,place_of_worship,polygon_interior,no,2026-11-03
+First Davao Missionary Baptist Church,7.0600146,125.6070119,node,1234436612,https://www.openstreetmap.org/node/1234436612,amenity,place_of_worship,mapped_node,no,2026-11-03
+First Faith Baptist Church,7.2441285,125.4022038,node,6911061685,https://www.openstreetmap.org/node/6911061685,amenity,place_of_worship,mapped_node,no,2026-11-03
+First United Methodist Church,7.084049500000001,125.6180823409322,way,274891230,https://www.openstreetmap.org/way/274891230,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Four Square Gospel Church,7.0614723,125.6013641,node,410145873,https://www.openstreetmap.org/node/410145873,amenity,place_of_worship,mapped_node,no,2026-11-03
+Francis De Assisi Church,7.12318635,125.63568775399493,way,149715273,https://www.openstreetmap.org/way/149715273,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Franciscan Sisters of Immaculate Concepcion,7.0950105,125.5328599,node,1226419524,https://www.openstreetmap.org/node/1226419524,amenity,place_of_worship,mapped_node,no,2026-11-03
+Fulfilling God's Commission Church International Ministries,7.1378295,125.6068387,node,14216526439,https://www.openstreetmap.org/node/14216526439,amenity,place_of_worship,mapped_node,no,2026-11-03
+Garden of Grace Alliance Gospel Church,7.0341238,125.5092904,node,1233326614,https://www.openstreetmap.org/node/1233326614,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Berhin Del Rosario,7.1968604,125.4073502,node,6986530386,https://www.openstreetmap.org/node/6986530386,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Birhen sa Lourdes,7.19085765,125.48034543853504,way,1344517167,https://www.openstreetmap.org/way/1344517167,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Chapel,7.065922,125.616011,node,6255818023,https://www.openstreetmap.org/node/6255818023,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Christ the King Chapel,7.065558,125.6181296,node,6255818031,https://www.openstreetmap.org/node/6255818031,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Inahan sa Kanunay'ng Panabang,7.1622537,125.4273122,node,6235514785,https://www.openstreetmap.org/node/6235514785,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Mother of Perpetual Help,7.0196091,125.49402725,way,1557966742,https://www.openstreetmap.org/way/1557966742,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Mother of Perpetual Help,7.1858178,125.4232802,node,6222200185,https://www.openstreetmap.org/node/6222200185,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Our Lady of Fatima,7.07252075,125.54511148810116,way,1049230149,https://www.openstreetmap.org/way/1049230149,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Our Lady of Fatima,7.0658596,125.55017381152389,way,1327458838,https://www.openstreetmap.org/way/1327458838,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Sagrada Pamilya,7.3221559,125.4652003,node,13300720564,https://www.openstreetmap.org/node/13300720564,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK San Isidro Labrador,7.1405352,125.62535134584351,way,1441548810,https://www.openstreetmap.org/way/1441548810,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK San Isidro Labrador,7.3645601,125.2861325,node,6564178485,https://www.openstreetmap.org/node/6564178485,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK San Miguel Arkanghel,7.18264695,125.55817855000001,way,1329046309,https://www.openstreetmap.org/way/1329046309,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK San Pedro Church,7.0704354,125.62501145318379,way,587354371,https://www.openstreetmap.org/way/587354371,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK San Vicente Ferrer,7.12131975,125.56442130610237,way,1562643168,https://www.openstreetmap.org/way/1562643168,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Santa Catalina,7.1236274,125.3717541,node,6223862385,https://www.openstreetmap.org/node/6223862385,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Santa Cruz,7.3274825,125.2976202,node,8813223017,https://www.openstreetmap.org/node/8813223017,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Santa Cruz,7.1088717,125.6130775,node,13240090371,https://www.openstreetmap.org/node/13240090371,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Santa Cruz Chapel,7.052385149999999,125.48239100186132,way,199345291,https://www.openstreetmap.org/way/199345291,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Santa Cruz Chapel,7.1106031,125.6405026,node,4942416329,https://www.openstreetmap.org/node/4942416329,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Santisima Trinidad,7.1569972,125.4114047,node,6235514585,https://www.openstreetmap.org/node/6235514585,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Senior San Roque,7.1901863,125.4314066,node,6275946685,https://www.openstreetmap.org/node/6275946685,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Senior San Roque,7.309375,125.2681024,node,6285268286,https://www.openstreetmap.org/node/6285268286,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Senior Santo Niño,7.22291465,125.408044,way,1120152042,https://www.openstreetmap.org/way/1120152042,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Senior Santo Niño,7.169999450000001,125.43794360334925,way,1120967876,https://www.openstreetmap.org/way/1120967876,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Senior Santo Niño,7.1141788,125.3474573,node,13285039705,https://www.openstreetmap.org/node/13285039705,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Señor San Roque,7.1612143,125.4201607,node,6223862085,https://www.openstreetmap.org/node/6223862085,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Señor San Roque,7.1281081,125.3763696,node,6223966088,https://www.openstreetmap.org/node/6223966088,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Señor Sto. Niño,7.0999316,125.3568262,node,6223862485,https://www.openstreetmap.org/node/6223862485,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Miguel,7.2872116,125.43058417418382,way,1329241167,https://www.openstreetmap.org/way/1329241167,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Sr. San Miguel,7.0416647,125.4499116,node,12264893101,https://www.openstreetmap.org/node/12264893101,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Nicolas De Tolentino,7.1850148,125.4733005,node,9096694117,https://www.openstreetmap.org/node/9096694117,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Roque,7.3351227,125.307981,node,7821253685,https://www.openstreetmap.org/node/7821253685,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Roque,7.2886105,125.2835536,node,10711633107,https://www.openstreetmap.org/node/10711633107,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Vicente Ferrer,7.1941131,125.4701753,node,7700865785,https://www.openstreetmap.org/node/7700865785,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. San Vicente Ferrer,7.1900398,125.4700884,node,7700865786,https://www.openstreetmap.org/node/7700865786,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sr. Sto. Niño,7.0855641,125.6194149,node,12378367419,https://www.openstreetmap.org/node/12378367419,amenity,place_of_worship,mapped_node,no,2026-11-03
+GKK Sta. Cruz Chapel,7.08030745,125.62279889999999,way,1270766888,https://www.openstreetmap.org/way/1270766888,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Good News Baptist Church,7.0520987,125.58794387500001,way,326050965,https://www.openstreetmap.org/way/326050965,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Goshen Family Chapel,7.2419951000000005,125.3912291,way,1473748781,https://www.openstreetmap.org/way/1473748781,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Grace Gospel Church of Christ,7.24445815,125.5321947,way,1061434318,https://www.openstreetmap.org/way/1061434318,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Hanshin Beatitude Evangelical Church,7.0543613,125.5628739,node,1243268489,https://www.openstreetmap.org/node/1243268489,amenity,place_of_worship,mapped_node,no,2026-11-03
+Harvest Baptist Church,7.06019735,125.58818946579997,way,406234030,https://www.openstreetmap.org/way/406234030,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Harvest House International Ministries,7.2015308,125.6262746,node,1244411127,https://www.openstreetmap.org/node/1244411127,amenity,place_of_worship,mapped_node,no,2026-11-03
+Heritage Baptist Church,7.0959128499999995,125.61596822652672,way,927375231,https://www.openstreetmap.org/way/927375231,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Holy Family Novitiate,7.1123707,125.4855159,node,1234410687,https://www.openstreetmap.org/node/1234410687,amenity,place_of_worship,mapped_node,no,2026-11-03
+Holy Family Parish Church,7.039972199999999,125.50209330563766,way,1413430443,https://www.openstreetmap.org/way/1413430443,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Holy Ground Family Fellowship,7.077941,125.600634,node,11952186044,https://www.openstreetmap.org/node/11952186044,amenity,place_of_worship,mapped_node,no,2026-11-03
+Holy Ground Family Fellowship,7.0930529,125.4995492,node,13286843026,https://www.openstreetmap.org/node/13286843026,amenity,place_of_worship,mapped_node,no,2026-11-03
+Holy Place Church,7.11656185,125.49484645000001,way,1042106003,https://www.openstreetmap.org/way/1042106003,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Holy Spirit Adoration Convent,7.0644516500000005,125.55074448289673,way,694246886,https://www.openstreetmap.org/way/694246886,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Holy Trinity Community,7.0699847,125.6100837,node,11057879794,https://www.openstreetmap.org/node/11057879794,amenity,place_of_worship,mapped_node,no,2026-11-03
+ICC RGA GKK Zone III,7.0909719,125.6190289,node,11742949126,https://www.openstreetmap.org/node/11742949126,amenity,place_of_worship,mapped_node,no,2026-11-03
+Iglesia ng Dios Kay Cristo Jesus,7.0549982,125.5666210053632,way,407404443,https://www.openstreetmap.org/way/407404443,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.14155135,125.65284241771238,way,41191776,https://www.openstreetmap.org/way/41191776,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.2382455,125.6456017,way,157861992,https://www.openstreetmap.org/way/157861992,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.01613175,125.50151525000001,way,239544918,https://www.openstreetmap.org/way/239544918,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.059177350000001,125.57363219999999,way,387944630,https://www.openstreetmap.org/way/387944630,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.1699607499999995,125.39967215,way,519897007,https://www.openstreetmap.org/way/519897007,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.09102385,125.62302705253188,way,633855372,https://www.openstreetmap.org/way/633855372,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.4234142,125.55118465957896,way,733414735,https://www.openstreetmap.org/way/733414735,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.1144859,125.50598817604521,way,835303855,https://www.openstreetmap.org/way/835303855,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia Ni Cristo,7.0879352,125.5069761523045,way,894555471,https://www.openstreetmap.org/way/894555471,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.1944209,125.64565784999999,way,1008879397,https://www.openstreetmap.org/way/1008879397,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.1298037,125.50884821747076,way,1042140962,https://www.openstreetmap.org/way/1042140962,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.08036055,125.54469815,way,1068698975,https://www.openstreetmap.org/way/1068698975,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.0485804000000005,125.6034817,way,1151415212,https://www.openstreetmap.org/way/1151415212,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.09414205,125.49714639999999,way,1151415213,https://www.openstreetmap.org/way/1151415213,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.12912405,125.44916540163402,way,1151415214,https://www.openstreetmap.org/way/1151415214,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.0885757,125.6057979525,way,1172326329,https://www.openstreetmap.org/way/1172326329,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,7.3135999,125.4799287,node,1241527709,https://www.openstreetmap.org/node/1241527709,amenity,place_of_worship,mapped_node,no,2026-11-03
+"Iglesia ni Cristo, Lokal ng General Malvar",7.0715695499999995,125.6027350371223,way,144188963,https://www.openstreetmap.org/way/144188963,amenity,place_of_worship,polygon_interior,no,2026-11-03
+"Iglesia ni Cristo, Lokal ng Tulip Drive",7.0555258,125.58888342467742,way,275821860,https://www.openstreetmap.org/way/275821860,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Kristo,7.0892274,125.5826376,node,11057879792,https://www.openstreetmap.org/node/11057879792,amenity,place_of_worship,mapped_node,no,2026-11-03
+IKP Chapel,7.06842555,125.62123801417215,way,587358541,https://www.openstreetmap.org/way/587358541,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Immaculate Concepcion Chapel,7.2504908,125.649746,node,12740339501,https://www.openstreetmap.org/node/12740339501,amenity,place_of_worship,mapped_node,no,2026-11-03
+Immaculate Conception Chapel,7.1218296500000005,125.64866286455096,way,303810398,https://www.openstreetmap.org/way/303810398,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Immaculate Conception Chapel,7.053736499999999,125.6030422448052,way,968182515,https://www.openstreetmap.org/way/968182515,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Immaculate Conception Chapel,7.2235279,125.4889878,node,13585991001,https://www.openstreetmap.org/node/13585991001,amenity,place_of_worship,mapped_node,no,2026-11-03
+Immaculate Conception Church,7.0888351,125.50629177955759,way,114686929,https://www.openstreetmap.org/way/114686929,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Immaculate Heart of Mary GKK Wangan,7.1621242,125.4399983,node,13285165838,https://www.openstreetmap.org/node/13285165838,amenity,place_of_worship,mapped_node,no,2026-11-03
+Immanuel Baptist Church,7.07765755,125.60983754468621,way,275387163,https://www.openstreetmap.org/way/275387163,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Independent Baptist Churches in the Philippines Inc.,7.0768724,125.6073434,node,2800126118,https://www.openstreetmap.org/node/2800126118,amenity,place_of_worship,mapped_node,no,2026-11-03
+International One Way Church,7.0482864,125.5672132,node,410138642,https://www.openstreetmap.org/node/410138642,amenity,place_of_worship,mapped_node,no,2026-11-03
+JDM World Community,7.0679856,125.5570014,node,5463375321,https://www.openstreetmap.org/node/5463375321,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kabinga-an,7.0729033999999995,125.62578065214952,way,587357155,https://www.openstreetmap.org/way/587357155,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kids Aglow Ministry,7.0678995,125.6220057,node,5603908621,https://www.openstreetmap.org/node/5603908621,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0640917,125.6131969,node,452922978,https://www.openstreetmap.org/node/452922978,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.07561025,125.6036512,way,477303266,https://www.openstreetmap.org/way/477303266,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.09222105,125.49894220031646,way,509765535,https://www.openstreetmap.org/way/509765535,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.11815495,125.5177335,way,544721032,https://www.openstreetmap.org/way/544721032,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.11938055,125.6255516,way,552086079,https://www.openstreetmap.org/way/552086079,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.12006625,125.6232379,way,552086080,https://www.openstreetmap.org/way/552086080,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0228611999999995,125.49317789582837,way,614154956,https://www.openstreetmap.org/way/614154956,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1016603499999995,125.4123028507904,way,946200077,https://www.openstreetmap.org/way/946200077,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.13435275,125.48055645901923,way,973559023,https://www.openstreetmap.org/way/973559023,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.3039431,125.30238463668266,way,1035083185,https://www.openstreetmap.org/way/1035083185,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0882466,125.52669705,way,1068541014,https://www.openstreetmap.org/way/1068541014,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.3977137,125.25709304691793,way,1128400608,https://www.openstreetmap.org/way/1128400608,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.07904295,125.4527741,way,1131692958,https://www.openstreetmap.org/way/1131692958,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1658179,125.5759122,node,1233208688,https://www.openstreetmap.org/node/1233208688,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1114897,125.6100011,node,1235436649,https://www.openstreetmap.org/node/1235436649,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1526238,125.3806625,node,1242055170,https://www.openstreetmap.org/node/1242055170,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0247336,125.5035301,node,4123783790,https://www.openstreetmap.org/node/4123783790,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0260076,125.4224831,node,4123783791,https://www.openstreetmap.org/node/4123783791,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.120715,125.3662938,node,4658771890,https://www.openstreetmap.org/node/4658771890,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1943298,125.4559637,node,4658796789,https://www.openstreetmap.org/node/4658796789,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.2156688,125.4221205,node,5319072922,https://www.openstreetmap.org/node/5319072922,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.3197942,125.2984364,node,5319073021,https://www.openstreetmap.org/node/5319073021,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0726657,125.5873408,node,5372430947,https://www.openstreetmap.org/node/5372430947,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.222305,125.6413625,node,5399503321,https://www.openstreetmap.org/node/5399503321,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1192164,125.6545194,node,5430942622,https://www.openstreetmap.org/node/5430942622,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0856487,125.6244766,node,5430942623,https://www.openstreetmap.org/node/5430942623,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1077748,125.3787293,node,5575520921,https://www.openstreetmap.org/node/5575520921,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.135448,125.4898849,node,5584269729,https://www.openstreetmap.org/node/5584269729,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.0583634,125.6020824,node,5738536021,https://www.openstreetmap.org/node/5738536021,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,7.1124456,125.3450311,node,5963838733,https://www.openstreetmap.org/node/5963838733,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom of Jesus Christ Cathedral,7.134263150000001,125.64542198968894,way,117033286,https://www.openstreetmap.org/way/117033286,amenity,place_of_worship,polygon_interior,no,2026-11-03
+KJC Toril Workers House,7.0133759,125.5020342,node,4923016721,https://www.openstreetmap.org/node/4923016721,amenity,place_of_worship,mapped_node,no,2026-11-03
+KLC of Toril,7.0225181,125.4965045,node,4923015021,https://www.openstreetmap.org/node/4923015021,amenity,place_of_worship,mapped_node,no,2026-11-03
+Korean Church,7.091823,125.61817519622552,way,1539983568,https://www.openstreetmap.org/way/1539983568,amenity,place_of_worship,polygon_interior,no,2026-11-03
+La Immaculada Concepcion,7.09425225,125.6363445993272,way,326045986,https://www.openstreetmap.org/way/326045986,amenity,place_of_worship,polygon_interior,no,2026-11-03
+La Purisima Chapel,7.066619,125.617567,node,6255818034,https://www.openstreetmap.org/node/6255818034,amenity,place_of_worship,mapped_node,no,2026-11-03
+La Roca Church,7.12032065,125.39872955000001,way,1472853070,https://www.openstreetmap.org/way/1472853070,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Lasa Tuhan Learning Center,7.07013205,125.62477794655064,way,575753701,https://www.openstreetmap.org/way/575753701,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Light Mission Church,7.06872425,125.62264980687922,way,576122530,https://www.openstreetmap.org/way/576122530,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Lighthouse Bible Baptist Church,7.0680186,125.6133827,node,13278886985,https://www.openstreetmap.org/node/13278886985,amenity,place_of_worship,mapped_node,no,2026-11-03
+Living Word Bible Baptist Church,7.4139987,125.2366308,node,13266058216,https://www.openstreetmap.org/node/13266058216,amenity,place_of_worship,mapped_node,no,2026-11-03
+Living World Bible Baptist Church,7.06332145,125.56369484999999,way,139546670,https://www.openstreetmap.org/way/139546670,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Livingwater Christian Fellowship,7.0855542,125.6175107,node,12392909398,https://www.openstreetmap.org/node/12392909398,amenity,place_of_worship,mapped_node,no,2026-11-03
+"Lokal ng Calinan, Iglesia ni Cristo",7.1866517000000005,125.46092089999999,way,519896915,https://www.openstreetmap.org/way/519896915,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Long Hua Temple,7.0955718,125.62064821778706,way,139555365,https://www.openstreetmap.org/way/139555365,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Ma-a Alliance Church,7.0897838,125.58262189999999,way,1236751490,https://www.openstreetmap.org/way/1236751490,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Ma-a Foursquare Church,7.0881792,125.5790376,node,11045700559,https://www.openstreetmap.org/node/11045700559,amenity,place_of_worship,mapped_node,no,2026-11-03
+Malagos Community Alliance Church,7.1904624,125.4333316,node,6517106485,https://www.openstreetmap.org/node/6517106485,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mandug Community Church,7.1714457,125.5780241,node,1234688926,https://www.openstreetmap.org/node/1234688926,amenity,place_of_worship,mapped_node,no,2026-11-03
+Maranatha Family Church,7.3599511500000006,125.40680800000001,way,1357108694,https://www.openstreetmap.org/way/1357108694,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Marist Sisters,7.0914559,125.5042941,node,1245505500,https://www.openstreetmap.org/node/1245505500,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mary of the Sea Chapel,7.10667265,125.63402081314652,way,622932040,https://www.openstreetmap.org/way/622932040,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Masjid Al-Bushra,7.3419109,125.47254435406892,way,1342820615,https://www.openstreetmap.org/way/1342820615,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Masjid Piapi,7.06643415,125.6197511799904,way,429253228,https://www.openstreetmap.org/way/429253228,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Matina Baptist Church,7.0556858,125.5770455,node,1229222248,https://www.openstreetmap.org/node/1229222248,amenity,place_of_worship,mapped_node,no,2026-11-03
+Matina Christian Church,7.0519015,125.5679103,node,1226398290,https://www.openstreetmap.org/node/1226398290,amenity,place_of_worship,mapped_node,no,2026-11-03
+MCGI Church,7.1853281,125.4552589,node,13556812746,https://www.openstreetmap.org/node/13556812746,amenity,place_of_worship,mapped_node,no,2026-11-03
+MCGI Local of Agdao,7.0940994,125.6361043,node,6136379485,https://www.openstreetmap.org/node/6136379485,amenity,place_of_worship,mapped_node,no,2026-11-03
+MCGI Local of Bajada,7.0846336,125.6103295,node,6125916889,https://www.openstreetmap.org/node/6125916889,amenity,place_of_worship,mapped_node,no,2026-11-03
+MCGI Local of Buhangin,7.1095218,125.6112956,node,6133787385,https://www.openstreetmap.org/node/6133787385,amenity,place_of_worship,mapped_node,no,2026-11-03
+Members Church of God International,7.43694785,125.3470513,way,843641809,https://www.openstreetmap.org/way/843641809,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Mindanao Glorious Church,7.117506799999999,125.61601453217946,way,913005286,https://www.openstreetmap.org/way/913005286,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Mindanao Tai Guan Temple,7.0779135,125.6176531,node,11915026363,https://www.openstreetmap.org/node/11915026363,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mindanao Taoist Temple,7.09175805,125.62061721444783,way,139554826,https://www.openstreetmap.org/way/139554826,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Mission Society of the Philippines,7.0765174,125.5480939,node,7608382185,https://www.openstreetmap.org/node/7608382185,amenity,place_of_worship,mapped_node,no,2026-11-03
+Missionaries of the Assumption,7.1221995,125.5209394,node,1631277600,https://www.openstreetmap.org/node/1631277600,amenity,place_of_worship,mapped_node,no,2026-11-03
+Monasterio de Santa Clara,7.0729071,125.54223307515204,way,1059988709,https://www.openstreetmap.org/way/1059988709,amenity,place_of_worship,polygon_interior,no,2026-11-03
+MOPH,7.0630108,125.6039234,node,6935198289,https://www.openstreetmap.org/node/6935198289,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mosque,7.1874104,125.649897,node,1249560555,https://www.openstreetmap.org/node/1249560555,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mosque Tamayong,7.1415739,125.3896365,node,1227396185,https://www.openstreetmap.org/node/1227396185,amenity,place_of_worship,mapped_node,no,2026-11-03
+Mt. Apo Baptist Church,7.0552163,125.59469751082531,way,275735557,https://www.openstreetmap.org/way/275735557,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Muslim Kapatiran Dawah Center,7.0834746,125.5370797,node,12260088091,https://www.openstreetmap.org/node/12260088091,amenity,place_of_worship,mapped_node,no,2026-11-03
+My Sanctuary,7.0983369,125.5289425,node,9996467892,https://www.openstreetmap.org/node/9996467892,amenity,place_of_worship,mapped_node,no,2026-11-03
+NHA Catholic Chapel,7.11374435,125.6249885,way,428385484,https://www.openstreetmap.org/way/428385484,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Northside Baptist Church,7.1120827,125.6510738,node,3911794451,https://www.openstreetmap.org/node/3911794451,amenity,place_of_worship,mapped_node,no,2026-11-03
+Notre Dame Oblates of Immaculate,7.0607814,125.59540305,way,144194602,https://www.openstreetmap.org/way/144194602,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Nova Tierra Village Chapel,7.1115019,125.6378454,node,4469447693,https://www.openstreetmap.org/node/4469447693,amenity,place_of_worship,mapped_node,no,2026-11-03
+Nuestra Señora del Carmen,7.0429932,125.56917164657239,way,928723599,https://www.openstreetmap.org/way/928723599,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Nuestra Señora Del Pilar,7.0948999,125.5844568,node,11681821908,https://www.openstreetmap.org/node/11681821908,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Lady of Fatima Chapel,7.05665695,125.5589157031026,way,817809925,https://www.openstreetmap.org/way/817809925,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Fatima Chapel,7.0869811,125.60630413195875,way,1057815018,https://www.openstreetmap.org/way/1057815018,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Fatima Chapel,7.06255035,125.55457580000001,way,1382542704,https://www.openstreetmap.org/way/1382542704,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Fatima Parish,7.06930775,125.61798217195322,way,139677266,https://www.openstreetmap.org/way/139677266,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Guadalupe Chapel,7.0836469,125.6136365,node,12384034657,https://www.openstreetmap.org/node/12384034657,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Lady Of Lourdes,7.083,125.4949032,way,543520881,https://www.openstreetmap.org/way/543520881,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Lourdes,7.0071212,125.3955941,node,1281521562,https://www.openstreetmap.org/node/1281521562,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Lady of Lourdes Chapel,7.0594747,125.574221,node,12625171001,https://www.openstreetmap.org/node/12625171001,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Lady of Lourdes Church,7.05515545,125.55650851214584,way,121787778,https://www.openstreetmap.org/way/121787778,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of Miraculous Medal Parish,7.1761899,125.5989821,node,1671805540,https://www.openstreetmap.org/node/1671805540,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Lady of Peñafrancia Chapel,7.136106,125.58838569580084,way,1063572825,https://www.openstreetmap.org/way/1063572825,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of the Assumption Church,7.0800581000000005,125.60804136112844,way,115952372,https://www.openstreetmap.org/way/115952372,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady of the Most Blessed Sacrament Chapel,7.08085275,125.60237544273289,way,537259207,https://www.openstreetmap.org/way/537259207,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Our Lady Of Victory Extension Site,7.1246433,125.6513626,node,1227581144,https://www.openstreetmap.org/node/1227581144,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Mother of Perpetual Help - Jacinto GKK,7.0780546,125.611206,node,11971025029,https://www.openstreetmap.org/node/11971025029,amenity,place_of_worship,mapped_node,no,2026-11-03
+Our Mother of Perpetual Help Parish Church,7.0921936,125.60968215406666,way,142918424,https://www.openstreetmap.org/way/142918424,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Panon sa 12 ka Banay,7.0675254,125.58419718296113,way,505956138,https://www.openstreetmap.org/way/505956138,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Pentecostal Missionary Church,7.0447915,125.5264847,node,1242977476,https://www.openstreetmap.org/node/1242977476,amenity,place_of_worship,mapped_node,no,2026-11-03
+Polian Temple,7.0760365499999995,125.61187100050495,way,326051527,https://www.openstreetmap.org/way/326051527,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Praise Revival Center,7.073703,125.6070986,way,406258192,https://www.openstreetmap.org/way/406258192,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Prayer House,7.1324275,125.3811128,node,1227402326,https://www.openstreetmap.org/node/1227402326,amenity,place_of_worship,mapped_node,no,2026-11-03
+Queen of Peace Chapel,7.0545255000000004,125.56401075832925,way,817809929,https://www.openstreetmap.org/way/817809929,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Rapture Ministry Church,7.0896517,125.5851793,node,13228673734,https://www.openstreetmap.org/node/13228673734,amenity,place_of_worship,mapped_node,no,2026-11-03
+Redeemed Baptist Church,7.1345506499999995,125.47723404999999,way,973559025,https://www.openstreetmap.org/way/973559025,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Releaser Of Life Family Church,7.0943469,125.6211124,node,11966749116,https://www.openstreetmap.org/node/11966749116,amenity,place_of_worship,mapped_node,no,2026-11-03
+Riverside Fundamental Baptist Church,7.1674598,125.4772967,node,1245582229,https://www.openstreetmap.org/node/1245582229,amenity,place_of_worship,mapped_node,no,2026-11-03
+Rivier Retreat House,7.0635859,125.553684,node,1231778671,https://www.openstreetmap.org/node/1231778671,amenity,place_of_worship,mapped_node,no,2026-11-03
+RVM Provincial House - Southern Mindanao,7.0570166,125.5959643,node,1240501800,https://www.openstreetmap.org/node/1240501800,amenity,place_of_worship,mapped_node,no,2026-11-03
+S.I.R. Matina Alliance Church,7.0588933,125.601030235,way,937269059,https://www.openstreetmap.org/way/937269059,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sacred Heart Church,7.186920300000001,125.45702085790609,way,346570076,https://www.openstreetmap.org/way/346570076,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sacred Heart Parish Church,7.0860046,125.61837635210517,way,142915550,https://www.openstreetmap.org/way/142915550,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sacred Heart Spirituality Center,7.0698641,125.54584114325812,way,1009144631,https://www.openstreetmap.org/way/1009144631,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sacred Jerusalem Garden 1,7.0909386,125.4914607,node,1700735385,https://www.openstreetmap.org/node/1700735385,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sagrada Familia,7.0942095,125.6117189,node,11740076092,https://www.openstreetmap.org/node/11740076092,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sagrada Familia Chapel,7.0561185,125.55690345,way,404536796,https://www.openstreetmap.org/way/404536796,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Benedictine Priory,7.0578762,125.54563759030636,way,83822557,https://www.openstreetmap.org/way/83822557,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Claire Chapel,7.0556168,125.50712103672561,way,1366487786,https://www.openstreetmap.org/way/1366487786,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Francis of Assisi Church,7.10217375,125.58241253278524,way,183972339,https://www.openstreetmap.org/way/183972339,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Francis Xavier Church,7.19093815,125.64672215,way,973441649,https://www.openstreetmap.org/way/973441649,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint John Paul II Parish Church,7.13574,125.48224590915336,way,973559021,https://www.openstreetmap.org/way/973559021,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Joseph Spouse of Mary Church,7.09754425,125.51411035440864,way,693448265,https://www.openstreetmap.org/way/693448265,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Joseph the Worker Parish,7.11613565,125.6502276626345,way,116575128,https://www.openstreetmap.org/way/116575128,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Jude Chapel,7.0675983,125.6182159,node,5610559698,https://www.openstreetmap.org/node/5610559698,amenity,place_of_worship,mapped_node,no,2026-11-03
+Saint Jude Thaddeus Church,7.0707193,125.60386868405055,way,115065229,https://www.openstreetmap.org/way/115065229,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Michael Chapel,7.0627065,125.5879218,node,4801752021,https://www.openstreetmap.org/node/4801752021,amenity,place_of_worship,mapped_node,no,2026-11-03
+Saint Michael Church,7.03290615,125.3983126,way,538858554,https://www.openstreetmap.org/way/538858554,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Paul Parish,7.05790565,125.59446289549942,way,115711599,https://www.openstreetmap.org/way/115711599,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Saint Peter Chapel,7.12984115,125.63576111524175,way,140235374,https://www.openstreetmap.org/way/140235374,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Salon Memorial Alliance Church,7.178312,125.3920306,node,1242700500,https://www.openstreetmap.org/node/1242700500,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Alfonso Maria De Logouri Church,7.16071515,125.57821143409419,way,541339260,https://www.openstreetmap.org/way/541339260,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Antonio De Padua,7.10798075,125.49164303031489,way,835339465,https://www.openstreetmap.org/way/835339465,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Antonio de Padua Parish,7.0887726,125.6294055480663,way,304044833,https://www.openstreetmap.org/way/304044833,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Antonio De Padua Parish,7.09049455,125.62619305,way,1284767385,https://www.openstreetmap.org/way/1284767385,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Chapel,7.113341849999999,125.59735842517689,way,168413179,https://www.openstreetmap.org/way/168413179,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Chapel,7.06964735,125.62300644537402,way,588331285,https://www.openstreetmap.org/way/588331285,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Labrador Chapel,7.08788825,125.4927439496999,way,542684338,https://www.openstreetmap.org/way/542684338,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Labrador Chapel,7.2577115,125.49525405,way,1078462453,https://www.openstreetmap.org/way/1078462453,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Labrador Chapel,7.03430655,125.51750900905795,way,1376629946,https://www.openstreetmap.org/way/1376629946,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Labrador Chapel,7.093382,125.601252,node,6255820316,https://www.openstreetmap.org/node/6255820316,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Isidro Labrador Chapel,7.0506292,125.5040092,node,13465288701,https://www.openstreetmap.org/node/13465288701,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Isidro Labrador Church,7.074879299999999,125.54686873951613,way,115273111,https://www.openstreetmap.org/way/115273111,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Labrador GKK,7.09076265,125.5800276681142,way,277181041,https://www.openstreetmap.org/way/277181041,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Isidro Parish,7.2812475,125.3068324,node,747885410,https://www.openstreetmap.org/node/747885410,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Jose Chapel,7.3163854,125.29880015,way,1489521049,https://www.openstreetmap.org/way/1489521049,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Jose Chapel,7.0617998,125.6025615,node,1777741789,https://www.openstreetmap.org/node/1777741789,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Juan Bautista Chapel,7.2655456,125.6645211,way,642303332,https://www.openstreetmap.org/way/642303332,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Juan Pablo Dos,7.0743338,125.59045175684713,way,1302882981,https://www.openstreetmap.org/way/1302882981,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Lorenzo Parish Church,7.0499534,125.54446536586693,way,973929417,https://www.openstreetmap.org/way/973929417,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Lorenzo Ruiz,7.0435126,125.5745271,node,1090544982,https://www.openstreetmap.org/node/1090544982,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Lorenzo Ruiz GKK,7.093328,125.6270634,node,12479712727,https://www.openstreetmap.org/node/12479712727,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Miguel Archangel Chapel,7.0803467,125.58324604592163,way,275377921,https://www.openstreetmap.org/way/275377921,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Miguel Chapel,7.0853167,125.50758655000001,way,1038989570,https://www.openstreetmap.org/way/1038989570,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Miguel Parish Church,7.15248665,125.65562105236597,way,148902885,https://www.openstreetmap.org/way/148902885,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Miguel Parish Church,7.41329075,125.24592463691627,way,1348697148,https://www.openstreetmap.org/way/1348697148,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Nicolas de Tolentino Chapel,7.30224,125.4386369,node,13638339301,https://www.openstreetmap.org/node/13638339301,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Pablo Chapel,7.3482363,125.2850993,node,747888128,https://www.openstreetmap.org/node/747888128,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Pedro Cathedral,7.064723450000001,125.6094789844719,way,115947432,https://www.openstreetmap.org/way/115947432,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque,7.0226063,125.5070442,node,11225146909,https://www.openstreetmap.org/node/11225146909,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Roque Chapel,7.0903674500000005,125.62830938521776,way,304052469,https://www.openstreetmap.org/way/304052469,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque Chapel,7.24420175,125.44499022793407,way,345546173,https://www.openstreetmap.org/way/345546173,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque Chapel,7.0511329499999995,125.56333650803539,way,417228719,https://www.openstreetmap.org/way/417228719,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque Chapel,7.227857950000001,125.37540625,way,1473748760,https://www.openstreetmap.org/way/1473748760,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque Chapel,7.21103635,125.33719645,way,1480680610,https://www.openstreetmap.org/way/1480680610,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Roque Chapel,7.1453575,125.4785984,node,4418768957,https://www.openstreetmap.org/node/4418768957,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Roque Chapel,7.0974075,125.5233398,node,12608687401,https://www.openstreetmap.org/node/12608687401,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Roque Church,7.3224515,125.4640992,node,1241527647,https://www.openstreetmap.org/node/1241527647,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Roque Parish,7.32274625,125.46420265,way,1230260327,https://www.openstreetmap.org/way/1230260327,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Vicente Chapel,7.0496801,125.56781266495284,way,902752607,https://www.openstreetmap.org/way/902752607,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Vicente Ferrer,7.0854083,125.3894533,node,6380091577,https://www.openstreetmap.org/node/6380091577,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Vicente Ferrer,7.0896344,125.6149905,node,12410811555,https://www.openstreetmap.org/node/12410811555,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Vicente Ferrer Chapel,7.046186,125.59593,node,6255818043,https://www.openstreetmap.org/node/6255818043,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Vicente Ferrer Parish,7.056692,125.54706160158139,way,1100553425,https://www.openstreetmap.org/way/1100553425,amenity,place_of_worship,polygon_interior,no,2026-11-03
+San Vicente Ferrer Parish,7.5201365,125.2374061,node,7178395285,https://www.openstreetmap.org/node/7178395285,amenity,place_of_worship,mapped_node,no,2026-11-03
+San Vicente Ferrer Village Chapel,7.0727521,125.5252904,node,1869496663,https://www.openstreetmap.org/node/1869496663,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Cruz Chapel,7.0237818,125.4823278019129,way,1366515242,https://www.openstreetmap.org/way/1366515242,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santa Cruz Chapel,7.067518,125.6209562,node,5603740936,https://www.openstreetmap.org/node/5603740936,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Cruz Chapel,7.0662202,125.6179695,node,6255820292,https://www.openstreetmap.org/node/6255820292,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Cruz Chapel,7.1235247,125.4161002,node,12251731501,https://www.openstreetmap.org/node/12251731501,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Cruz Chapel,7.1489203,125.3754192,node,13461708401,https://www.openstreetmap.org/node/13461708401,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Cruz GKK,7.0649482,125.6052094,node,9507492017,https://www.openstreetmap.org/node/9507492017,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santa Teresita Chapel,7.1490111,125.6124097,way,1201586827,https://www.openstreetmap.org/way/1201586827,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santo Niño Chapel,7.0818524499999995,125.59042948825434,way,275380544,https://www.openstreetmap.org/way/275380544,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santo Niño Chapel,7.0932783,125.6139667,node,318383270,https://www.openstreetmap.org/node/318383270,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santo Niño Chapel,7.0704195,125.6237147,way,587698385,https://www.openstreetmap.org/way/587698385,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santo Niño Chapel,7.0679827500000005,125.61938135,way,587698389,https://www.openstreetmap.org/way/587698389,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santo Niño Chapel,7.1464256,125.650807,node,1249948719,https://www.openstreetmap.org/node/1249948719,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santo Niño Chapel,7.2535079,125.6744607,node,1616529849,https://www.openstreetmap.org/node/1616529849,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santo Niño Hilltop Chapel,7.0933121,125.6083024,node,13551459201,https://www.openstreetmap.org/node/13551459201,amenity,place_of_worship,mapped_node,no,2026-11-03
+Santo Rosario Parish Church,7.01323275,125.49879290526917,way,518827898,https://www.openstreetmap.org/way/518827898,amenity,place_of_worship,polygon_interior,no,2026-11-03
+SDA Chapel,7.244397,125.2937483,node,2290262472,https://www.openstreetmap.org/node/2290262472,amenity,place_of_worship,mapped_node,no,2026-11-03
+SDV Holy Trinity Formation House,7.068459949999999,125.55180717232233,way,485607660,https://www.openstreetmap.org/way/485607660,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh Day Adventist,7.0714710499999995,125.60775142888619,way,142998278,https://www.openstreetmap.org/way/142998278,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh Day Adventist,7.0227748,125.4961661,node,1242796305,https://www.openstreetmap.org/node/1242796305,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh Day Adventist,7.0321983,125.4952078,node,1252279093,https://www.openstreetmap.org/node/1252279093,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh Day Adventist,7.236677050000001,125.38151144693518,way,1473748783,https://www.openstreetmap.org/way/1473748783,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh Day Adventist Church,7.3434528,125.41775985000001,way,1030212060,https://www.openstreetmap.org/way/1030212060,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh Day Adventist Church,7.04605,125.593413,node,6255818039,https://www.openstreetmap.org/node/6255818039,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-Day Adventis Church,7.0805377499999995,125.54439515,way,1068698976,https://www.openstreetmap.org/way/1068698976,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh-Day Adventist Church,7.09780625,125.61727095029987,way,406700663,https://www.openstreetmap.org/way/406700663,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh-Day Adventist Church,7.558705,125.47688115,way,894332676,https://www.openstreetmap.org/way/894332676,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh-day Adventist Church,7.2595357499999995,125.4731147852808,way,1120155919,https://www.openstreetmap.org/way/1120155919,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh-day Adventist Church,7.28171545,125.36525585247678,way,1213995927,https://www.openstreetmap.org/way/1213995927,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Seventh-day Adventist Church,7.3270723,125.460122,node,1251366701,https://www.openstreetmap.org/node/1251366701,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-Day Adventist Church,7.3956423,125.3021005,node,6834299751,https://www.openstreetmap.org/node/6834299751,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-Day Adventist Church,7.3865722,125.2703183,node,7138501186,https://www.openstreetmap.org/node/7138501186,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-Day Adventist Church,7.4460566,125.2829698,node,12327894705,https://www.openstreetmap.org/node/12327894705,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-day Adventist Church,7.2912958,125.5335797,node,13300704882,https://www.openstreetmap.org/node/13300704882,amenity,place_of_worship,mapped_node,no,2026-11-03
+Seventh-Day Adventist-Ipil Life Center Church,7.0932876,125.6397296,node,7314466888,https://www.openstreetmap.org/node/7314466888,amenity,place_of_worship,mapped_node,no,2026-11-03
+Señor San Agustin,7.0876242,125.4040003,node,6380091986,https://www.openstreetmap.org/node/6380091986,amenity,place_of_worship,mapped_node,no,2026-11-03
+Señor San Miguel,7.0688422,125.6213554,node,5619275940,https://www.openstreetmap.org/node/5619275940,amenity,place_of_worship,mapped_node,no,2026-11-03
+Señor San Vicente Chapel,7.078424099999999,125.5847917403118,way,1093994400,https://www.openstreetmap.org/way/1093994400,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Señor Santo Niño,7.0683756,125.402745,node,6380092032,https://www.openstreetmap.org/node/6380092032,amenity,place_of_worship,mapped_node,no,2026-11-03
+Shrine of the Holy Infant Jesus of Prague,7.06559355,125.57835219587818,way,1001989764,https://www.openstreetmap.org/way/1001989764,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sister of Mary Immaculate Fr Domenico Masi Center,7.1898004,125.6451934,node,1244504900,https://www.openstreetmap.org/node/1244504900,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sitio Basak Foursquare Gospel Church,7.08745985,125.4902749,way,543520003,https://www.openstreetmap.org/way/543520003,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sitio Santo Niño Chapel,7.1074129,125.4480355,node,1234340427,https://www.openstreetmap.org/node/1234340427,amenity,place_of_worship,mapped_node,no,2026-11-03
+Soli Deo Gloria,7.0232612,125.5064575,node,11225146915,https://www.openstreetmap.org/node/11225146915,amenity,place_of_worship,mapped_node,no,2026-11-03
+Soli Deo Gloria Christian Church,7.0933301,125.581827,node,8389731417,https://www.openstreetmap.org/node/8389731417,amenity,place_of_worship,mapped_node,no,2026-11-03
+Soli Deo Gloria Church,7.07918785,125.60988509123669,way,326048110,https://www.openstreetmap.org/way/326048110,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Soul Saving Fellowship Center,7.079099449999999,125.46307962607563,way,1472599061,https://www.openstreetmap.org/way/1472599061,amenity,place_of_worship,polygon_interior,no,2026-11-03
+South Hills Community Church,7.0527199,125.5371091,node,1230423399,https://www.openstreetmap.org/node/1230423399,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr Santo Nino Chapel,7.0495921,125.5747601,node,1248364784,https://www.openstreetmap.org/node/1248364784,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Antonio de Padua Chapel,7.09709285,125.50760967506625,way,1059978691,https://www.openstreetmap.org/way/1059978691,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Isidro Labrador,7.3580232500000005,125.41670628691472,way,1075630304,https://www.openstreetmap.org/way/1075630304,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Isidro Labrador,7.1656042,125.4715687,node,1234322933,https://www.openstreetmap.org/node/1234322933,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Isidro Labrador Chapel,7.0583051,125.5253127,node,13475261201,https://www.openstreetmap.org/node/13475261201,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Jose - GKK,7.09067775,125.5850291,way,406156970,https://www.openstreetmap.org/way/406156970,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Jose Chapel,7.081507650000001,125.54241489268868,way,1429456859,https://www.openstreetmap.org/way/1429456859,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Jose Chapel,7.1311301,125.6310008,node,13226996778,https://www.openstreetmap.org/node/13226996778,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Labrador Chapel,7.036934,125.5762081,node,1234768662,https://www.openstreetmap.org/node/1234768662,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Lorenzo Ruiz Chapel,7.029257899999999,125.48395645,way,999867766,https://www.openstreetmap.org/way/999867766,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Nicolas de Tolentino Chapel,7.103206,125.596785,node,6255818015,https://www.openstreetmap.org/node/6255818015,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Roque,7.10018495,125.47313205,way,1034088759,https://www.openstreetmap.org/way/1034088759,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Roque Chapel,7.0545368,125.51179855000001,way,1161720911,https://www.openstreetmap.org/way/1161720911,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Roque Chapel,7.024081649999999,125.41287902482014,way,1366520547,https://www.openstreetmap.org/way/1366520547,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Roque Chapel,7.21211645,125.41438685,way,1380170541,https://www.openstreetmap.org/way/1380170541,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. San Roque Chaperl,7.0650677,125.6172981,node,6255818019,https://www.openstreetmap.org/node/6255818019,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Vicente Ferrer,7.1172136,125.3603477,node,7431858485,https://www.openstreetmap.org/node/7431858485,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Vicente Ferrer Chapel,7.0882318,125.5135435,node,9587409817,https://www.openstreetmap.org/node/9587409817,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Vicente Ferrer Chapel,7.4792825,125.2732471,node,12327894803,https://www.openstreetmap.org/node/12327894803,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. San Vicente Ferrer Chapel,7.0897247,125.6054568,node,13551471601,https://www.openstreetmap.org/node/13551471601,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. Santo Niño Chapel,7.2049181,125.47279655,way,1487835900,https://www.openstreetmap.org/way/1487835900,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. Santo Niño Chapel,6.9719677,125.38521460321425,way,1491675348,https://www.openstreetmap.org/way/1491675348,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. Santo Niño Chapel,7.0497104,125.6025888,node,6935198488,https://www.openstreetmap.org/node/6935198488,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. Santo Niño Chapel,7.1170802,125.4005728,node,12251736501,https://www.openstreetmap.org/node/12251736501,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sr. Sto Niño Chapel,7.0831934,125.6268077,way,275384310,https://www.openstreetmap.org/way/275384310,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sr. Sto. Niño Chapel,7.0717806,125.5997488,node,11499060858,https://www.openstreetmap.org/node/11499060858,amenity,place_of_worship,mapped_node,no,2026-11-03
+St Jude Chappel,7.1142183,125.6151762,node,2706278570,https://www.openstreetmap.org/node/2706278570,amenity,place_of_worship,mapped_node,no,2026-11-03
+St. Bonaventure House of Studies,7.1118439,125.6479386,node,13463500902,https://www.openstreetmap.org/node/13463500902,amenity,place_of_worship,mapped_node,no,2026-11-03
+St. James Apostle Parish,7.233893500000001,125.6410852586013,way,1376633122,https://www.openstreetmap.org/way/1376633122,amenity,place_of_worship,polygon_interior,no,2026-11-03
+St. John the Baptist Parish Church,7.26286995,125.66422308189726,way,642980944,https://www.openstreetmap.org/way/642980944,amenity,place_of_worship,polygon_interior,no,2026-11-03
+St. Joseph GKK,7.1441512,125.6467325,node,12437849501,https://www.openstreetmap.org/node/12437849501,amenity,place_of_worship,mapped_node,no,2026-11-03
+St. Lourdes Chapel,7.0672712,125.61984405,way,594586480,https://www.openstreetmap.org/way/594586480,amenity,place_of_worship,polygon_interior,no,2026-11-03
+St. Mary of the Perpetual Rosary Parish,7.11477625,125.61294168298872,way,144189818,https://www.openstreetmap.org/way/144189818,amenity,place_of_worship,polygon_interior,no,2026-11-03
+St. Mary's Shrine,7.1158828,125.61253122293388,way,845623345,https://www.openstreetmap.org/way/845623345,amenity,place_of_worship,polygon_interior,no,2026-11-03
+St. Padre Pio Chapel,7.0819979,125.5259938,node,4577518491,https://www.openstreetmap.org/node/4577518491,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sta. Ana Parish Church,7.07715055,125.61708070851103,way,115609192,https://www.openstreetmap.org/way/115609192,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Sta. Cruz Chapel,7.0450881,125.5960491,node,6255820293,https://www.openstreetmap.org/node/6255820293,amenity,place_of_worship,mapped_node,no,2026-11-03
+Sto. Niño Chapel,7.059357,125.5989769,node,10875113843,https://www.openstreetmap.org/node/10875113843,amenity,place_of_worship,mapped_node,no,2026-11-03
+The Church of Jesus Christ of Latter Day Saints,7.08865795,125.57974075509426,way,1237956022,https://www.openstreetmap.org/way/1237956022,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.0879912,125.61079919630905,way,144206413,https://www.openstreetmap.org/way/144206413,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.065959250000001,125.6110599873021,way,406252370,https://www.openstreetmap.org/way/406252370,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.0578688,125.56858112308807,way,440446294,https://www.openstreetmap.org/way/440446294,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.0877687,125.50718401759897,way,965348058,https://www.openstreetmap.org/way/965348058,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.09939325,125.6138108914537,way,1012127404,https://www.openstreetmap.org/way/1012127404,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.0305087,125.50954687031731,way,1123505813,https://www.openstreetmap.org/way/1123505813,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.18009715,125.65153263860245,way,1125309056,https://www.openstreetmap.org/way/1125309056,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.0874862,125.631198,node,1245501723,https://www.openstreetmap.org/node/1245501723,amenity,place_of_worship,mapped_node,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,7.18747385,125.46305045,way,1317363911,https://www.openstreetmap.org/way/1317363911,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Good Shepherd Church,7.112398349999999,125.63181710781288,way,326050175,https://www.openstreetmap.org/way/326050175,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Lighthouse (Lighthouse Christian Fellowship),7.0509156,125.58611137995464,way,1432517852,https://www.openstreetmap.org/way/1432517852,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Overflowing Blessings of God Ministry Incorporated,7.124138,125.6328136,node,13190584881,https://www.openstreetmap.org/node/13190584881,amenity,place_of_worship,mapped_node,no,2026-11-03
+The Potters Light House Church,7.0711654500000005,125.58431035,way,148427018,https://www.openstreetmap.org/way/148427018,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Redeemed Christian Fellowship,7.0746943,125.6017035,node,12414182906,https://www.openstreetmap.org/node/12414182906,amenity,place_of_worship,mapped_node,no,2026-11-03
+The Sisters Apostles of Jesus Crucifixed,7.1112841,125.4843529,node,1234410688,https://www.openstreetmap.org/node/1234410688,amenity,place_of_worship,mapped_node,no,2026-11-03
+The Wesleyan Church,7.068681,125.6169615,node,1287438788,https://www.openstreetmap.org/node/1287438788,amenity,place_of_worship,mapped_node,no,2026-11-03
+Times Baptist Church,7.0443976,125.58380789490147,way,929574052,https://www.openstreetmap.org/way/929574052,amenity,place_of_worship,polygon_interior,no,2026-11-03
+"Toril Baptist Church, Inc.",7.013625749999999,125.49525160151408,way,1423241337,https://www.openstreetmap.org/way/1423241337,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Toril Capital Alliance Church,7.019675250000001,125.49503475,way,791155937,https://www.openstreetmap.org/way/791155937,amenity,place_of_worship,polygon_interior,no,2026-11-03
+UCCP,7.1896034,125.4487802,node,1233277802,https://www.openstreetmap.org/node/1233277802,amenity,place_of_worship,mapped_node,no,2026-11-03
+UCCP Shalom Center Davao,7.06848465,125.6072588268387,way,274893690,https://www.openstreetmap.org/way/274893690,amenity,place_of_worship,polygon_interior,no,2026-11-03
+United Church of Christ,7.0610439,125.5640403,node,5129668521,https://www.openstreetmap.org/node/5129668521,amenity,place_of_worship,mapped_node,no,2026-11-03
+United Church of Christ in the Philippines,7.0607753,125.5744009,node,427881307,https://www.openstreetmap.org/node/427881307,amenity,place_of_worship,mapped_node,no,2026-11-03
+United Church of Christ in the Philippines,7.1270938,125.6359623,node,13187099309,https://www.openstreetmap.org/node/13187099309,amenity,place_of_worship,mapped_node,no,2026-11-03
+United Pentecostal Church,7.32202035,125.46455737955442,way,1230260232,https://www.openstreetmap.org/way/1230260232,amenity,place_of_worship,polygon_interior,no,2026-11-03
+United Pentecostal Church,7.0220439,125.4933358,node,1264962215,https://www.openstreetmap.org/node/1264962215,amenity,place_of_worship,mapped_node,no,2026-11-03
+United Pentecostal Church New Life Fellowship,7.0664883,125.6045889,node,4830028923,https://www.openstreetmap.org/node/4830028923,amenity,place_of_worship,mapped_node,no,2026-11-03
+United Pentecostal Church of the Philippines,7.0844089,125.6203779,node,11919017982,https://www.openstreetmap.org/node/11919017982,amenity,place_of_worship,mapped_node,no,2026-11-03
+Universal Cathedral,7.0575993,125.5521389,node,1243286735,https://www.openstreetmap.org/node/1243286735,amenity,place_of_worship,mapped_node,no,2026-11-03
+Upper Malagos Alliance Church,7.1918332,125.4109102,node,7134991987,https://www.openstreetmap.org/node/7134991987,amenity,place_of_worship,mapped_node,no,2026-11-03
+Victory Chapel,7.0682329500000005,125.60838200407504,way,274893688,https://www.openstreetmap.org/way/274893688,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Victory Chapel Christian Center,7.0751282,125.60414005,way,326049703,https://www.openstreetmap.org/way/326049703,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Victory Chapel Christian Center,7.1079542,125.61166975,way,891612258,https://www.openstreetmap.org/way/891612258,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Victory Chapel Christian Center,7.0896826,125.5841462,node,11328602969,https://www.openstreetmap.org/node/11328602969,amenity,place_of_worship,mapped_node,no,2026-11-03
+Victory Chapel Christian Center - Baguio,7.1735532,125.4066139,node,13284847803,https://www.openstreetmap.org/node/13284847803,amenity,place_of_worship,mapped_node,no,2026-11-03
+Victory Christian Fellowshio XI,7.119144,125.6538212,node,1506178541,https://www.openstreetmap.org/node/1506178541,amenity,place_of_worship,mapped_node,no,2026-11-03
+Victory Davao,7.0684484,125.6108143,node,11875549305,https://www.openstreetmap.org/node/11875549305,amenity,place_of_worship,mapped_node,no,2026-11-03
+Villa San Isidro Prayer House,7.0332562,125.5315205,node,1650188414,https://www.openstreetmap.org/node/1650188414,amenity,place_of_worship,mapped_node,no,2026-11-03
+Virgen De Los Remedios Parish Church,7.0226053,125.49505883240693,way,614154958,https://www.openstreetmap.org/way/614154958,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Wesleyan Church,7.061821999999999,125.55902676328611,way,326046781,https://www.openstreetmap.org/way/326046781,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Word of God,7.0608041,125.5556898,node,1243939662,https://www.openstreetmap.org/node/1243939662,amenity,place_of_worship,mapped_node,no,2026-11-03
+Zion Christian Mission Center,7.054496,125.545594,node,14337552792,https://www.openstreetmap.org/node/14337552792,amenity,place_of_worship,mapped_node,no,2026-11-03
+Bantawan at Tribu K'Mindanawan,7.0979773,125.6001974,node,12311417174,https://www.openstreetmap.org/node/12311417174,amenity,theatre,mapped_node,no,2026-11-03
+Pawikan (Turtle) Sanctuary,7.02606,125.5755132,node,14211685601,https://www.openstreetmap.org/node/14211685601,attraction,animal,mapped_node,no,2026-11-03
+Andres Bonifacio Monument,7.0629958,125.6095227,node,4620804296,https://www.openstreetmap.org/node/4620804296,historic,memorial,mapped_node,no,2026-11-03
+Centennial Monument,7.0643032,125.6091827,node,10222972117,https://www.openstreetmap.org/node/10222972117,historic,memorial,mapped_node,no,2026-11-03
+Cipriano S. Villafuerte Sr.,7.1860864,125.4570088,node,12750815113,https://www.openstreetmap.org/node/12750815113,historic,memorial,mapped_node,no,2026-11-03
+Datu Abeng Monument,7.1867911,125.4544791,node,5898179686,https://www.openstreetmap.org/node/5898179686,historic,memorial,mapped_node,no,2026-11-03
+Datu Aguan,7.1140809,125.3895344,node,12265941217,https://www.openstreetmap.org/node/12265941217,historic,memorial,mapped_node,no,2026-11-03
+Davao City Hall,7.064662,125.6079614,node,13657676701,https://www.openstreetmap.org/node/13657676701,historic,memorial,mapped_node,no,2026-11-03
+Davao River Bucana Bridge,7.0461377,125.605373,node,13353418266,https://www.openstreetmap.org/node/13353418266,historic,memorial,mapped_node,no,2026-11-03
+Japanese Peace & Friendship Monument,7.2653761,125.3313965,node,6668991093,https://www.openstreetmap.org/node/6668991093,historic,memorial,mapped_node,no,2026-11-03
+Jose Rizal,7.1635437,125.5200755,node,12838662304,https://www.openstreetmap.org/node/12838662304,historic,memorial,mapped_node,no,2026-11-03
+Jose Rizal,7.0813982,125.5432007,node,13585944201,https://www.openstreetmap.org/node/13585944201,historic,memorial,mapped_node,no,2026-11-03
+Ohta Kyozaburo,7.0939638,125.5002003,node,12076639250,https://www.openstreetmap.org/node/12076639250,historic,memorial,mapped_node,no,2026-11-03
+Ohta Kyozaburo Monument,7.0939641,125.5002587,node,12197382561,https://www.openstreetmap.org/node/12197382561,historic,memorial,mapped_node,no,2026-11-03
+Ramon Magsaysay Monument,7.0752786,125.6257283,node,4620877289,https://www.openstreetmap.org/node/4620877289,historic,memorial,mapped_node,no,2026-11-03
+Sam Ratulangi,7.0708728,125.6131427,node,13478751244,https://www.openstreetmap.org/node/13478751244,historic,memorial,mapped_node,no,2026-11-03
+The Eternal Peace,7.0922969,125.5226947,node,7271661310,https://www.openstreetmap.org/node/7271661310,historic,memorial,mapped_node,no,2026-11-03
+Tree of Life - 9/2 Memorial,7.0707316,125.61326897500001,way,1097554503,https://www.openstreetmap.org/way/1097554503,historic,memorial,polygon_interior,no,2026-11-03
+Veterans Memorial Monument,7.0733892,125.611071,node,9424289903,https://www.openstreetmap.org/node/9424289903,historic,memorial,mapped_node,no,2026-11-03
+Crocodile Park Grounds,7.1007148,125.5946317,relation,14709836,https://www.openstreetmap.org/relation/14709836,landuse,recreation_ground,nominatim_representative,no,2026-11-03
+Ecoland 1 Tennis Court,7.052330700000001,125.5946287,way,589134538,https://www.openstreetmap.org/way/589134538,landuse,recreation_ground,polygon_interior,no,2026-11-03
+Tierra Verde Subdivision Phase 1 Basketball Court,7.1383107,125.65075694945848,way,34716502,https://www.openstreetmap.org/way/34716502,landuse,recreation_ground,polygon_interior,no,2026-11-03
+Bonguyan Beach Resort,7.0413297,125.5805662,node,433566840,https://www.openstreetmap.org/node/433566840,leisure,beach_resort,mapped_node,no,2026-11-03
+Cloud Eagle Beach Resort,7.0287671,125.5736735,node,1234795987,https://www.openstreetmap.org/node/1234795987,leisure,beach_resort,mapped_node,no,2026-11-03
+Davao Beach Club,7.102688,125.6497468,node,1229189962,https://www.openstreetmap.org/node/1229189962,leisure,beach_resort,mapped_node,no,2026-11-03
+Eden By The Sea,7.1033006,125.6497609,node,1229189964,https://www.openstreetmap.org/node/1229189964,leisure,beach_resort,mapped_node,no,2026-11-03
+Handumanan Beach Resort,7.0121242,125.5113232,node,1232391711,https://www.openstreetmap.org/node/1232391711,leisure,beach_resort,mapped_node,no,2026-11-03
+Jones Beach Resort,7.044089,125.5432796,node,1252372438,https://www.openstreetmap.org/node/1252372438,leisure,beach_resort,mapped_node,no,2026-11-03
+Kalayaan Beach Resort,7.0118554,125.5109584,node,1232391706,https://www.openstreetmap.org/node/1232391706,leisure,beach_resort,mapped_node,no,2026-11-03
+Lanang Aplaya Resort,7.1036186,125.649841,node,1229189945,https://www.openstreetmap.org/node/1229189945,leisure,beach_resort,mapped_node,no,2026-11-03
+Noriega Beach Resort,7.0116785,125.5107313,node,1232391721,https://www.openstreetmap.org/node/1232391721,leisure,beach_resort,mapped_node,no,2026-11-03
+Redondo Beach Resort,7.0115155,125.510454,node,1232391709,https://www.openstreetmap.org/node/1232391709,leisure,beach_resort,mapped_node,no,2026-11-03
+Samantha Beach Resort,7.0448254,125.5939181,node,1260356916,https://www.openstreetmap.org/node/1260356916,leisure,beach_resort,mapped_node,no,2026-11-03
+Seagull White Sand Beach & Spa,7.0302167,125.574454,node,1234770001,https://www.openstreetmap.org/node/1234770001,leisure,beach_resort,mapped_node,no,2026-11-03
+Sisoy Beach,7.1015462,125.6506601,node,12329958013,https://www.openstreetmap.org/node/12329958013,leisure,beach_resort,mapped_node,no,2026-11-03
+Toril Kubo Beach,7.0126641,125.5118494,node,1232391725,https://www.openstreetmap.org/node/1232391725,leisure,beach_resort,mapped_node,no,2026-11-03
+Vales Beach Resort,7.0136126,125.51374455605949,way,1121518707,https://www.openstreetmap.org/way/1121518707,leisure,beach_resort,polygon_interior,no,2026-11-03
+Botanical Garden,7.0695182,125.60049053561059,way,37624467,https://www.openstreetmap.org/way/37624467,leisure,garden,polygon_interior,no,2026-11-03
+Butterfly Domes,7.1912504,125.4288447,node,13255317695,https://www.openstreetmap.org/node/13255317695,leisure,garden,mapped_node,no,2026-11-03
+Cenro Nursery,7.0185764,125.497887,node,1226601360,https://www.openstreetmap.org/node/1226601360,leisure,garden,mapped_node,no,2026-11-03
+Doña Pacencia Botanic Garden,7.1423976499999995,125.64455328304808,way,1027615490,https://www.openstreetmap.org/way/1027615490,leisure,garden,polygon_interior,no,2026-11-03
+Emerald Market Garden,7.0937425,125.6216937,node,1245729183,https://www.openstreetmap.org/node/1245729183,leisure,garden,mapped_node,no,2026-11-03
+Garden Symphony,7.1908087,125.4271788,node,13255389543,https://www.openstreetmap.org/node/13255389543,leisure,garden,mapped_node,no,2026-11-03
+Gethsemane Prayer Garden,7.4745503499999995,125.28526579372421,way,1340880790,https://www.openstreetmap.org/way/1340880790,leisure,garden,polygon_interior,no,2026-11-03
+GQ Garden,7.0422242,125.4964856,node,11683111196,https://www.openstreetmap.org/node/11683111196,leisure,garden,mapped_node,no,2026-11-03
+Gulayan sa Barangay,7.0297690500000005,125.519497098181,way,1069588167,https://www.openstreetmap.org/way/1069588167,leisure,garden,polygon_interior,no,2026-11-03
+Roxas Grounds,7.0719292,125.61312972391676,way,560212569,https://www.openstreetmap.org/way/560212569,leisure,garden,polygon_interior,no,2026-11-03
+Verdeli Garden,7.19174595,125.44002328574294,way,1117951709,https://www.openstreetmap.org/way/1117951709,leisure,garden,polygon_interior,no,2026-11-03
+Wynward Valley Organic Vegetable Garden,7.090447449999999,125.61326115873635,way,506215806,https://www.openstreetmap.org/way/506215806,leisure,garden,polygon_interior,no,2026-11-03
+Zen Garden,7.190867,125.426886,node,13255389544,https://www.openstreetmap.org/node/13255389544,leisure,garden,mapped_node,no,2026-11-03
+National Bird Breeding Sanctuary,7.02753215,125.37761476441818,way,1498358632,https://www.openstreetmap.org/way/1498358632,leisure,nature_reserve,polygon_interior,no,2026-11-03
+Aster Park,7.140564100000001,125.59775847330545,way,1122037847,https://www.openstreetmap.org/way/1122037847,leisure,park,polygon_interior,no,2026-11-03
+Bago Aplaya Esplanade,7.0404517,125.53762922899398,way,920131637,https://www.openstreetmap.org/way/920131637,leisure,park,polygon_interior,no,2026-11-03
+Bago Aplaya Esplanade,7.0407201,125.53512238433785,way,982238950,https://www.openstreetmap.org/way/982238950,leisure,park,polygon_interior,no,2026-11-03
+Calinan Park,7.190581399999999,125.45260116281416,way,176001077,https://www.openstreetmap.org/way/176001077,leisure,park,polygon_interior,no,2026-11-03
+Candelaria Park,7.05684115,125.60161955660533,way,783620055,https://www.openstreetmap.org/way/783620055,leisure,park,polygon_interior,no,2026-11-03
+Centennial Park,7.06420435,125.60933041403038,way,115717521,https://www.openstreetmap.org/way/115717521,leisure,park,polygon_interior,no,2026-11-03
+Davao City Botanical Garden,7.08104855,125.60180562490154,way,537259205,https://www.openstreetmap.org/way/537259205,leisure,park,polygon_interior,no,2026-11-03
+DGT Central Park,7.0564654,125.58213290107611,way,1393799078,https://www.openstreetmap.org/way/1393799078,leisure,park,polygon_interior,no,2026-11-03
+Doña Carmen Soriano Marfori Park,7.0949522,125.61575601041517,way,862939687,https://www.openstreetmap.org/way/862939687,leisure,park,polygon_interior,no,2026-11-03
+Doña Vicenta Park,7.0805646499999995,125.60567222020622,way,1044596988,https://www.openstreetmap.org/way/1044596988,leisure,park,polygon_interior,no,2026-11-03
+Freedom Park,7.0727735,125.61159183812094,way,36979999,https://www.openstreetmap.org/way/36979999,leisure,park,polygon_interior,no,2026-11-03
+Jacinto Ponce Park,7.07064035,125.61535201625381,way,111971635,https://www.openstreetmap.org/way/111971635,leisure,park,polygon_interior,no,2026-11-03
+Lanzona Subdivision Park,7.0502081,125.57484493406585,way,570397085,https://www.openstreetmap.org/way/570397085,leisure,park,polygon_interior,no,2026-11-03
+Los Amigos Park,7.1410591,125.48019432212652,way,1060515995,https://www.openstreetmap.org/way/1060515995,leisure,park,polygon_interior,no,2026-11-03
+Magsaysay Park,7.074371,125.62583256039656,way,28993499,https://www.openstreetmap.org/way/28993499,leisure,park,polygon_interior,no,2026-11-03
+Matina Linear Park,7.0607158000000005,125.58924541093475,way,1101883576,https://www.openstreetmap.org/way/1101883576,leisure,park,polygon_interior,no,2026-11-03
+Millenium Park,7.07126715,125.61281872093832,way,36979998,https://www.openstreetmap.org/way/36979998,leisure,park,polygon_interior,no,2026-11-03
+Mintal Park,7.0923231,125.50277629623778,way,1120594321,https://www.openstreetmap.org/way/1120594321,leisure,park,polygon_interior,no,2026-11-03
+Nograles Park,7.05105685,125.54144775062154,way,116701758,https://www.openstreetmap.org/way/116701758,leisure,park,polygon_interior,no,2026-11-03
+Northtown Center,7.14046675,125.59974754261543,way,1290440318,https://www.openstreetmap.org/way/1290440318,leisure,park,polygon_interior,no,2026-11-03
+Osmeña Park,7.06370985,125.60933180315283,way,32974258,https://www.openstreetmap.org/way/32974258,leisure,park,polygon_interior,no,2026-11-03
+People's Park,7.0709328,125.60878765785858,way,28993492,https://www.openstreetmap.org/way/28993492,leisure,park,polygon_interior,no,2026-11-03
+Queensland Park,7.04113705,125.58278309260086,way,98570823,https://www.openstreetmap.org/way/98570823,leisure,park,polygon_interior,no,2026-11-03
+Quezon Park,7.064898,125.6081151093781,way,115717522,https://www.openstreetmap.org/way/115717522,leisure,park,polygon_interior,no,2026-11-03
+Rizal Park,7.06455435,125.6084361906715,way,32974241,https://www.openstreetmap.org/way/32974241,leisure,park,polygon_interior,no,2026-11-03
+Seaside Promenade,7.0975638,125.6499311520026,way,1340688472,https://www.openstreetmap.org/way/1340688472,leisure,park,polygon_interior,no,2026-11-03
+Toril Park,7.0190476,125.49676307832385,way,845223168,https://www.openstreetmap.org/way/845223168,leisure,park,polygon_interior,no,2026-11-03
+Amador Inland Resort,7.1956114,125.4079574,node,12300630801,https://www.openstreetmap.org/node/12300630801,leisure,resort,mapped_node,no,2026-11-03
+Beth Haven,7.4769425,125.2898455,node,6668991508,https://www.openstreetmap.org/node/6668991508,leisure,resort,mapped_node,no,2026-11-03
+Camp Bernadette,7.0611379,125.48916731806472,way,1296622129,https://www.openstreetmap.org/way/1296622129,leisure,resort,polygon_interior,no,2026-11-03
+Camp CorSal Resort,7.3087696,125.435189,node,6873470112,https://www.openstreetmap.org/node/6873470112,leisure,resort,mapped_node,no,2026-11-03
+Campo Agua,6.9847935,125.4816119,node,1349180595,https://www.openstreetmap.org/node/1349180595,leisure,resort,mapped_node,no,2026-11-03
+Casa Julieta,7.0573724,125.5890702,node,14017358148,https://www.openstreetmap.org/node/14017358148,leisure,resort,mapped_node,no,2026-11-03
+Cloud Maru,7.41337515,125.25410138642388,way,1282355726,https://www.openstreetmap.org/way/1282355726,leisure,resort,polygon_interior,no,2026-11-03
+D' Leonor Inland Resort and Adventure Park,7.1502529,125.62385833044243,way,516269964,https://www.openstreetmap.org/way/516269964,leisure,resort,polygon_interior,no,2026-11-03
+Davao Bamboo Sanctuary,7.16833645,125.41511459424306,way,539317911,https://www.openstreetmap.org/way/539317911,leisure,resort,polygon_interior,no,2026-11-03
+DCG Inland Resort,7.0034386,125.4991155,node,12945844001,https://www.openstreetmap.org/node/12945844001,leisure,resort,mapped_node,no,2026-11-03
+Discovery Samal Welcome Center,7.108301300000001,125.65269400284467,way,1443437376,https://www.openstreetmap.org/way/1443437376,leisure,resort,polygon_interior,no,2026-11-03
+Dumoy Garden Resort,7.0309435,125.5262573,node,1233324441,https://www.openstreetmap.org/node/1233324441,leisure,resort,mapped_node,no,2026-11-03
+Eagles Ridge Resort,7.0554644500000006,125.53904575782244,way,974605110,https://www.openstreetmap.org/way/974605110,leisure,resort,polygon_interior,no,2026-11-03
+Eden Nature Park and Resort,7.02824025,125.4017549575092,way,1135430452,https://www.openstreetmap.org/way/1135430452,leisure,resort,polygon_interior,no,2026-11-03
+Emars Wavepool Resort,7.0436134,125.5885658,node,7938305853,https://www.openstreetmap.org/node/7938305853,leisure,resort,mapped_node,no,2026-11-03
+Farm Ni Lolo,7.0217256,125.506052,node,12986000987,https://www.openstreetmap.org/node/12986000987,leisure,resort,mapped_node,no,2026-11-03
+Forest Hill Resort,7.0708208,125.55876966528196,way,990933413,https://www.openstreetmap.org/way/990933413,leisure,resort,polygon_interior,no,2026-11-03
+GAP Farming Resort,7.09594185,125.5740551490232,way,37096596,https://www.openstreetmap.org/way/37096596,leisure,resort,polygon_interior,no,2026-11-03
+Garden Bay Resort & Restaurant,7.1079869,125.65224815266518,way,1443437375,https://www.openstreetmap.org/way/1443437375,leisure,resort,polygon_interior,no,2026-11-03
+Gloryland,7.47815665,125.29615099317317,way,1430496137,https://www.openstreetmap.org/way/1430496137,leisure,resort,polygon_interior,no,2026-11-03
+Gumamela Caverock Farm Resort,7.15028695,125.53866727207341,way,1412215394,https://www.openstreetmap.org/way/1412215394,leisure,resort,polygon_interior,no,2026-11-03
+Hacienda Torrentira Agri-Tourism Park,7.1436481999999994,125.45793084747562,way,1340398661,https://www.openstreetmap.org/way/1340398661,leisure,resort,polygon_interior,no,2026-11-03
+Hidden Gardens,7.0241686,125.41430513823443,way,1342634490,https://www.openstreetmap.org/way/1342634490,leisure,resort,polygon_interior,no,2026-11-03
+Highway 81,7.4868397,125.2489867,node,4966008021,https://www.openstreetmap.org/node/4966008021,leisure,resort,mapped_node,no,2026-11-03
+Hoyohoy sa Bukid,7.477089449999999,125.25209348606107,way,1339960390,https://www.openstreetmap.org/way/1339960390,leisure,resort,polygon_interior,no,2026-11-03
+Jaca Farms,7.0895488,125.5561914,node,1303580488,https://www.openstreetmap.org/node/1303580488,leisure,resort,mapped_node,no,2026-11-03
+Jack's Ridge,7.06650645,125.58211697335165,way,116598032,https://www.openstreetmap.org/way/116598032,leisure,resort,polygon_interior,no,2026-11-03
+Jardin Del Roca,7.02583345,125.43685640798553,way,386114546,https://www.openstreetmap.org/way/386114546,leisure,resort,polygon_interior,no,2026-11-03
+Jive Highland Resort,7.4774045,125.2696996,node,4196509826,https://www.openstreetmap.org/node/4196509826,leisure,resort,mapped_node,no,2026-11-03
+Jocris Resort,7.1529968,125.62367852505518,way,1279015508,https://www.openstreetmap.org/way/1279015508,leisure,resort,polygon_interior,no,2026-11-03
+Lantaw Bukid Farm Resort,7.1463538,125.47395089451487,way,1116535587,https://www.openstreetmap.org/way/1116535587,leisure,resort,polygon_interior,no,2026-11-03
+Lingz Cold Spring Resort,7.18916,125.4074013,node,10246099080,https://www.openstreetmap.org/node/10246099080,leisure,resort,mapped_node,no,2026-11-03
+Lola Mommy's Rainforest,7.4525444,125.2411783,node,4650709295,https://www.openstreetmap.org/node/4650709295,leisure,resort,mapped_node,no,2026-11-03
+Loleng's Mountain Spring Resort,7.021057450000001,125.41672973919378,way,1135432053,https://www.openstreetmap.org/way/1135432053,leisure,resort,polygon_interior,no,2026-11-03
+Macatabo Farm,7.1276621,125.36254218323991,way,1427914784,https://www.openstreetmap.org/way/1427914784,leisure,resort,polygon_interior,no,2026-11-03
+Magayon Integrated Farm,7.2365927,125.3824122618087,way,1473748761,https://www.openstreetmap.org/way/1473748761,leisure,resort,polygon_interior,no,2026-11-03
+Mahogany Hills,7.477869,125.2449519,node,1779031183,https://www.openstreetmap.org/node/1779031183,leisure,resort,mapped_node,no,2026-11-03
+Maison G,7.07187235,125.57658804953181,way,1515398623,https://www.openstreetmap.org/way/1515398623,leisure,resort,polygon_interior,no,2026-11-03
+Malagos Garden Resort,7.1910411,125.42765814839709,way,976238615,https://www.openstreetmap.org/way/976238615,leisure,resort,polygon_interior,no,2026-11-03
+Marahan Nature Spring Resort,7.4155776,125.2609383,node,3681635243,https://www.openstreetmap.org/node/3681635243,leisure,resort,mapped_node,no,2026-11-03
+Masdec Spring Resort,7.3279428,125.4612225,node,6315473739,https://www.openstreetmap.org/node/6315473739,leisure,resort,mapped_node,no,2026-11-03
+Mervillas Beach Resort,7.0301355,125.5269364,node,1233324434,https://www.openstreetmap.org/node/1233324434,leisure,resort,mapped_node,no,2026-11-03
+Montenawin Eco-Resort & Restaurant,7.4146096,125.2368128,node,6668990838,https://www.openstreetmap.org/node/6668990838,leisure,resort,mapped_node,no,2026-11-03
+Mountaineer's View Inland Resort,7.1140785,125.3461939,node,12320085702,https://www.openstreetmap.org/node/12320085702,leisure,resort,mapped_node,no,2026-11-03
+Nanay & Tatay's Farm,7.2102418,125.53428636035122,way,1060550263,https://www.openstreetmap.org/way/1060550263,leisure,resort,polygon_interior,no,2026-11-03
+Our Lady Of The Forest,7.4784738,125.2453952,node,1229353007,https://www.openstreetmap.org/node/1229353007,leisure,resort,mapped_node,no,2026-11-03
+Peter Lou Resort,7.3444763,125.4631001,node,5247080895,https://www.openstreetmap.org/node/5247080895,leisure,resort,mapped_node,no,2026-11-03
+RCH Farm Resort,7.0367543,125.4134202,node,12468148801,https://www.openstreetmap.org/node/12468148801,leisure,resort,mapped_node,no,2026-11-03
+Remy Areja Mountain Resort,7.3692984500000005,125.42176025904179,way,972845609,https://www.openstreetmap.org/way/972845609,leisure,resort,polygon_interior,no,2026-11-03
+Riverstone Farm Resort,7.033285,125.4637789,node,12825188603,https://www.openstreetmap.org/node/12825188603,leisure,resort,mapped_node,no,2026-11-03
+RLG Swimming Pool Resort,7.0070815,125.5034774,node,5227740921,https://www.openstreetmap.org/node/5227740921,leisure,resort,mapped_node,no,2026-11-03
+San Josue Resort,7.1214962,125.63557324290971,way,1068754151,https://www.openstreetmap.org/way/1068754151,leisure,resort,polygon_interior,no,2026-11-03
+Skyline Garden Resort,7.0791343,125.5475047,node,436766152,https://www.openstreetmap.org/node/436766152,leisure,resort,mapped_node,no,2026-11-03
+Skyline Poolside,7.0793941,125.5475011,node,6822003065,https://www.openstreetmap.org/node/6822003065,leisure,resort,mapped_node,no,2026-11-03
+Sonnen Berg Mountain View,7.3603365,125.2905939,node,5456111423,https://www.openstreetmap.org/node/5456111423,leisure,resort,mapped_node,no,2026-11-03
+Sunridge,7.0019769,125.390868,node,5306202252,https://www.openstreetmap.org/node/5306202252,leisure,resort,mapped_node,no,2026-11-03
+Tagurano Highlands View,7.0491635,125.4037696,node,8432854081,https://www.openstreetmap.org/node/8432854081,leisure,resort,mapped_node,no,2026-11-03
+The Hangout Family Resort,6.9929176,125.3947604,node,9748842517,https://www.openstreetmap.org/node/9748842517,leisure,resort,mapped_node,no,2026-11-03
+The Red Barn,7.02435,125.39962592619739,way,1366700902,https://www.openstreetmap.org/way/1366700902,leisure,resort,polygon_interior,no,2026-11-03
+Villa Christina Ordchid and Garden Resort,7.14798375,125.47560191846718,way,1116535053,https://www.openstreetmap.org/way/1116535053,leisure,resort,polygon_interior,no,2026-11-03
+Villa Nilda Garden Resort,7.0052957,125.4979695,node,5003115021,https://www.openstreetmap.org/node/5003115021,leisure,resort,mapped_node,no,2026-11-03
+Whittington Creek,7.4788098,125.2472826,node,1836365756,https://www.openstreetmap.org/node/1836365756,leisure,resort,mapped_node,no,2026-11-03
+Whole World Inland Resort,6.9966918499999995,125.4911209804404,way,1557987029,https://www.openstreetmap.org/way/1557987029,leisure,resort,polygon_interior,no,2026-11-03
+Zenaida's Farm,7.2109833000000005,125.53362713399623,way,1060550264,https://www.openstreetmap.org/way/1060550264,leisure,resort,polygon_interior,no,2026-11-03
+Kamp Saya Resort,7.23431565,125.45888111040878,way,1448393002,https://www.openstreetmap.org/way/1448393002,leisure,water_park,polygon_interior,no,2026-11-03
+Mergrande Ocean Resort,7.0321015,125.52931817903578,way,29522133,https://www.openstreetmap.org/way/29522133,leisure,water_park,polygon_interior,no,2026-11-03
+Waterworld,7.03059935,125.52793025662834,way,29523919,https://www.openstreetmap.org/way/29523919,leisure,water_park,polygon_interior,no,2026-11-03
+Davao Lighthouse,7.0777137,125.6264926,node,9512579219,https://www.openstreetmap.org/node/9512579219,man_made,lighthouse,mapped_node,no,2026-11-03
+Panacan Lighthouse,7.1502088,125.6616691,node,9512488129,https://www.openstreetmap.org/node/9512488129,man_made,lighthouse,mapped_node,no,2026-11-03
+Sasa Lighthouse,7.1222911,125.6626611,node,9512566274,https://www.openstreetmap.org/node/9512566274,man_made,lighthouse,mapped_node,no,2026-11-03
+Binaton Peak,7.3614241,125.410856,node,6466936481,https://www.openstreetmap.org/node/6466936481,natural,peak,mapped_node,no,2026-11-03
+Bugtong Mangga,7.4444766,125.5495235,node,10863908264,https://www.openstreetmap.org/node/10863908264,natural,peak,mapped_node,no,2026-11-03
+Davao Peak,6.9879776,125.2725452,node,14014931379,https://www.openstreetmap.org/node/14014931379,natural,peak,mapped_node,no,2026-11-03
+Malapangi Peak,7.3669385,125.410451,node,6446054943,https://www.openstreetmap.org/node/6446054943,natural,peak,mapped_node,no,2026-11-03
+Mary Hill,7.0229747,125.4847562,node,11351292389,https://www.openstreetmap.org/node/11351292389,natural,peak,mapped_node,no,2026-11-03
+Mount Agusan,7.3546104,125.3244246,node,332021409,https://www.openstreetmap.org/node/332021409,natural,peak,mapped_node,no,2026-11-03
+Mount Bankilan,7.509769,125.3099513,node,8176526482,https://www.openstreetmap.org/node/8176526482,natural,peak,mapped_node,no,2026-11-03
+Mount Dinalag,7.4786908,125.3491781,node,332019639,https://www.openstreetmap.org/node/332019639,natural,peak,mapped_node,no,2026-11-03
+Mount Ebid,7.3725113,125.3540915,node,332019075,https://www.openstreetmap.org/node/332019075,natural,peak,mapped_node,no,2026-11-03
+Mount Iliyan,7.4973934,125.3541877,node,332020853,https://www.openstreetmap.org/node/332020853,natural,peak,mapped_node,no,2026-11-03
+Mount Kaalas-Asan,7.4072606,125.4240203,node,8174627088,https://www.openstreetmap.org/node/8174627088,natural,peak,mapped_node,no,2026-11-03
+Mount Kibubay,7.4231211,125.3609174,node,332021408,https://www.openstreetmap.org/node/332021408,natural,peak,mapped_node,no,2026-11-03
+Mount Kulapu,7.3685516,125.3490214,node,332019455,https://www.openstreetmap.org/node/332019455,natural,peak,mapped_node,no,2026-11-03
+Mount Libungan,7.2493985,125.4334563,node,6466936479,https://www.openstreetmap.org/node/6466936479,natural,peak,mapped_node,no,2026-11-03
+Mount Lipadas,7.0158376,125.3203878,node,10113632954,https://www.openstreetmap.org/node/10113632954,natural,peak,mapped_node,no,2026-11-03
+Mount Luwit,7.3611323,125.3440723,node,332021623,https://www.openstreetmap.org/node/332021623,natural,peak,mapped_node,no,2026-11-03
+Mount Magtotoy,7.526979,125.4636204,node,8174630364,https://www.openstreetmap.org/node/8174630364,natural,peak,mapped_node,no,2026-11-03
+Mount Malambo,7.4912311,125.2566363,node,332019043,https://www.openstreetmap.org/node/332019043,natural,peak,mapped_node,no,2026-11-03
+Mount Monoy,7.1968743,125.4150798,node,11401051759,https://www.openstreetmap.org/node/11401051759,natural,peak,mapped_node,no,2026-11-03
+Mount Nangalid,7.4927976,125.281078,node,6034077071,https://www.openstreetmap.org/node/6034077071,natural,peak,mapped_node,no,2026-11-03
+Mount Pitalong,7.5202688,125.346029,node,332019511,https://www.openstreetmap.org/node/332019511,natural,peak,mapped_node,no,2026-11-03
+Mount Saldab,7.4872633,125.3648776,node,332020089,https://www.openstreetmap.org/node/332020089,natural,peak,mapped_node,no,2026-11-03
+Mount Simud,7.4661198,125.333174,node,332019159,https://www.openstreetmap.org/node/332019159,natural,peak,mapped_node,no,2026-11-03
+Mount Tinanan,7.1738796,125.2176404,node,767188868,https://www.openstreetmap.org/node/767188868,natural,peak,mapped_node,no,2026-11-03
+Mount Tipolog,7.1604095,125.3357727,node,332020502,https://www.openstreetmap.org/node/332020502,natural,peak,mapped_node,no,2026-11-03
+Mount Unapan,7.220899,125.309173,node,332020451,https://www.openstreetmap.org/node/332020451,natural,peak,mapped_node,no,2026-11-03
+Mundo Hill,7.3965334,125.297758,node,6224226684,https://www.openstreetmap.org/node/6224226684,natural,peak,mapped_node,no,2026-11-03
+Pungco Hill,7.4746568,125.4700222,node,6829632757,https://www.openstreetmap.org/node/6829632757,natural,peak,mapped_node,no,2026-11-03
+Viper's Peak,7.0379368,125.4463707,node,8467338623,https://www.openstreetmap.org/node/8467338623,natural,peak,mapped_node,no,2026-11-03
+Mount Apo,6.9873416,125.2709954,node,416326155,https://www.openstreetmap.org/node/416326155,natural,volcano,mapped_node,no,2026-11-03
+Mount Talomo,7.0409686,125.3169015,node,332020483,https://www.openstreetmap.org/node/332020483,natural,volcano,mapped_node,no,2026-11-03
+Abreeza Ayala Mall Davao,7.09120315,125.61156095214665,way,117593466,https://www.openstreetmap.org/way/117593466,shop,mall,polygon_interior,no,2026-11-03
+Bao Sheng Enterprises,7.0656169,125.6075706,node,11882717150,https://www.openstreetmap.org/node/11882717150,shop,mall,mapped_node,no,2026-11-03
+Center Point Plaza,7.0588745500000005,125.56931942288932,way,37235635,https://www.openstreetmap.org/way/37235635,shop,mall,polygon_interior,no,2026-11-03
+Chimes,7.0764247000000005,125.61922583164312,way,36895250,https://www.openstreetmap.org/way/36895250,shop,mall,polygon_interior,no,2026-11-03
+Citi Star Shopping Center,7.2373182499999995,125.64220827531906,way,1371941084,https://www.openstreetmap.org/way/1371941084,shop,mall,polygon_interior,no,2026-11-03
+CityMall,7.1417587000000005,125.59971405383305,way,1067507232,https://www.openstreetmap.org/way/1067507232,shop,mall,polygon_interior,no,2026-11-03
+Davao Komon Commercial Center,7.19269,125.6479381,node,11963848627,https://www.openstreetmap.org/node/11963848627,shop,mall,mapped_node,no,2026-11-03
+DCLA,7.07377915,125.62357692557374,way,115714339,https://www.openstreetmap.org/way/115714339,shop,mall,polygon_interior,no,2026-11-03
+DCLA,7.0745129,125.6234833732779,way,406194730,https://www.openstreetmap.org/way/406194730,shop,mall,polygon_interior,no,2026-11-03
+DCLA Mall,7.0130585,125.49695285,way,1310142260,https://www.openstreetmap.org/way/1310142260,shop,mall,polygon_interior,no,2026-11-03
+Felcris Centrale,7.05949225,125.60889523371824,way,207550734,https://www.openstreetmap.org/way/207550734,shop,mall,polygon_interior,no,2026-11-03
+G Center,7.102642250000001,125.64395531336062,way,1107719059,https://www.openstreetmap.org/way/1107719059,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Capital,7.080706449999999,125.51320060212436,way,965348064,https://www.openstreetmap.org/way/965348064,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Grand,7.193368400000001,125.45434313918832,way,845878324,https://www.openstreetmap.org/way/845878324,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Grand Citygate,7.11091325,125.6126526334019,way,674358366,https://www.openstreetmap.org/way/674358366,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Grand Ilustre,7.06917565,125.60634758631997,way,148568701,https://www.openstreetmap.org/way/148568701,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Grand Tibungco,7.1959601,125.64688209690617,way,1008879408,https://www.openstreetmap.org/way/1008879408,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Grand Toril,7.0125315,125.49088290235304,way,791155939,https://www.openstreetmap.org/way/791155939,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Mall of Davao,7.0776251,125.61414667310696,way,31756544,https://www.openstreetmap.org/way/31756544,shop,mall,polygon_interior,no,2026-11-03
+Gaisano Mall of Toril,7.01643615,125.49379598716507,way,845223151,https://www.openstreetmap.org/way/845223151,shop,mall,polygon_interior,no,2026-11-03
+Lachmi,7.0658595,125.60821549500562,way,246745883,https://www.openstreetmap.org/way/246745883,shop,mall,polygon_interior,no,2026-11-03
+Lakitan Shopping Mall,7.06683245,125.60658009466087,way,246745582,https://www.openstreetmap.org/way/246745582,shop,mall,polygon_interior,no,2026-11-03
+NCCC Mall Buhangin,7.11064585,125.61191722380923,way,674358367,https://www.openstreetmap.org/way/674358367,shop,mall,polygon_interior,no,2026-11-03
+NCCC Mall Ma-a,7.0627934,125.59366848137117,way,28978650,https://www.openstreetmap.org/way/28978650,shop,mall,polygon_interior,no,2026-11-03
+NCCC Panacan,7.14387335,125.66065000147506,way,148671311,https://www.openstreetmap.org/way/148671311,shop,mall,polygon_interior,no,2026-11-03
+Paragon Lifestyle Mall,7.0628011,125.6001509,node,14019141223,https://www.openstreetmap.org/node/14019141223,shop,mall,mapped_node,no,2026-11-03
+SM City Davao,7.0487529,125.5888076335206,way,28978622,https://www.openstreetmap.org/way/28978622,shop,mall,polygon_interior,no,2026-11-03
+SM Lanang Premier,7.0989732,125.63076526776402,way,1200041101,https://www.openstreetmap.org/way/1200041101,shop,mall,polygon_interior,no,2026-11-03
+Sta. Lucia Mall Davao,7.1331847,125.64215676218404,way,974630698,https://www.openstreetmap.org/way/974630698,shop,mall,polygon_interior,no,2026-11-03
+Vista Mall Davao,7.0866983,125.50831428804392,way,692924611,https://www.openstreetmap.org/way/692924611,shop,mall,polygon_interior,no,2026-11-03
+Ahungan sa Panaghiusa,7.0701541,125.6091453,node,13147441701,https://www.openstreetmap.org/node/13147441701,tourism,artwork,mapped_node,no,2026-11-03
+Buddha in Buda,7.4733878,125.2443238,node,13149032413,https://www.openstreetmap.org/node/13149032413,tourism,artwork,mapped_node,no,2026-11-03
+Davao City Lions Club,7.1302454,125.6437857,node,10561750309,https://www.openstreetmap.org/node/10561750309,tourism,artwork,mapped_node,no,2026-11-03
+Flight,7.0902647,125.611716,node,12885335625,https://www.openstreetmap.org/node/12885335625,tourism,artwork,mapped_node,no,2026-11-03
+Friendship Arch,7.0736732,125.6133082,way,1553624117,https://www.openstreetmap.org/way/1553624117,tourism,artwork,polygon_interior,no,2026-11-03
+Giant Durian Genesis Lore,7.13014035,125.64379170518293,way,303930682,https://www.openstreetmap.org/way/303930682,tourism,artwork,polygon_interior,no,2026-11-03
+Giant Eagle,7.4739995,125.243337,node,4870727823,https://www.openstreetmap.org/node/4870727823,tourism,artwork,mapped_node,no,2026-11-03
+Giant Eagle,7.0705413,125.6082073,node,13103867301,https://www.openstreetmap.org/node/13103867301,tourism,artwork,mapped_node,no,2026-11-03
+Gugma,7.1979862,125.4261567,node,12434636016,https://www.openstreetmap.org/node/12434636016,tourism,artwork,mapped_node,no,2026-11-03
+Inang Kalikasan,7.4788402,125.2964508,node,13149041073,https://www.openstreetmap.org/node/13149041073,tourism,artwork,mapped_node,no,2026-11-03
+Land of Promise,7.0954509,125.5731945,node,11947264616,https://www.openstreetmap.org/node/11947264616,tourism,artwork,mapped_node,no,2026-11-03
+Mapúa MCM Mace,7.0635496,125.595753,node,13147034156,https://www.openstreetmap.org/node/13147034156,tourism,artwork,mapped_node,no,2026-11-03
+Mataas na Paaralan ng Lungsod ng Dabaw,7.0785899,125.6068229,node,8660773982,https://www.openstreetmap.org/node/8660773982,tourism,artwork,mapped_node,no,2026-11-03
+Noah's Deck,7.191089,125.4271052,node,13255389542,https://www.openstreetmap.org/node/13255389542,tourism,artwork,mapped_node,no,2026-11-03
+Oblation Statue,7.0858139,125.4853068,node,8600309885,https://www.openstreetmap.org/node/8600309885,tourism,artwork,mapped_node,no,2026-11-03
+Our Lady of Grace,7.3771051,125.2791488,node,12438616550,https://www.openstreetmap.org/node/12438616550,tourism,artwork,mapped_node,no,2026-11-03
+Peace Arch,7.0766027000000005,125.61362612516282,way,115640693,https://www.openstreetmap.org/way/115640693,tourism,artwork,polygon_interior,no,2026-11-03
+Prosperity Arch,7.077214700000001,125.62436965,way,1286855025,https://www.openstreetmap.org/way/1286855025,tourism,artwork,polygon_interior,no,2026-11-03
+Statue of David,7.0414778,125.5837867,node,1140324389,https://www.openstreetmap.org/node/1140324389,tourism,artwork,mapped_node,no,2026-11-03
+Unity Arch,7.0743016,125.62467042359312,way,587691806,https://www.openstreetmap.org/way/587691806,tourism,artwork,polygon_interior,no,2026-11-03
+USEP Eagle,7.0860162,125.6157573,node,11914747158,https://www.openstreetmap.org/node/11914747158,tourism,artwork,mapped_node,no,2026-11-03
+Apata Farm,7.5406066,125.4841822,node,12860286328,https://www.openstreetmap.org/node/12860286328,tourism,attraction,mapped_node,no,2026-11-03
+Bemwa Farm,7.48203455,125.25919845653505,way,1095279031,https://www.openstreetmap.org/way/1095279031,tourism,attraction,polygon_interior,no,2026-11-03
+Bukid Amara,7.04503685,125.51460512264312,way,1470781676,https://www.openstreetmap.org/way/1470781676,tourism,attraction,polygon_interior,no,2026-11-03
+Kalbaryo,7.1912582,125.6478143,node,11937803477,https://www.openstreetmap.org/node/11937803477,tourism,attraction,mapped_node,no,2026-11-03
+Malagos Bird Show,7.191181,125.4261069,node,10708154218,https://www.openstreetmap.org/node/10708154218,tourism,attraction,mapped_node,no,2026-11-03
+Philippine Eagle,7.1854051,125.4146835,node,5346156984,https://www.openstreetmap.org/node/5346156984,tourism,attraction,mapped_node,no,2026-11-03
+Roxas Night Market,7.07041525,125.6133731743403,way,504508082,https://www.openstreetmap.org/way/504508082,tourism,attraction,polygon_interior,no,2026-11-03
+Rudys master key,7.072872,125.6112377,node,14053331502,https://www.openstreetmap.org/node/14053331502,tourism,attraction,mapped_node,no,2026-11-03
+Wella mini mart,7.1684404,125.4728151,node,14051201001,https://www.openstreetmap.org/node/14051201001,tourism,attraction,mapped_node,no,2026-11-03
+Camp Box,7.4759709,125.283824,node,12327894703,https://www.openstreetmap.org/node/12327894703,tourism,camp_site,mapped_node,no,2026-11-03
+Camp With Me,7.0186456,125.3961583,node,13341583065,https://www.openstreetmap.org/node/13341583065,tourism,camp_site,mapped_node,no,2026-11-03
+In Thy Clouds,7.4810433,125.2936515,node,12334656254,https://www.openstreetmap.org/node/12334656254,tourism,camp_site,mapped_node,no,2026-11-03
+Lake Venado Campsite,7.0044948,125.268007,node,1195030178,https://www.openstreetmap.org/node/1195030178,tourism,camp_site,mapped_node,no,2026-11-03
+Tiki Tagu,7.0405187,125.3960667,node,11883435719,https://www.openstreetmap.org/node/11883435719,tourism,camp_site,mapped_node,no,2026-11-03
+Bong Perez Art Gallery,7.0574778,125.541027,node,11001703805,https://www.openstreetmap.org/node/11001703805,tourism,gallery,mapped_node,no,2026-11-03
+Galerie Raphael,7.1030504,125.6442415,node,11914585318,https://www.openstreetmap.org/node/11914585318,tourism,gallery,mapped_node,no,2026-11-03
+Ponce Gallery,7.0839768,125.608402,node,13147340396,https://www.openstreetmap.org/node/13147340396,tourism,gallery,mapped_node,no,2026-11-03
+D' Bone Collector Museum,7.061064999999999,125.61261015,way,201735372,https://www.openstreetmap.org/way/201735372,tourism,museum,polygon_interior,no,2026-11-03
+Datu Bago Gallery,7.0791775,125.6075055,node,10091761617,https://www.openstreetmap.org/node/10091761617,tourism,museum,mapped_node,no,2026-11-03
+Malagos Chocolate Museum,7.19176345,125.4279683389008,way,692725544,https://www.openstreetmap.org/way/692725544,tourism,museum,polygon_interior,no,2026-11-03
+Mindanao Folk Arts Museum,7.0551679499999995,125.5940747736,way,275742644,https://www.openstreetmap.org/way/275742644,tourism,museum,polygon_interior,no,2026-11-03
+Museo Dabawenyo,7.0793875,125.6044903,node,13179862776,https://www.openstreetmap.org/node/13179862776,tourism,museum,mapped_node,no,2026-11-03
+National Museum of the Philippines - Davao,7.07022325,125.60916279511099,way,1153418558,https://www.openstreetmap.org/way/1153418558,tourism,museum,polygon_interior,no,2026-11-03
+Philippine-Japan Historical Museum,7.1882391000000005,125.46032184382616,way,845891019,https://www.openstreetmap.org/way/845891019,tourism,museum,polygon_interior,no,2026-11-03
+W-Autosports Museum,7.09745355,125.59526956281218,way,1330587338,https://www.openstreetmap.org/way/1330587338,tourism,museum,polygon_interior,no,2026-11-03
+Picnic Area,7.0629165,125.5294036,node,1505391441,https://www.openstreetmap.org/node/1505391441,tourism,picnic_site,mapped_node,no,2026-11-03
+Bollad ta' Manama,7.1252554,125.3535237,node,6267123638,https://www.openstreetmap.org/node/6267123638,tourism,viewpoint,mapped_node,no,2026-11-03
+Buntod ni Kap,7.2359055,125.3740615,node,13520733540,https://www.openstreetmap.org/node/13520733540,tourism,viewpoint,mapped_node,no,2026-11-03
+Catigan View Deck,7.0170104,125.3994183,node,8308656518,https://www.openstreetmap.org/node/8308656518,tourism,viewpoint,mapped_node,no,2026-11-03
+Datu Bangabang Hills,7.3654039,125.4154882,node,14077053729,https://www.openstreetmap.org/node/14077053729,tourism,viewpoint,mapped_node,no,2026-11-03
+Green Mountain View,7.1309097,125.5651185,node,7978818526,https://www.openstreetmap.org/node/7978818526,tourism,viewpoint,mapped_node,no,2026-11-03
+SLT Lantaw Bu-Gan,7.2512922,125.4079707,node,10595596705,https://www.openstreetmap.org/node/10595596705,tourism,viewpoint,mapped_node,no,2026-11-03
+Zafirah View,7.1319792,125.5637651,node,12882994802,https://www.openstreetmap.org/node/12882994802,tourism,viewpoint,mapped_node,no,2026-11-03
+Gran Verde Family Farm,7.21244825,125.4327389872872,way,689833578,https://www.openstreetmap.org/way/689833578,tourism,yes,polygon_interior,no,2026-11-03
+Davao Butterfly House,7.095682,125.59564906989542,way,81605496,https://www.openstreetmap.org/way/81605496,tourism,zoo,polygon_interior,no,2026-11-03
+Davao Crocodile Park & Zoo,7.09711305,125.59895946083077,way,81347693,https://www.openstreetmap.org/way/81347693,tourism,zoo,polygon_interior,no,2026-11-03
+Malagos Petting Zoo,7.19032535,125.42687222114476,way,693445997,https://www.openstreetmap.org/way/693445997,tourism,zoo,polygon_interior,no,2026-11-03
+Pet Club,7.0502927,125.5854346,node,13255183951,https://www.openstreetmap.org/node/13255183951,tourism,zoo,mapped_node,no,2026-11-03
+Philippine Eagle Center,7.1848752,125.415287,node,747886405,https://www.openstreetmap.org/node/747886405,tourism,zoo,mapped_node,no,2026-11-03
+The Little PetHouse,7.0977168,125.5811155,node,11484481802,https://www.openstreetmap.org/node/11484481802,tourism,zoo,mapped_node,no,2026-11-03
+Antag Falls,7.0178673,125.4354025,node,4793659429,https://www.openstreetmap.org/node/4793659429,waterway,waterfall,mapped_node,no,2026-11-03
+Apo Pantok Falls,7.0751113,125.3315055,node,5463558881,https://www.openstreetmap.org/node/5463558881,waterway,waterfall,mapped_node,no,2026-11-03
+Banwa Kasili Falls,7.0258519,125.4695703,node,1234747656,https://www.openstreetmap.org/node/1234747656,waterway,waterfall,mapped_node,no,2026-11-03
+Baradi Falls,7.4237512,125.2939144,node,6417207468,https://www.openstreetmap.org/node/6417207468,waterway,waterfall,mapped_node,no,2026-11-03
+Bat-Te Antaon Falls,7.0828557,125.3111772,node,5463558823,https://www.openstreetmap.org/node/5463558823,waterway,waterfall,mapped_node,no,2026-11-03
+Bayna Falls,7.0870201,125.3398364,node,5007784604,https://www.openstreetmap.org/node/5007784604,waterway,waterfall,mapped_node,no,2026-11-03
+Buluan Falls,7.5035105,125.2784273,node,5224027919,https://www.openstreetmap.org/node/5224027919,waterway,waterfall,mapped_node,no,2026-11-03
+Daragdag Falls,7.0840176,125.3138727,node,5003886647,https://www.openstreetmap.org/node/5003886647,waterway,waterfall,mapped_node,no,2026-11-03
+Datu Sicao Falls,7.0854246,125.3132627,node,4874930699,https://www.openstreetmap.org/node/4874930699,waterway,waterfall,mapped_node,no,2026-11-03
+Eareen Falls,7.0690478,125.3360009,node,5463558846,https://www.openstreetmap.org/node/5463558846,waterway,waterfall,mapped_node,no,2026-11-03
+El-Lot Falls,7.0768636,125.3318304,node,4874930561,https://www.openstreetmap.org/node/4874930561,waterway,waterfall,mapped_node,no,2026-11-03
+Epol Falls,7.4575595,125.2365898,node,1240670407,https://www.openstreetmap.org/node/1240670407,waterway,waterfall,mapped_node,no,2026-11-03
+Kalikubak Falls,7.4354225,125.2960492,node,4196493191,https://www.openstreetmap.org/node/4196493191,waterway,waterfall,mapped_node,no,2026-11-03
+Kwagsik Falls,7.4598157,125.2673122,node,6534863940,https://www.openstreetmap.org/node/6534863940,waterway,waterfall,mapped_node,no,2026-11-03
+Lahandang Falls,7.3257489,125.2782933,node,3923125379,https://www.openstreetmap.org/node/3923125379,waterway,waterfall,mapped_node,no,2026-11-03
+Malapangi Falls,7.3741685,125.396305,node,6446054942,https://www.openstreetmap.org/node/6446054942,waterway,waterfall,mapped_node,no,2026-11-03
+Mantibag Falls,7.4225916,125.2942926,node,5238551329,https://www.openstreetmap.org/node/5238551329,waterway,waterfall,mapped_node,no,2026-11-03
+Mini Asik-Asik Falls,7.1014357,125.3427711,node,4874930788,https://www.openstreetmap.org/node/4874930788,waterway,waterfall,mapped_node,no,2026-11-03
+Misugpang Falls,7.4242641,125.344194,node,12896337603,https://www.openstreetmap.org/node/12896337603,waterway,waterfall,mapped_node,no,2026-11-03
+Namnam Falls,7.4619246,125.2775583,node,6754891559,https://www.openstreetmap.org/node/6754891559,waterway,waterfall,mapped_node,no,2026-11-03
+Ombes Sicao Falls,7.058363,125.3135964,node,5007783700,https://www.openstreetmap.org/node/5007783700,waterway,waterfall,mapped_node,no,2026-11-03
+Palangag Falls,7.3812733,125.4596736,node,5233664314,https://www.openstreetmap.org/node/5233664314,waterway,waterfall,mapped_node,no,2026-11-03
+Panday Falls,7.0378786,125.4436022,node,4796479461,https://www.openstreetmap.org/node/4796479461,waterway,waterfall,mapped_node,no,2026-11-03
+Pikot Falls,7.0885249,125.3223734,node,5463558931,https://www.openstreetmap.org/node/5463558931,waterway,waterfall,mapped_node,no,2026-11-03
+Pulang Bato Falls,7.0976628,125.338389,node,12500282850,https://www.openstreetmap.org/node/12500282850,waterway,waterfall,mapped_node,no,2026-11-03
+Sak-Amer Falls,7.4243842,125.2925813,node,5238551219,https://www.openstreetmap.org/node/5238551219,waterway,waterfall,mapped_node,no,2026-11-03
+Sualon Falls,7.2094187,125.3444016,node,8741584610,https://www.openstreetmap.org/node/8741584610,waterway,waterfall,mapped_node,no,2026-11-03
+Tabak Falls,7.1379891,125.3269995,node,5005927179,https://www.openstreetmap.org/node/5005927179,waterway,waterfall,mapped_node,no,2026-11-03
+Tagoy Falls,7.0969208,125.3385692,node,5007784425,https://www.openstreetmap.org/node/5007784425,waterway,waterfall,mapped_node,no,2026-11-03
+Tayupan Falls,7.0899831,125.3223069,node,4874930729,https://www.openstreetmap.org/node/4874930729,waterway,waterfall,mapped_node,no,2026-11-03
+Tikyo's Falls,7.1138547,125.3401449,node,5005923564,https://www.openstreetmap.org/node/5005923564,waterway,waterfall,mapped_node,no,2026-11-03
+Tumari Falls,6.9680952,125.3741205,node,5093108556,https://www.openstreetmap.org/node/5093108556,waterway,waterfall,mapped_node,no,2026-11-03

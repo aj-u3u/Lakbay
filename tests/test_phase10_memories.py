@@ -1,5 +1,6 @@
 from itertools import count
 
+from app.core.config import get_settings
 from app.integrations.storage.client import StorageUploadResult, get_storage_client
 
 
@@ -198,6 +199,33 @@ def test_active_member_can_upload_memory_image(client) -> None:
     assert body["cloudinary_public_id"] == "lakbay/memory.jpg"
     assert storage.calls[0]["folder_suffix"] == f"trips/{trip['trip_id']}/memories"
     assert storage.calls[0]["file_bytes"] == JPEG_BYTES
+
+
+def test_upload_limit_blocks_second_valid_upload_before_cloudinary(client, monkeypatch) -> None:
+    owner_headers = register_user(client, email="memory-owner-upload-limit@example.com")
+    trip = create_trip(client, owner_headers)
+    storage = FakeStorageClient()
+    override_storage(client, storage)
+    monkeypatch.setenv("CLOUDINARY_UPLOADS_PER_USER_DAY", "1")
+    get_settings.cache_clear()
+    url = f"/api/v1/trips/{trip['trip_id']}/memories/upload"
+
+    first = client.post(
+        url,
+        headers=owner_headers,
+        files={"file": ("first.jpg", JPEG_BYTES, "image/jpeg")},
+    )
+    second = client.post(
+        url,
+        headers=owner_headers,
+        files={"file": ("second.jpg", JPEG_BYTES, "image/jpeg")},
+    )
+
+    assert first.status_code == 200
+    assert second.status_code == 429
+    assert second.json()["error"]["code"] == "cloudinary_upload_rate_limit_exceeded"
+    assert int(second.headers["Retry-After"]) >= 1
+    assert len(storage.calls) == 1
 
 
 def test_upload_rejects_invalid_file_type(client) -> None:

@@ -81,6 +81,7 @@ class AIItineraryOption(BaseModel):
     cost_source: Literal["ai_draft_estimate"] = "ai_draft_estimate"
     is_over_budget: bool
     days: list[AIItineraryDay] = Field(min_length=1, max_length=30)
+    quality_warnings: list[str] = Field(default_factory=list)
 
 
 class AIModelRunResult(BaseModel):

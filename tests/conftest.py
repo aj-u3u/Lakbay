@@ -10,6 +10,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
+from app.features.ai.service import _ai_user_limiter
+from app.features.memories.service import _cloudinary_upload_limiter
+from app.features.routes.dependencies import _route_request_limiter
 from app.db.base import Base, import_model_modules
 from app.db.session import get_db_session
 from app.main import create_app
@@ -26,8 +29,14 @@ def compile_geography_for_sqlite(type_, compiler, **kw) -> str:
 @pytest.fixture(autouse=True)
 def clear_settings_cache() -> None:
     get_settings.cache_clear()
+    _ai_user_limiter.clear()
+    _cloudinary_upload_limiter.clear()
+    _route_request_limiter.clear()
     yield
     get_settings.cache_clear()
+    _ai_user_limiter.clear()
+    _cloudinary_upload_limiter.clear()
+    _route_request_limiter.clear()
 
 
 @pytest.fixture
@@ -35,6 +44,7 @@ def client(monkeypatch) -> Generator[TestClient, None, None]:
     monkeypatch.setenv("DATABASE_URL", TEST_DATABASE_URL)
     monkeypatch.setenv("JWT_SECRET_KEY", "test-secret-key")
     monkeypatch.setenv("ADMIN_REGISTRATION_CODE", "admin-test-code")
+    monkeypatch.setenv("CLOUDINARY_CLOUD_NAME", "demo")
     get_settings.cache_clear()
     import_model_modules()
 

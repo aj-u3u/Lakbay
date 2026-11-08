@@ -7,8 +7,8 @@ from app.features.geo_analytics.schemas import DestinationGroupsResponse
 from app.features.planning.schemas import PlanningPreviewResponse
 from app.features.recommendations.schemas import RecommendationItem
 
-PROMPT_VERSION = "phase5_itinerary_v1"
-PLANNING_PROMPT_VERSION = "phase15e_scored_groups_v2"
+PROMPT_VERSION = "phase5_itinerary_quality_gate_v2"
+PLANNING_PROMPT_VERSION = "phase15e_scored_groups_quality_gate_v3"
 CHAT_PROMPT_VERSION = "phase5_chat_v5_explicit_trip_details"
 
 
@@ -32,8 +32,10 @@ def build_itinerary_messages(
         "rules": [
             f"Return at least {option_count} itinerary options.",
             f"Each option must cover exactly {request.day_count} day(s).",
+            "Every option must include an activity for each selected destination ID.",
             "Every day must contain at least one activity.",
             "Every estimated_total_cost must be within total_budget.",
+            "Each option estimated_total_cost must equal the sum of its activity estimated_cost values; include every planned charge as an activity.",
             "Use numeric strings with two decimal places for costs.",
             "Use null for optional IDs when an activity is not tied to a known row.",
         ],
@@ -138,7 +140,7 @@ def build_geo_analytics_context(
     groups = (
         [
             {
-                **group.model_dump(mode="json"),
+                **group.model_dump(mode="json", exclude={"route"}),
                 "source": "phase15b_destination_groups",
                 "route_scope": "between_group_destinations_without_trip_origin",
             }

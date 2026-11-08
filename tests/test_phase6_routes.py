@@ -1,3 +1,6 @@
+import pytest
+
+from app.features.routes.schemas import RouteOptimizeRequest
 from app.integrations.google_routes.client import get_google_routes_client
 from app.integrations.google_routes.errors import GoogleRoutesClientError
 from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
@@ -382,8 +385,109 @@ def test_route_preview_falls_back_to_osrm_when_google_leg_count_mismatches(clien
     assert len(fake_google.calls) == len(fake_osrm.preview_calls) == 1
 
 
-def test_route_optimize_uses_osrm_stop_order(client) -> None:
+@pytest.mark.parametrize(
+    "preserve_first_destination,stop_order,expected_order",
+    [
+        (True, [0, 2, 1], [0, 2, 1]),
+        (False, [1, 0, 2], [1, 0, 2]),
+    ],
+)
+def test_route_optimize_uses_osrm_stop_order(
+    client, preserve_first_destination: bool, stop_order: list[int],
+    expected_order: list[int],
+) -> None:
     destination_a, destination_b, destination_c = create_route_destinations(client)
+    destination_ids = [
+        destination_a["destination_id"],
+        destination_b["destination_id"],
+        destination_c["destination_id"],
+    ]
+    fake_osrm = FakeOSRMClient(
+        optimize_result=OSRMRouteResult(
+            total_distance_meters=30000,
+            total_duration_seconds=3600,
+            legs=[
+                OSRMLeg(distance_meters=10000, duration_seconds=1200),
+                OSRMLeg(distance_meters=20000, duration_seconds=2400),
+            ],
+            stop_order=stop_order,
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": destination_ids,
+            "travel_mode": "driving",
+            "preserve_first_destination": preserve_first_destination,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "osrm"
+    assert body["total_distance_km"] == "30.00"
+    assert [stop["destination_id"] for stop in body["stops"]] == [
+        destination_ids[index] for index in expected_order
+    ]
+    assert len(body["legs"]) == 2
+    assert "suggested route order" in body["warnings"][0]
+    assert fake_osrm.optimize_calls[0]["preserve_first"] is preserve_first_destination
+
+
+@pytest.mark.parametrize("path", ["preview", "optimize"])
+def test_route_rejects_return_to_origin_without_origin(client, path: str) -> None:
+    fake_osrm = FakeOSRMClient(error=AssertionError("Invalid request must not call OSRM."))
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        f"/api/v1/routes/{path}",
+        headers=user_headers(client),
+        json={"destination_ids": [1], "return_to_origin": True},
+    )
+
+    assert response.status_code == 422
+    assert response.json()["error"]["code"] == "validation_error"
+    assert fake_osrm.preview_calls == fake_osrm.optimize_calls == []
+
+
+def test_route_preview_returns_to_supplied_origin(client) -> None:
+    destination_a, _, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(
+        preview_result=OSRMRouteResult(
+            total_distance_meters=20000,
+            total_duration_seconds=2400,
+            legs=[
+                OSRMLeg(distance_meters=10000, duration_seconds=1200),
+                OSRMLeg(distance_meters=10000, duration_seconds=1200),
+            ],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/preview",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [destination_a["destination_id"]],
+            "origin": {"label": "Start", "lat": 7.0, "lng": 125.6},
+            "return_to_origin": True,
+        },
+    )
+
+    assert response.status_code == 200
+    assert [stop["destination_id"] for stop in response.json()["stops"]] == [
+        None, destination_a["destination_id"], None,
+    ]
+
+
+@pytest.mark.parametrize("preserve_first_destination", [True, False])
+def test_route_optimize_keeps_origin_first_regardless_of_preserve_flag(
+    client, preserve_first_destination: bool,
+) -> None:
+    destination_a, destination_b, _ = create_route_destinations(client)
     fake_osrm = FakeOSRMClient(
         optimize_result=OSRMRouteResult(
             total_distance_meters=30000,
@@ -404,24 +508,29 @@ def test_route_optimize_uses_osrm_stop_order(client) -> None:
             "destination_ids": [
                 destination_a["destination_id"],
                 destination_b["destination_id"],
-                destination_c["destination_id"],
             ],
-            "travel_mode": "driving",
+            "origin": {"label": "Start", "lat": 7.0, "lng": 125.6},
+            "preserve_first_destination": preserve_first_destination,
         },
     )
 
     assert response.status_code == 200
     body = response.json()
     assert body["route_provider"] == "osrm"
-    assert body["total_distance_km"] == "30.00"
     assert [stop["destination_id"] for stop in body["stops"]] == [
-        destination_a["destination_id"],
-        destination_c["destination_id"],
+        None,
         destination_b["destination_id"],
+        destination_a["destination_id"],
     ]
-    assert len(body["legs"]) == 2
-    assert "suggested route order" in body["warnings"][0]
     assert fake_osrm.optimize_calls[0]["preserve_first"] is True
+
+
+def test_preserve_first_destination_description_explains_origin_precedence() -> None:
+    description = RouteOptimizeRequest.model_fields["preserve_first_destination"].description
+
+    assert "first listed destination" in description
+    assert "origin is provided" in description
+    assert "no effect" in description
 
 
 def test_route_optimize_keeps_osrm_result_when_google_leg_count_mismatches(client) -> None:

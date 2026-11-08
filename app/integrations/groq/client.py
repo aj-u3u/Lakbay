@@ -1,11 +1,17 @@
 import httpx
 
 from app.core.config import Settings, get_settings
+from app.core.exceptions import LakbayAPIError
+from app.core.provider_usage import ProviderLimiter
 from app.integrations.groq.errors import (
     GroqClientError,
     GroqConfigurationError,
     GroqModelUnavailableError,
+    GroqRateLimitError,
 )
+
+
+_groq_model_limiter = ProviderLimiter()
 from app.integrations.groq.schemas import GroqChatCompletion
 
 
@@ -18,6 +24,7 @@ class GroqClient:
         *,
         model: str,
         messages: list[dict[str, str]],
+        response_format: dict | None = None,
     ) -> GroqChatCompletion:
         if not self.settings.groq_api_key:
             raise GroqConfigurationError("GROQ_API_KEY is required.")
@@ -28,6 +35,8 @@ class GroqClient:
             "temperature": self.settings.groq_temperature,
             "max_tokens": self.settings.groq_max_tokens,
         }
+        if response_format is not None:
+            payload["response_format"] = response_format
         headers = {
             "Authorization": f"Bearer {self.settings.groq_api_key}",
             "Content-Type": "application/json",
@@ -40,6 +49,20 @@ class GroqClient:
         ) as client:
             for attempt in range(attempts):
                 try:
+                    try:
+                        _groq_model_limiter.reserve_many(
+                            [
+                                (f"groq:model:{model}:minute", self.settings.groq_model_requests_per_minute, 60, 1),
+                                (f"groq:model:{model}:day", self.settings.groq_model_requests_per_day, 86400, 1),
+                            ],
+                            code="groq_model_rate_limit_exceeded",
+                            message="Groq model is busy. Please try again shortly.",
+                        )
+                    except LakbayAPIError as exc:
+                        raise GroqRateLimitError(
+                            exc.message,
+                            retry_after_seconds=exc.details["retry_after_seconds"],
+                        ) from exc
                     response = await client.post(
                         "/chat/completions",
                         headers=headers,
@@ -48,7 +71,11 @@ class GroqClient:
                     return self._parse_response(response)
                 except GroqModelUnavailableError:
                     raise
-                except GroqClientError:
+                except GroqRateLimitError:
+                    raise
+                except GroqClientError as exc:
+                    if exc.status_code is not None and exc.status_code < 500:
+                        raise
                     if attempt == attempts - 1:
                         raise
                 except httpx.RequestError as exc:
@@ -60,6 +87,16 @@ class GroqClient:
         raise GroqClientError("Groq request failed.")
 
     def _parse_response(self, response: httpx.Response) -> GroqChatCompletion:
+        if response.status_code == 429:
+            raw_retry_after = response.headers.get("retry-after", "60")
+            try:
+                retry_after = max(1, int(raw_retry_after))
+            except ValueError:
+                retry_after = 60
+            raise GroqRateLimitError(
+                "Groq rate limit reached. Please try again shortly.",
+                retry_after_seconds=retry_after,
+            )
         if response.status_code in {400, 404}:
             raise GroqModelUnavailableError(
                 "Configured Groq model is unavailable or rejected the request.",

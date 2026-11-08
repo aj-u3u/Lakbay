@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     timezone: str = "Asia/Manila"
     debug: bool = False
     log_level: str = "INFO"
+    provider_usage_redis_url: str | None = None
 
     database_url: str = Field("", validation_alias="DATABASE_URL")
 
@@ -37,15 +38,20 @@ class Settings(BaseSettings):
     groq_max_retries: int = Field(default=1, ge=0, le=3)
     groq_temperature: float = Field(default=0.3, ge=0, le=2)
     groq_max_tokens: int = Field(default=4096, ge=256, le=32768)
+    groq_user_requests_per_minute: int = Field(default=20, ge=1, le=120)
+    groq_model_requests_per_minute: int = Field(default=2, ge=1, le=120)
+    groq_model_requests_per_day: int = Field(default=100, ge=1, le=14400)
 
     ai_itinerary_option_count: int = Field(default=5, ge=1, le=10)
     ai_model_comparison_enabled: bool = False
 
     osrm_base_url: str | None = None
+    osrm_walking_base_url: str | None = None
     osrm_request_timeout_seconds: int = Field(default=30, ge=1, le=120)
     osrm_profile_driving: str = "driving"
     osrm_profile_walking: str = "walking"
     route_max_destinations: int = Field(default=10, ge=1, le=25)
+    route_requests_per_minute: int = Field(default=10, ge=1, le=120)
     geo_group_requests_per_minute: int = Field(default=10, ge=1, le=120)
     planning_route_requests_per_minute: int = Field(default=10, ge=1, le=120)
 
@@ -60,11 +66,17 @@ class Settings(BaseSettings):
     openweather_units: str = "metric"
     openweather_lang: str = "en"
     openweather_request_timeout_seconds: int = Field(default=20, ge=1, le=120)
+    openweather_requests_per_minute: int = Field(default=45, ge=1, le=60)
+    openweather_requests_per_30_days: int = Field(default=100000, ge=1, le=1000000)
+    openweather_current_cache_seconds: int = Field(default=600, ge=0, le=3600)
+    openweather_forecast_cache_seconds: int = Field(default=3600, ge=0, le=10800)
 
     cloudinary_cloud_name: str | None = None
     cloudinary_api_key: str | None = None
     cloudinary_api_secret: str | None = None
     cloudinary_upload_folder: str = "lakbay"
+    cloudinary_uploads_per_user_day: int = Field(default=10, ge=1, le=1000)
+    cloudinary_uploads_per_app_day: int = Field(default=50, ge=1, le=10000)
     upload_max_image_bytes: int = Field(default=5_242_880, ge=1)
     upload_allowed_image_types: str = "image/jpeg,image/png,image/webp"
 

@@ -1,10 +1,17 @@
 import json
+from decimal import Decimal
 
 import pytest
 
 from app.core.config import get_settings
 from app.integrations.groq.client import get_groq_client
+from app.integrations.groq.itinerary_schema import ITINERARY_RESPONSE_FORMAT
 from app.integrations.groq.schemas import GroqChatCompletion
+from app.features.ai.validators import (
+    AIItineraryCatalog,
+    AIOutputValidationError,
+    parse_and_validate_itinerary_output,
+)
 
 
 DESTINATION_PAYLOAD = {
@@ -36,8 +43,13 @@ class FakeGroqClient:
         *,
         model: str,
         messages: list[dict[str, str]],
+        response_format: dict | None = None,
     ) -> GroqChatCompletion:
-        self.calls.append({"model": model, "messages": messages})
+        self.calls.append({
+            "model": model,
+            "messages": messages,
+            "response_format": response_format,
+        })
         content = self.responses.pop(0)
 
         return GroqChatCompletion(
@@ -190,7 +202,7 @@ def valid_ai_response(
                 "option_number": option_number,
                 "title": f"Beach option {option_number}",
                 "summary": "A valid beach itinerary draft.",
-                "estimated_total_cost": "4500.00",
+                "estimated_total_cost": f"{500 * day_count:.2f}",
                 "is_over_budget": False,
                 "days": [
                     {
@@ -654,6 +666,79 @@ def test_ai_generation_rejects_too_few_options(client, monkeypatch) -> None:
     assert response.json()["error"]["code"] == "ai_generation_failed"
 
 
+def test_quality_gate_requires_every_selected_place_without_planning_state() -> None:
+    catalog = AIItineraryCatalog(
+        destination_ids={1, 2}, accommodation_ids=set(), transportation_ids=set(),
+        total_budget=Decimal("10000.00"), day_count=2, minimum_option_count=5,
+        required_destination_ids={1, 2},
+    )
+    with pytest.raises(AIOutputValidationError, match="failed itinerary validation") as error:
+        parse_and_validate_itinerary_output(
+            content=valid_ai_response(destination_id=1), catalog=catalog,
+        )
+    assert "selected destination_id values: [1, 2]" in error.value.details[0]
+
+
+def test_generation_blocks_missing_selected_place_without_planning_state(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    first = create_destination(client, headers=admin)
+    second = create_destination(client, headers=admin, name="Second Test Beach")
+    fake_client = FakeGroqClient([
+        valid_ai_response(destination_id=first["destination_id"]),
+    ])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+    response = client.post(
+        "/api/v1/ai/itineraries/generate", headers=user_headers(client),
+        json=itinerary_request(
+            first["destination_id"],
+            destination_ids=[first["destination_id"], second["destination_id"]],
+            allow_fallback=False,
+        ),
+    )
+    assert response.status_code == 502
+    assert response.json()["error"]["details"]["model_runs"][0]["validation_status"] == "invalid"
+
+
+def test_quality_gate_rejects_total_that_does_not_equal_activity_costs() -> None:
+    catalog = AIItineraryCatalog(
+        destination_ids={1}, accommodation_ids=set(), transportation_ids=set(),
+        total_budget=Decimal("10000.00"), day_count=2, minimum_option_count=5,
+        required_destination_ids={1},
+    )
+    payload = json.loads(valid_ai_response(destination_id=1))
+    payload["options"][0]["estimated_total_cost"] = "3000.00"
+    with pytest.raises(AIOutputValidationError, match="failed itinerary validation") as error:
+        parse_and_validate_itinerary_output(content=json.dumps(payload), catalog=catalog)
+    assert "sum of its activity costs" in error.value.details[0]
+
+
+def test_quality_gate_discloses_unverified_hours_ferry_and_group_costs(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    destination = create_destination(
+        client, name="Samal Test Water Park", description="Ferry access required.",
+        operating_hours="Unknown; confirm before visiting.",
+    )
+    fake_client = FakeGroqClient([
+        valid_ai_response(destination_id=destination["destination_id"]),
+    ])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake_client
+    response = client.post(
+        "/api/v1/ai/itineraries/generate", headers=user_headers(client),
+        json=itinerary_request(destination["destination_id"], traveler_count=4),
+    )
+    assert response.status_code == 200, response.text
+    warnings = response.json()["options"][0]["quality_warnings"]
+    assert any("opening hours" in warning for warning in warnings)
+    assert any("ferry or boat fare" in warning for warning in warnings)
+    assert any("4 travelers" in warning for warning in warnings)
+    assert any("Travel times" in warning for warning in warnings)
+
+
 def test_ai_model_comparison_can_run_multiple_models(client, monkeypatch) -> None:
     configure_ai(monkeypatch, comparison_enabled=True)
     destination = create_destination(client)
@@ -678,6 +763,10 @@ def test_ai_model_comparison_can_run_multiple_models(client, monkeypatch) -> Non
     assert response.status_code == 200
     body = response.json()
     assert len(body["model_runs"]) == 3
+    assert all(
+        call["response_format"] == ITINERARY_RESPONSE_FORMAT
+        for call in fake_client.calls
+    )
     assert [run["model_id"] for run in body["model_runs"]] == [
         "compare-a-model",
         "compare-b-model",

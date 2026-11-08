@@ -47,3 +47,10 @@ Thumbs.db
 /storage/
 uploads/
 /reports/
+
+# Local tool output and assistant/tool settings
+node_modules/
+/outputs/
+/.claude/
+/.freebuff/
+test_output.txt

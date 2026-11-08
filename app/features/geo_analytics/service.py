@@ -241,6 +241,7 @@ class GeoAnalyticsService:
                 for stop in route.stops
                 if stop.destination_id is not None
             ],
+            route=route,
             score=score,
             scores=GroupScoreBreakdown(
                 preference=round(candidate.preference, 2),

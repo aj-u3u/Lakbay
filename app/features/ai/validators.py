@@ -134,6 +134,15 @@ def _validate_option(*, option: AIItineraryOption, catalog: AIItineraryCatalog) 
     if option.is_over_budget:
         raise AIOutputValidationError("Itinerary option is marked over budget.")
 
+    activity_total = sum(
+        (activity.estimated_cost for day in option.days for activity in day.activities),
+        Decimal("0.00"),
+    )
+    if option.estimated_total_cost != activity_total:
+        raise AIOutputValidationError(
+            "Itinerary total must equal the sum of its activity costs."
+        )
+
     for day in option.days:
         for activity in day.activities:
             _validate_activity_ids(activity=activity, catalog=catalog)

@@ -9,7 +9,12 @@ from app.integrations.osrm.errors import (
     OSRMConfigurationError,
     OSRMRouteNotFoundError,
 )
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
+from app.integrations.osrm.schemas import (
+    OSRMFerryCrossing,
+    OSRMLeg,
+    OSRMRouteResult,
+    OSRMStep,
+)
 
 
 MAX_PREVIEW_WAYPOINT_SNAP_METERS = 250.0
@@ -26,9 +31,13 @@ class OSRMClient:
         coordinates: list[RouteCoordinate],
     ) -> OSRMRouteResult:
         profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
         body = await self._get_json(
             f"/route/v1/{profile}/{_coordinates_path(coordinates)}",
-            params={"overview": "simplified", "steps": "true", "geometries": "polyline"},
+            # Full geometry follows the road at street zoom; simplified lines
+            # cut corners by up to about 100 m on longer routes.
+            params={"overview": "full", "steps": "true", "geometries": "polyline"},
+            base_url=base_url,
         )
 
         _require_near_route_waypoints(body, len(coordinates))
@@ -44,6 +53,7 @@ class OSRMClient:
         preserve_first: bool,
     ) -> OSRMRouteResult:
         profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
         source = "first" if preserve_first else "any"
         destination = "any" if roundtrip else "last"
 
@@ -55,23 +65,23 @@ class OSRMClient:
         body = await self._get_json(
             f"/trip/v1/{profile}/{_coordinates_path(coordinates)}",
             params={
-                "overview": "simplified",
+                "overview": "full",
                 "steps": "true",
                 "geometries": "polyline",
                 "roundtrip": str(roundtrip).lower(),
                 "source": source,
                 "destination": destination,
             },
+            base_url=base_url,
         )
 
         return _parse_trip_response(body, expected_count=len(coordinates))
 
-    async def _get_json(self, path: str, *, params: dict[str, str]) -> dict:
-        if not self.settings.osrm_base_url:
-            raise OSRMConfigurationError("OSRM_BASE_URL is not configured.")
-
+    async def _get_json(
+        self, path: str, *, params: dict[str, str], base_url: str
+    ) -> dict:
         async with httpx.AsyncClient(
-            base_url=self.settings.osrm_base_url.rstrip("/"),
+            base_url=base_url.rstrip("/"),
             timeout=self.settings.osrm_request_timeout_seconds,
         ) as client:
             try:
@@ -119,6 +129,27 @@ class OSRMClient:
 
         raise OSRMConfigurationError("OSRM does not support public_transport mode.")
 
+    def _base_url_for_mode(self, travel_mode: TravelMode) -> str:
+        if travel_mode == "driving":
+            base_url = self.settings.osrm_base_url
+            setting_name = "OSRM_BASE_URL"
+        elif travel_mode == "walking":
+            base_url = self.settings.osrm_walking_base_url
+            setting_name = "OSRM_WALKING_BASE_URL"
+        else:
+            raise OSRMConfigurationError("OSRM does not support public_transport mode.")
+        if not base_url:
+            raise OSRMConfigurationError(f"{setting_name} is not configured.")
+        if (
+            travel_mode == "walking"
+            and self.settings.osrm_base_url
+            and base_url.rstrip("/") == self.settings.osrm_base_url.rstrip("/")
+        ):
+            raise OSRMConfigurationError(
+                "OSRM_WALKING_BASE_URL must use a separate foot-profile service."
+            )
+        return base_url
+
 
 def get_osrm_client() -> OSRMClient:
     return OSRMClient()
@@ -154,12 +185,14 @@ def _parse_route_response(body: dict) -> OSRMRouteResult:
         raise OSRMRouteNotFoundError("OSRM did not return a route.")
 
     route = routes[0]
+    legs = _parse_legs(route)
 
     return OSRMRouteResult(
         total_distance_meters=float(route.get("distance") or 0),
         total_duration_seconds=float(route.get("duration") or 0),
-        legs=_parse_legs(route),
+        legs=legs,
         polyline=route.get("geometry"),
+        ferry_crossings=_ferry_crossings(legs),
     )
 
 
@@ -200,13 +233,15 @@ def _parse_trip_response(body: dict, expected_count: int) -> OSRMRouteResult:
         )
     ]
     trip = trips[0]
+    legs = _parse_legs(trip)
 
     return OSRMRouteResult(
         total_distance_meters=float(trip.get("distance") or 0),
         total_duration_seconds=float(trip.get("duration") or 0),
-        legs=_parse_legs(trip),
+        legs=legs,
         stop_order=ordered_indices,
         polyline=trip.get("geometry"),
+        ferry_crossings=_ferry_crossings(legs),
     )
 
 
@@ -223,9 +258,56 @@ def _parse_legs(route: dict) -> list[OSRMLeg]:
                     modifier=(step.get("maneuver") or {}).get("modifier"),
                     road_name=step.get("name") or None,
                     exit_number=(step.get("maneuver") or {}).get("exit"),
+                    mode=step.get("mode") or "driving",
+                    location=_maneuver_location(step),
                 )
                 for step in leg.get("steps") or []
             ],
         )
         for leg in route.get("legs") or []
     ]
+
+
+def _maneuver_location(step: dict) -> tuple[float, float] | None:
+    """Returns the step start as (lat, lng); OSRM sends [lng, lat]."""
+    location = (step.get("maneuver") or {}).get("location")
+    if (
+        isinstance(location, list)
+        and len(location) == 2
+        and all(
+            isinstance(value, (int, float)) and not isinstance(value, bool)
+            and isfinite(value)
+            for value in location
+        )
+    ):
+        return (float(location[1]), float(location[0]))
+    return None
+
+
+def _ferry_crossings(legs: list[OSRMLeg]) -> list[OSRMFerryCrossing]:
+    """Groups consecutive ferry steps; the landing is the next step's start."""
+    crossings: list[OSRMFerryCrossing] = []
+    for leg in legs:
+        index = 0
+        while index < len(leg.steps):
+            if leg.steps[index].mode != "ferry":
+                index += 1
+                continue
+            first = index
+            while index < len(leg.steps) and leg.steps[index].mode == "ferry":
+                index += 1
+            ferry_steps = leg.steps[first:index]
+            landing = leg.steps[index].location if index < len(leg.steps) else None
+            crossings.append(
+                OSRMFerryCrossing(
+                    distance_meters=sum(step.distance_meters for step in ferry_steps),
+                    duration_seconds=sum(step.duration_seconds for step in ferry_steps),
+                    name=next(
+                        (step.road_name for step in ferry_steps if step.road_name),
+                        None,
+                    ),
+                    start=ferry_steps[0].location,
+                    end=landing,
+                )
+            )
+    return crossings

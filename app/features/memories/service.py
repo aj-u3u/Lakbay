@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import LakbayAPIError
+from app.core.provider_usage import ProviderLimiter
 from app.features.memories.models import TripMemory
 from app.features.memories.repository import MemoryRepository
 from app.features.memories.schemas import (
@@ -19,6 +20,7 @@ from app.integrations.storage.client import CloudinaryStorageClient, StorageUplo
 
 
 _IMAGE_READ_CHUNK_SIZE = 64 * 1024
+_cloudinary_upload_limiter = ProviderLimiter()
 
 
 class MemoryService:
@@ -44,6 +46,14 @@ class MemoryService:
         trip, _ = await self._require_active_member(user=user, trip_id=trip_id)
         self._require_trip_mutable(trip)
         file_bytes = await self._read_validated_image(file)
+        _cloudinary_upload_limiter.reserve_many(
+            [
+                (f"cloudinary:user:{user.user_id}", self.settings.cloudinary_uploads_per_user_day, 86400, 1),
+                ("cloudinary:all", self.settings.cloudinary_uploads_per_app_day, 86400, 1),
+            ],
+            code="cloudinary_upload_rate_limit_exceeded",
+            message="Photo upload limit reached. Please try again later.",
+        )
         storage = self.storage_client or CloudinaryStorageClient(self.settings)
         result = await storage.upload_image(
             file_bytes=file_bytes,

@@ -11,3 +11,9 @@ class GroqConfigurationError(GroqClientError):
 
 class GroqModelUnavailableError(GroqClientError):
     pass
+
+
+class GroqRateLimitError(GroqClientError):
+    def __init__(self, message: str, *, retry_after_seconds: int) -> None:
+        super().__init__(message, status_code=429)
+        self.retry_after_seconds = retry_after_seconds

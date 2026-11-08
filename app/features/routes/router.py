@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.dependencies import get_current_user
 from app.db.session import get_db_session
+from app.features.routes.dependencies import enforce_route_request_limit
 from app.features.routes.schemas import (
     RouteOptimizeRequest,
     RoutePreviewRequest,
@@ -25,6 +26,7 @@ router = APIRouter(prefix="/routes", tags=["routes"])
     "/preview",
     response_model=RouteSummaryResponse,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(enforce_route_request_limit)],
     summary="Preview a route",
     description=(
         "Protected endpoint that keeps the selected destination order and returns "
@@ -54,6 +56,7 @@ async def preview_route(
     "/optimize",
     response_model=RouteSummaryResponse,
     status_code=status.HTTP_200_OK,
+    dependencies=[Depends(enforce_route_request_limit)],
     summary="Optimize destination order",
     description=(
         "Protected endpoint that suggests an efficient order for selected "

@@ -13,6 +13,7 @@ from app.features.routes.repository import RouteRepository
 from app.features.routes.schemas import (
     RouteCoordinate,
     RouteDirectionStep,
+    RouteFerryCrossing,
     RouteLeg,
     RouteOptimizeRequest,
     RoutePreviewRequest,
@@ -27,7 +28,12 @@ from app.integrations.google_routes.errors import GoogleRoutesClientError
 from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
 from app.integrations.osrm.client import OSRMClient
 from app.integrations.osrm.errors import OSRMClientError
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
+from app.integrations.osrm.schemas import (
+    OSRMFerryCrossing,
+    OSRMLeg,
+    OSRMRouteResult,
+    OSRMStep,
+)
 
 EARTH_RADIUS_KM = 6371.0
 ZERO_DISTANCE = Decimal("0.00")
@@ -391,7 +397,12 @@ def _osrm_response(
             start=1,
         )
     ]
-    response_warnings = [*(warnings or []), *_arrival_warnings(stops)]
+    ferries = [_ferry_crossing(item) for item in osrm_result.ferry_crossings]
+    response_warnings = [
+        *(warnings or []),
+        *_arrival_warnings(stops),
+        *(_ferry_warning(item) for item in ferries),
+    ]
 
     return RouteSummaryResponse(
         travel_mode=travel_mode,
@@ -405,6 +416,31 @@ def _osrm_response(
         polyline_encoding="polyline5" if osrm_result.polyline else None,
         arrival_points_verified=verified,
         warnings=response_warnings,
+        ferry_crossings=ferries,
+    )
+
+
+def _ferry_crossing(crossing: OSRMFerryCrossing) -> RouteFerryCrossing:
+    start = crossing.start or (None, None)
+    end = crossing.end or (None, None)
+    return RouteFerryCrossing(
+        name=crossing.name,
+        distance_km=_distance_km(crossing.distance_meters / 1000),
+        duration_minutes=_duration_minutes(crossing.duration_seconds),
+        from_lat=start[0],
+        from_lng=start[1],
+        to_lat=end[0],
+        to_lng=end[1],
+    )
+
+
+def _ferry_warning(crossing: RouteFerryCrossing) -> str:
+    name = f" ({crossing.name})" if crossing.name else ""
+    return (
+        f"This route includes a ferry crossing{name}, about "
+        f"{crossing.duration_minutes} min on the boat. Check the schedule and "
+        "fare before you travel; the travel time does not include waiting at "
+        "the pier."
     )
 
 
@@ -631,6 +667,8 @@ def _osrm_instruction(step: OSRMStep) -> str:
     road = f" onto {step.road_name}" if step.road_name else ""
     maneuver = step.maneuver_type.replace("_", " ").lower()
     modifier = (step.modifier or "").replace("uturn", "U-turn")
+    if step.mode == "ferry":
+        return f"Take the ferry{f' ({step.road_name})' if step.road_name else ''}"
     if maneuver == "depart":
         return f"Start{road}" if road else "Start the route"
     if maneuver == "arrive":

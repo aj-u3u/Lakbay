@@ -8,6 +8,7 @@ from app.features.ai.router import router as ai_router
 from app.features.auth.router import router as auth_router
 from app.features.budgets.router import router as budgets_router
 from app.features.destinations.router import router as destinations_router
+from app.features.destinations.candidate_router import router as destination_candidates_router
 from app.features.expenses.router import router as expenses_router
 from app.features.evaluation.router import router as evaluation_router
 from app.features.geo_analytics.router import router as geo_analytics_router
@@ -36,6 +37,7 @@ api_router = APIRouter()
 api_router.include_router(auth_router)
 api_router.include_router(ai_router)
 api_router.include_router(destinations_router)
+api_router.include_router(destination_candidates_router)
 api_router.include_router(destination_accommodations_router)
 api_router.include_router(accommodations_router)
 api_router.include_router(destination_transportations_router)

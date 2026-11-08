@@ -90,6 +90,7 @@ def test_generation_passes_scored_groups_and_selected_recommendations(client, mo
             "time": "11:00", "title": "Second beach", "description": "Visit the second beach.",
             "destination_id": second_id, "estimated_cost": "100.00",
         })
+        option["estimated_total_cost"] = "600.00"
     fake_ai = FakeGroqClient([json.dumps(output)])
     routes = FakeRoutes()
     client.app.dependency_overrides[get_groq_client] = lambda: fake_ai
@@ -111,6 +112,7 @@ def test_generation_passes_scored_groups_and_selected_recommendations(client, mo
     assert isinstance(group["score"], (int, float))
     assert group["is_route_estimated"] is True
     assert group["route_scope"] == "between_group_destinations_without_trip_origin"
+    assert "route" not in group
     assert {item["destination_id"] for item in context["top_recommendations"]} == {first_id, second_id}
     assert unselected["destination_id"] not in {
         item["destination_id"] for item in context["top_recommendations"]

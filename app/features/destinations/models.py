@@ -3,13 +3,16 @@ from decimal import Decimal
 
 from geoalchemy2 import Geography
 from sqlalchemy import (
+    BigInteger,
     Boolean,
     CheckConstraint,
     DateTime,
+    ForeignKey,
     Index,
     Numeric,
     String,
     Text,
+    UniqueConstraint,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -112,3 +115,46 @@ class Destination(Base):
         cascade="all, delete-orphan",
         passive_deletes=True,
     )
+
+
+class DestinationCandidate(Base):
+    """Unpublished OSM place awaiting an administrator's visitor review."""
+
+    __tablename__ = "destination_candidates"
+    __table_args__ = (
+        UniqueConstraint("osm_type", "osm_id", name="uq_destination_candidates_osm_identity"),
+        CheckConstraint("lat >= -90 AND lat <= 90", name="ck_destination_candidates_lat_range"),
+        CheckConstraint("lng >= -180 AND lng <= 180", name="ck_destination_candidates_lng_range"),
+        CheckConstraint("estimated_cost IS NULL OR estimated_cost >= 0", name="ck_destination_candidates_cost_non_negative"),
+        CheckConstraint("review_status IN ('staged', 'rejected', 'published')", name="ck_destination_candidates_review_status"),
+        Index("ix_destination_candidates_review_status", "review_status"),
+    )
+
+    candidate_id: Mapped[int] = mapped_column(primary_key=True)
+    osm_type: Mapped[str] = mapped_column(String(16), nullable=False)
+    osm_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    osm_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_area: Mapped[str] = mapped_column(String(100), nullable=False)
+    source_tag: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    lat: Mapped[float] = mapped_column(nullable=False)
+    lng: Mapped[float] = mapped_column(nullable=False)
+    suggested_category: Mapped[str | None] = mapped_column(String(500))
+    category: Mapped[str | None] = mapped_column(String(500))
+    visitor_purpose: Mapped[str | None] = mapped_column(Text)
+    description: Mapped[str | None] = mapped_column(Text)
+    district: Mapped[str | None] = mapped_column(String(255))
+    location: Mapped[str | None] = mapped_column(String(500))
+    activities: Mapped[str | None] = mapped_column(Text)
+    estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
+    entrance_fee: Mapped[str | None] = mapped_column(String(255))
+    overnight_fee: Mapped[str | None] = mapped_column(String(255))
+    operating_hours: Mapped[str | None] = mapped_column(String(255))
+    access_policy: Mapped[str | None] = mapped_column(String(20))
+    access_source_url: Mapped[str | None] = mapped_column(String(2048))
+    access_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    review_status: Mapped[str] = mapped_column(String(20), nullable=False, default="staged", server_default="staged")
+    review_notes: Mapped[str | None] = mapped_column(Text)
+    destination_id: Mapped[int | None] = mapped_column(ForeignKey("destinations.destination_id"), unique=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())

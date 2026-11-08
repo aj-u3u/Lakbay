@@ -39,7 +39,20 @@ service to optimize at most ten shortlisted groups and scores the returned
 route facts. The response contains `groups`, `candidates_considered`, and
 top-level `warnings`. Each group includes IDs, route order, total score, score
 components, route provider, distance, duration, estimated status, destination
-cost, reasons, and warnings. Different returned groups may share destinations.
+cost, reasons, and warnings. Each group also includes the complete calculated
+`route` response from the existing route service. Different returned groups may
+share destinations.
+
+`groups[].route` contains ordered `stops`, per-stop `legs`, optional encoded
+`polyline` and `polyline_encoding`, `arrival_points_verified`, provider and
+estimate status, and route warnings. Read `legs[].steps` for turn-by-turn
+instructions. Those steps are empty unless every destination in the group uses
+an admin-verified visitor arrival point. An OSRM road line may still be returned
+for unverified attraction coordinates as a planning preview; do not present it
+as navigation to a confirmed entrance. Haversine and public-transport estimates
+have no road line or turn-by-turn steps. The existing group summary fields remain
+available for clients already using them. The AI itinerary context keeps its
+compact group facts and does not include the nested route detail.
 
 The implemented `geo` score uses the formula below. Components are 0–100:
 

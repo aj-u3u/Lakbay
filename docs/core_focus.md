@@ -145,6 +145,12 @@ Current implementation notes:
   uses the arrival point.
 - Starter Davao destination seed data lives in
   `app/seeds/davao_destinations.py`.
+- Admin-only OSM candidates can be staged from the dated regional review and
+  enriched with fees, activities, hours, category, and access evidence before
+  publication. Unpublished candidates do not enter traveler results. Published
+  attraction pins remain `route_ready=false` until arrival verification. On
+  4 November 2026, the configured Neon database held 648 staged candidates and
+  still held 30 active destinations.
 - Rate currency and charging unit columns were added in `dfc235ae4bed`.
   New admin-entered rates use PHP and an explicit unit. Older seeded rates
   retain a null unit until verified by an admin.
@@ -249,8 +255,10 @@ Current implementation notes:
   trips yet.
 - AI prompts must use selected Phase 2 destination, accommodation, and
   transportation IDs. Free-text invented places should be rejected by validation.
-- Generated options are validated for JSON shape, selected database IDs, day
-  count, budget adherence, and minimum option count.
+- Generated options are validated for JSON shape, every selected destination
+  ID, day count, budget adherence, activity-cost arithmetic, and minimum option
+  count. Returned drafts flag unverified hours, missing ferry fare basis, group
+  cost assumptions, and unchecked travel times.
 - Groq model IDs are read from environment variables. Do not hard-code model IDs.
 - Each model attempt is logged in `ai_generation_runs` with model ID, prompt
   version, response time, token usage, validation status, and fallback status.
@@ -739,6 +747,35 @@ Done when:
 
 - Capstone documentation can explain the system without overstating unfinished
   features.
+
+### Phase 15H: Live Position On Route Map
+
+Purpose: show the traveler's moving position on the route map while the map
+screen is open, and refresh the route when they leave it.
+
+Plan: [live_tracking_plan_2026-11-07.md](live_tracking_plan_2026-11-07.md)
+(Stages 1–2). Stage 1 was approved on 7 November 2026; Stage 2 needs separate
+approval. Background tracking (plan Stage 3) and live replanning (plan Stage 4,
+proposal Step 9) are not part of this phase. Sharing a traveler's live location
+with other people is out of scope.
+
+Scope:
+
+- Foreground GPS on the traveler map screen with a moving position marker,
+  accuracy circle, and follow-me camera.
+- Remaining distance and time along the returned route line.
+- Off-route detection with a limited automatic route refresh.
+- Arrival notice, labeled "near" when only an attraction pin is known.
+- Clear weak, stale, denied, offline, and estimated states.
+- Backend: per-user limit on `POST /api/v1/routes/preview` and
+  `/routes/optimize` (`ROUTE_REQUESTS_PER_MINUTE`, default 10).
+
+Done when:
+
+- The position updates within about 5 seconds of movement while the map screen
+  is open, and GPS stops when it closes.
+- Leaving the route refreshes it at most once per minute.
+- No position is stored or shared by the backend; no schema change is made.
 
 ## Suggested MVP Boundary
 

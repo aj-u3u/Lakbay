@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import LakbayAPIError
+from app.core.provider_usage import ProviderCache, ProviderLimiter
 from app.features.destinations.repository import DestinationRepository
 from app.features.weather.schemas import (
     CurrentWeatherResponse,
@@ -16,6 +17,10 @@ from app.features.weather.schemas import (
     WeatherForecastDay,
     WeatherForecastResponse,
 )
+
+
+_weather_cache = ProviderCache()
+_weather_limiter = ProviderLimiter()
 
 
 class WeatherService:
@@ -108,6 +113,22 @@ class WeatherService:
         if extra_params:
             params.update(extra_params)
 
+        cache_key = repr((self.settings.openweather_base_url, path, lat, lng,
+                          self.settings.openweather_units, self.settings.openweather_lang,
+                          tuple(sorted((extra_params or {}).items()))))
+        cached = _weather_cache.get(cache_key)
+        if cached is not None:
+            return cached
+
+        _weather_limiter.reserve_many(
+            [
+                ("openweather:minute", self.settings.openweather_requests_per_minute, 60, 1),
+                ("openweather:30-days", self.settings.openweather_requests_per_30_days, 30 * 86400, 1),
+            ],
+            code="openweather_rate_limit_exceeded",
+            message="Weather is busy. Please try again shortly.",
+        )
+
         try:
             async with httpx.AsyncClient(
                 base_url=self.settings.openweather_base_url.rstrip("/"),
@@ -120,6 +141,20 @@ class WeatherService:
                 code="openweather_request_failed",
                 status_code=status.HTTP_502_BAD_GATEWAY,
             ) from exc
+
+        if response.status_code == 429:
+            raw_retry_after = response.headers.get("retry-after", "60")
+            try:
+                retry_after = max(1, int(raw_retry_after))
+            except ValueError:
+                retry_after = 60
+            raise LakbayAPIError(
+                "OpenWeather rate limit reached. Please try again shortly.",
+                code="openweather_rate_limit_exceeded",
+                status_code=429,
+                details={"retry_after_seconds": retry_after},
+                headers={"Retry-After": str(retry_after)},
+            )
 
         if response.status_code >= 400:
             raise LakbayAPIError(
@@ -145,6 +180,9 @@ class WeatherService:
                 status_code=status.HTTP_502_BAD_GATEWAY,
             )
 
+        ttl = (self.settings.openweather_current_cache_seconds if path == "/weather"
+               else self.settings.openweather_forecast_cache_seconds)
+        _weather_cache.put(cache_key, body, ttl_seconds=ttl)
         return body
 
 
