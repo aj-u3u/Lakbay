@@ -586,6 +586,70 @@ def test_route_optimize_keeps_osrm_result_when_google_leg_count_mismatches(clien
     assert len(fake_google.calls) == len(fake_osrm.optimize_calls) == 1
 
 
+def test_one_destination_from_origin_uses_fixed_order_road_route(client) -> None:
+    destination_a, _, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(
+        preview_result=OSRMRouteResult(
+            total_distance_meters=12000,
+            total_duration_seconds=1500,
+            legs=[OSRMLeg(distance_meters=12000, duration_seconds=1500)],
+            polyline="encoded-road-route",
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [destination_a["destination_id"]],
+            "travel_mode": "driving",
+            "origin": {"label": "Your Location", "lat": 7.03, "lng": 125.61},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "osrm"
+    assert body["is_estimated"] is False
+    assert body["total_distance_km"] == "12.00"
+    assert body["total_duration_minutes"] == 25
+    assert body["polyline"] == "encoded-road-route"
+    assert body["stops"][0]["is_origin"] is True
+    assert body["stops"][1]["destination_id"] == destination_a["destination_id"]
+    assert body["arrival_points_verified"] is False
+    assert body["legs"][0]["steps"] == []
+    assert fake_osrm.optimize_calls == []
+    assert len(fake_osrm.preview_calls) == 1
+    assert not any("suggested route order" in warning for warning in body["warnings"])
+
+
+def test_one_destination_from_origin_keeps_labeled_estimate_on_road_failure(client) -> None:
+    destination_a, _, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(error=OSRMClientError("OSRM is down."))
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [destination_a["destination_id"]],
+            "travel_mode": "driving",
+            "origin": {"label": "Your Location", "lat": 7.03, "lng": 125.61},
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["route_provider"] == "haversine"
+    assert body["is_estimated"] is True
+    assert body["polyline"] is None
+    assert body["legs"][0]["steps"] == []
+    assert any("OSRM was unavailable" in warning for warning in body["warnings"])
+    assert fake_osrm.optimize_calls == []
+    assert len(fake_osrm.preview_calls) == 1
+
+
 def test_route_optimize_estimates_when_osrm_fails_and_google_leg_count_mismatches(client) -> None:
     destination_a, destination_b, _ = create_route_destinations(client)
     fake_osrm = FakeOSRMClient(error=OSRMClientError("OSRM is down."))
