@@ -18,20 +18,20 @@ audit. Tick each box when the fix is done and verified.
 
 ## Priority 1 — security
 
-- [ ] **Rotate the Groq API key.** The full `GROQ_API_KEY` value was visible in a
+- [c ] **Rotate the Groq API key.** The full `GROQ_API_KEY` value was visible in a
   Render screenshot. Create a new key in the Groq console, delete the old key,
   then update Render and the local `.env`.
-- [ ] **Confirm `DEBUG=false` on Render.** `app/main.py` passes `settings.debug`
+- [c] **Confirm `DEBUG=false` on Render.** `app/main.py` passes `settings.debug`
   to FastAPI; with `true`, unhandled errors return stack traces. The Render
   value was hidden in the screenshot. `.env.example` has `DEBUG=true`, which is
   correct only for local use.
 
 ## Priority 2 — broken or limited features on the deployed app
 
-- [ ] **Weather returns 503.** `OPENWEATHER_API_KEY` is absent from the Render
+- [ goods na] **Weather returns 503.** `OPENWEATHER_API_KEY` is absent from the Render
   environment list. Add `OPENWEATHER_API_KEY`, `OPENWEATHER_BASE_URL`,
   `OPENWEATHER_UNITS` and `OPENWEATHER_LANG`.
-- [ ] **Photo uploads will fail.** No `CLOUDINARY_*` variables are on Render. Add
+- [ goods na] **Photo uploads will fail.** No `CLOUDINARY_*` variables are on Render. Add
   `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` and
   `CLOUDINARY_UPLOAD_FOLDER`.
 - [ ] **Optional AI model comparison is not configured on Render.** If used, add
