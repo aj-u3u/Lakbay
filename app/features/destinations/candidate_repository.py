@@ -36,19 +36,45 @@ class CandidateRepository:
         )
         return result.scalar_one_or_none()
 
-    async def nearby_same_name(self, candidate: DestinationCandidate) -> Destination | None:
+    async def list_by_osm_ids(self, osm_ids: list[int]) -> list[DestinationCandidate]:
+        """Return candidates for these OSM IDs; callers match the OSM type themselves."""
+        if not osm_ids:
+            return []
         result = await self.session.execute(
-            select(Destination).where(
-                func.lower(func.trim(Destination.name)) == candidate.name.strip().lower()
-            )
+            select(DestinationCandidate).where(DestinationCandidate.osm_id.in_(osm_ids))
         )
+        return list(result.scalars().all())
+
+    async def nearby_same_name(self, candidate: DestinationCandidate) -> Destination | None:
+        return (await self.nearby_same_names([(candidate.name, candidate.lat, candidate.lng)]))[0]
+
+    async def nearby_same_names(
+        self, places: list[tuple[str, float, float]]
+    ) -> list[Destination | None]:
+        """Match each (name, lat, lng) to a same-name destination within 250 m, in one query."""
+        names = {name.strip().lower() for name, _, _ in places}
+        if not names:
+            return []
+        result = await self.session.execute(
+            select(Destination).where(func.lower(func.trim(Destination.name)).in_(names))
+        )
+        by_name: dict[str, list[Destination]] = {}
         for destination in result.scalars():
-            if _distance_meters(candidate.lat, candidate.lng, destination.lat, destination.lng) <= 250:
-                return destination
-        return None
+            by_name.setdefault(destination.name.strip().lower(), []).append(destination)
+        return [
+            next(
+                (
+                    destination
+                    for destination in by_name.get(name.strip().lower(), [])
+                    if distance_meters(lat, lng, destination.lat, destination.lng) <= 250
+                ),
+                None,
+            )
+            for name, lat, lng in places
+        ]
 
 
-def _distance_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+def distance_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     d_lat = radians(lat2 - lat1)
     d_lng = radians(lng2 - lng1)
     a = sin(d_lat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(d_lng / 2) ** 2

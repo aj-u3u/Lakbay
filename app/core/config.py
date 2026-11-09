@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     ai_model_comparison_enabled: bool = False
 
     osrm_base_url: str | None = None
+    overpass_base_url: str = "https://overpass-api.de/api/interpreter"
+    overpass_request_timeout_seconds: int = Field(default=15, ge=1, le=60)
+    overpass_requests_per_minute: int = Field(default=10, ge=1, le=60)
     osrm_walking_base_url: str | None = None
     osrm_request_timeout_seconds: int = Field(default=30, ge=1, le=120)
     osrm_profile_driving: str = "driving"

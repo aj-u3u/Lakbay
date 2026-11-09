@@ -276,6 +276,9 @@ candidates, and the original 30 active destinations.
 | `PATCH /api/v1/admin/destination-candidates/{candidate_id}` | Correct name, pin, category, description, activities, fees, hours, visitor purpose, and access evidence. |
 | `POST /api/v1/admin/destination-candidates/{candidate_id}/reject` | Reject with `{"reason":"..."}`. |
 | `POST /api/v1/admin/destination-candidates/{candidate_id}/publish` | Create one active destination and link it to the reviewed candidate. |
+| `GET /api/v1/admin/destination-candidates/osm/search?name=...&lat=...&lng=...` | Search named OSM objects within 3 km of an approximate point (100–5000 m allowed). Return at most ten matches, exact name first and then nearest, with OSM identity, source tag, and existing Lakbay candidate/destination IDs when found. |
+| `GET /api/v1/admin/destination-candidates/osm/{osm_type}/{osm_id}/suggestions` | Fetch reviewable OSM fields for a new place chosen by the admin. This request saves nothing. |
+| `GET /api/v1/admin/destination-candidates/{candidate_id}/osm-suggestions` | Fetch reviewable OSM fields by the stored ID of a staged place. This request saves nothing. |
 
 An admin can add verified fees, activities, hours, and description while a
 candidate is staged. Unknown values stay null. The suggested OSM category is
@@ -294,5 +297,54 @@ Published destinations use the reviewed attraction `lat`/`lng`, with
 through the normal destination API. A gate, trailhead, or receiving pier needs
 separate verification before turn-by-turn directions are enabled. Later fee or
 activity edits use the existing admin `PATCH /api/v1/destinations/{id}` endpoint.
-The backend queue has no Flutter admin screen in this change; that client can
-use these endpoints when its UI is added.
+The Flutter admin Place review screen uses the candidate endpoints. Its
+destination editor and candidate review screen can show the new OSM matches and
+suggestions. Selecting **Use value** only fills a form field; the admin must
+still save, and candidate publication remains a separate action.
+
+### OSM matching and field review
+
+The new lookup returns name, attraction coordinates, an OSM description, opening
+hours, and address components only when the selected object contains those
+tags. Each suggested field includes the current candidate value, source tag, and
+OSM link. The response may also show a website, a `fee` tag, and the raw
+category tag (for example `leisure=garden`) as hints. It never converts
+`fee=yes` into a price. A `category` suggestion appears only when the OSM tag
+means the same as a word already used as a catalog category, for example
+`natural=beach` → `beach` or `waterway=waterfall` → `waterfall`; other tags stay
+in `category_hint` for the admin to interpret. It does not infer activities,
+suitability, transport, district, access policy, or a visitor entrance. For ways
+and relations, OSM `center` is the bounding-box center, not a verified gate.
+
+The search uses a bounded name and coordinate radius. Regex operators and quote
+characters in the name become `.` (any character), so the query contains no
+escape sequences; spaces and accented letters are sent as typed. Overpass
+returns up to 100 objects in ID order, and the backend then lists the exact name
+first, sorts the rest by distance from the approximate point, and returns ten.
+Responses are cached for five minutes per backend worker. Only calls that reach
+Overpass count toward the admin's limit (`OVERPASS_REQUESTS_PER_MINUTE`,
+default 10); reopening a cached result does not. Set `OVERPASS_BASE_URL` if a
+different Overpass instance is required; `OVERPASS_REQUEST_TIMEOUT_SECONDS`
+(default 15) is the total time allowed for one lookup, including retries.
+
+Live checks on 9 November 2026 found two provider behaviors:
+
+- `overpass-api.de` rejects httpx's default User-Agent with HTTP 406. The client
+  sends its own `Lakbay-admin-place-review/1.0` User-Agent, which is accepted.
+- When the public instance is at capacity it answers 502 or 504 and asks
+  clients to back off. The client retries busy answers (429, 502, 503, 504)
+  after 1 and then 2 seconds while time remains, then returns
+  `osm_unavailable` (503) with a "busy" message so the admin can enter the
+  details manually. Other failures return `osm_unavailable` or
+  `osm_invalid_response`.
+
+The public instance says it is meant for human-operated tools, which fits this
+admin-triggered lookup. Use a dedicated or self-hosted Overpass instance before
+any automated or bulk enrichment.
+
+No table, column, or migration changes are made for this increment. OSM source
+tags are visible during review, while persistent field-by-field source and
+verification history still needs a separately approved schema design. A new
+destination saved directly in the editor does not retain the chosen OSM ID;
+staged candidates retain their existing OSM identity. Admins should verify
+hours, fees, visitor access, and photos independently before publishing.
