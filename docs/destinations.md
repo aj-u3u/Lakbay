@@ -342,6 +342,16 @@ The public instance says it is meant for human-operated tools, which fits this
 admin-triggered lookup. Use a dedicated or self-hosted Overpass instance before
 any automated or bulk enrichment.
 
+If Overpass is unavailable, search can still return an exact-name match from the
+locally staged OSM candidate queue within the requested radius. This is a stored
+review lead, not a fresh OSM search, and a place absent from the queue still
+returns an availability error. After an admin selects a known OSM identity,
+the details request tries the official OSM API if Overpass is unavailable. This
+reads current tags and geometry without publishing or changing the candidate.
+The details attempt reserves seven seconds for Overpass and ten seconds for the
+OSM API so the admin app's 20-second request limit can cover both. A timeout
+now says to retry or enter the details manually.
+
 No table, column, or migration changes are made for this increment. OSM source
 tags are visible during review, while persistent field-by-field source and
 verification history still needs a separately approved schema design. A new

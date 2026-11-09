@@ -8,6 +8,8 @@ from app.core.exceptions import LakbayAPIError
 from app.core.config import get_settings
 from app.features.destinations.osm_lookup import OSMLookupService
 from app.integrations.osm.client import SEARCH_RESULT_CAP, OSMClient, name_pattern
+from app.db.session import get_db_session
+from app.features.destinations.models import DestinationCandidate
 from tests.test_destination_candidate_review import _stage_candidate
 from tests.test_phase2_destination_data import admin_headers, user_headers
 
@@ -44,6 +46,9 @@ class FakeOverpass:
     async def post(self, url, *, data, timeout):
         self.posts.append(data["data"])
         return self.responses.pop(0) if len(self.responses) > 1 else self.responses[0]
+
+    async def get(self, url):
+        return httpx.Response(503)
 
 
 def test_search_requires_admin_and_returns_reviewable_matches(client, monkeypatch) -> None:
@@ -125,6 +130,9 @@ def test_osm_failure_and_invalid_response_are_controlled(monkeypatch) -> None:
         async def __aexit__(self, *args):
             return None
         async def post(self, *args, **kwargs):
+            raise httpx.ConnectError("offline")
+
+        async def get(self, *args, **kwargs):
             raise httpx.ConnectError("offline")
 
     monkeypatch.setattr("app.integrations.osm.client.httpx.AsyncClient", lambda **kwargs: FailingClient())
@@ -280,3 +288,100 @@ def test_reviewed_or_missing_candidate_fails_before_any_osm_call(client, monkeyp
     assert missing.status_code == 404
     assert missing.json()["error"]["code"] == "candidate_not_found"
     assert calls == []
+
+
+def test_search_uses_local_candidate_when_overpass_is_unavailable(client, monkeypatch) -> None:
+    async def unavailable(self, **kwargs):
+        raise LakbayAPIError("OSM lookup timed out.", code="osm_unavailable", status_code=503)
+
+    monkeypatch.setattr(OSMClient, "search", unavailable)
+    candidate_id = _stage_candidate(client)
+    headers = admin_headers(client)
+    result = client.get(
+        f"{CANDIDATES}/osm/search",
+        params={"name": "Visitor Garden", "lat": 7.1, "lng": 125.6},
+        headers=headers,
+    )
+    assert result.status_code == 200
+    assert result.json()[0]["existing_candidate_id"] == candidate_id
+    assert result.json()[0]["source_tag"] == "leisure=garden"
+    assert client.get("/api/v1/destinations").json() == []
+
+
+def test_search_reports_unavailable_if_no_local_match(client, monkeypatch) -> None:
+    async def unavailable(self, **kwargs):
+        raise LakbayAPIError("OSM lookup timed out.", code="osm_unavailable", status_code=503)
+
+    monkeypatch.setattr(OSMClient, "search", unavailable)
+    result = client.get(
+        f"{CANDIDATES}/osm/search",
+        params={"name": "Unknown place", "lat": 7.1, "lng": 125.6},
+        headers=admin_headers(client),
+    )
+    assert result.status_code == 503
+    assert result.json()["error"]["code"] == "osm_unavailable"
+
+
+def test_known_way_details_fall_back_to_official_osm_api(monkeypatch) -> None:
+    xml = b'''<osm><node id="1" lat="7.070" lon="125.613"/>
+    <node id="2" lat="7.071" lon="125.614"/>
+    <way id="504508082"><tag k="name" v="Roxas Night Market"/>
+    <tag k="opening_hours" v="Mo-Su 17:00-23:00"/></way></osm>'''
+    urls = []
+
+    class UnavailableOverpass:
+        def __init__(self, **kwargs):
+            pass
+
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            pass
+
+        async def post(self, *args, **kwargs):
+            return httpx.Response(502)
+
+        async def get(self, url):
+            urls.append(url)
+            return httpx.Response(200, content=xml)
+
+    async def no_sleep(delay):
+        pass
+
+    monkeypatch.setattr("app.integrations.osm.client.httpx.AsyncClient", UnavailableOverpass)
+    monkeypatch.setattr("app.integrations.osm.client._sleep", no_sleep)
+    row = asyncio.run(OSMClient().get("way", 504508082))
+    assert row["tags"]["name"] == "Roxas Night Market"
+    assert row["tags"]["opening_hours"] == "Mo-Su 17:00-23:00"
+    assert row["center"] == {"lat": 7.0705, "lon": 125.6135}
+    assert urls == ["https://api.openstreetmap.org/api/0.6/way/504508082/full"]
+
+
+def test_roxas_way_is_found_from_staged_inventory_during_outage(client, monkeypatch) -> None:
+    async def stage_way():
+        override = client.app.dependency_overrides[get_db_session]
+        async for session in override():
+            session.add(DestinationCandidate(
+                osm_type="way", osm_id=504508082,
+                osm_url="https://www.openstreetmap.org/way/504508082",
+                source_area="Davao City", source_tag="tourism=attraction",
+                name="Roxas Night Market", lat=7.07041525, lng=125.6133731743403,
+                review_status="staged",
+            ))
+            await session.commit()
+            return
+
+    async def unavailable(self, **kwargs):
+        raise LakbayAPIError("OSM lookup timed out.", code="osm_unavailable", status_code=503)
+
+    asyncio.run(stage_way())
+    monkeypatch.setattr(OSMClient, "search", unavailable)
+    result = client.get(
+        f"{CANDIDATES}/osm/search",
+        params={"name": "Roxas Night Market", "lat": 7.07179, "lng": 125.61229},
+        headers=admin_headers(client),
+    )
+    assert result.status_code == 200
+    assert result.json()[0]["osm_id"] == 504508082
+    assert result.json()[0]["source_tag"] == "tourism=attraction"

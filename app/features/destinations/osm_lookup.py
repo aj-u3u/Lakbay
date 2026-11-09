@@ -57,7 +57,24 @@ class OSMLookupService:
         self.osm = OSMClient(before_provider_call)
 
     async def search(self, *, name: str, lat: float, lng: float, radius_m: int) -> list[OSMMatch]:
-        elements = await self.osm.search(name=name, lat=lat, lng=lng, radius_m=radius_m)
+        try:
+            elements = await self.osm.search(name=name, lat=lat, lng=lng, radius_m=radius_m)
+        except LakbayAPIError as exc:
+            if exc.code != "osm_unavailable":
+                raise
+            candidates = await self.candidates.matching_local_places(name, lat, lng, radius_m)
+            if not candidates:
+                raise
+            elements = [
+                {
+                    "type": candidate.osm_type, "id": candidate.osm_id,
+                    **({"lat": candidate.lat, "lon": candidate.lng} if candidate.osm_type == "node"
+                       else {"center": {"lat": candidate.lat, "lon": candidate.lng}}),
+                    "tags": {"name": candidate.name, **dict([candidate.source_tag.split("=", 1)])}
+                    if "=" in candidate.source_tag else {"name": candidate.name},
+                }
+                for candidate in candidates
+            ]
         places = [place for row in elements if (place := _place(row)) is not None]
         wanted = name.strip().casefold()
         # Exact names first, then the places closest to the admin's approximate point.

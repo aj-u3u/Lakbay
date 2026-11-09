@@ -45,6 +45,19 @@ class CandidateRepository:
         )
         return list(result.scalars().all())
 
+    async def matching_local_places(self, name: str, lat: float, lng: float, radius_m: int) -> list[DestinationCandidate]:
+        """Use reviewed OSM identities as a search fallback when Overpass is down."""
+        result = await self.session.execute(
+            select(DestinationCandidate).where(
+                func.lower(func.trim(DestinationCandidate.name)) == name.strip().lower(),
+                DestinationCandidate.review_status != "rejected",
+            )
+        )
+        return [
+            candidate for candidate in result.scalars()
+            if distance_meters(lat, lng, candidate.lat, candidate.lng) <= radius_m
+        ]
+
     async def nearby_same_name(self, candidate: DestinationCandidate) -> Destination | None:
         return (await self.nearby_same_names([(candidate.name, candidate.lat, candidate.lng)]))[0]
 
