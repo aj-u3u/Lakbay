@@ -37,6 +37,11 @@ a separate post-trip assessment. They are not mixed into this catalog summary.
 ISO/IEC 25010 evaluation still requires a study protocol and participant data;
 this endpoint supplies operational evidence only.
 
+The separate [mobile app assessment](app_assessments.md) collects six
+traveler-reported quality ratings after completed trips. Its admin-only summary
+has its own response and participant counts; those survey results are not part
+of `GET /api/v1/evaluation/summary`.
+
 ## Verification gates
 
 1. Run `python -m pytest -q` for backend regression coverage. The Phase 14

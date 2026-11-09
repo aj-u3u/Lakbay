@@ -1,5 +1,7 @@
 from fastapi import APIRouter
 
+from app.features.app_assessments.router import admin_router as app_assessments_admin_router
+from app.features.app_assessments.router import router as app_assessments_router
 from app.features.accommodations.router import (
     destination_router as destination_accommodations_router,
 )
@@ -53,6 +55,8 @@ api_router.include_router(destination_weather_router)
 api_router.include_router(trips_router)
 api_router.include_router(expenses_router)
 api_router.include_router(evaluation_router)
+api_router.include_router(app_assessments_router)
+api_router.include_router(app_assessments_admin_router)
 api_router.include_router(memories_router)
 api_router.include_router(reports_router)
 api_router.include_router(reviews_router)
