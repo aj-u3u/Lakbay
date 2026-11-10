@@ -129,6 +129,13 @@ continues separately. See the [coverage review](phase2_coverage_arrival_continua
 
 Current implementation notes:
 
+- **Approved current scope (10 November 2026):** use saved place pins for Top 5,
+  AI itinerary context, and approximate route planning. Visitor-arrival review
+  and its admin editor are deferred, not prerequisites for these flows. Retain
+  optional arrival fields and existing validation without a migration. Admins
+  still review place identity, pin location, access, prices and hours; keep
+  uncertain values and route estimates explicit. See the
+  [updated objectives plan](objectives_panel_upgrade_plan_2026-11-09.md).
 - Phase 2 currently uses simple text fields for `category`, `vibes`, and
   `activities`.
 - Destination delete is a soft delete through `is_active=false`.
@@ -699,9 +706,16 @@ and per-user limiter. Unknown-cost destinations are excluded from scored groups;
 an empty group result is explicit. Every AI option still must use exactly the
 selected IDs and pass backend budget validation. A chosen validated option can
 be saved with its preview and route in Phase 7 trip records. Optional Phase 15D
-age rules now flow through the same preview budget and AI prompt. Live route
-readiness depends on verified visitor
-arrival points in the catalog.
+age rules now flow through the same preview budget and AI prompt. Verified-arrival
+directions require reviewed arrival points. Under the approved 10 November scope,
+place pins can supply approximate planning context without those arrival points.
+
+The 10 November catalog-flow correction also retains saved access/travel details,
+place pins and optional arrival metadata in itinerary catalog context. Each rate
+includes currency and charging unit; null units remain unknown. The traveler
+retains saved travel fields for its existing tips section. This adds no schema
+or endpoint and does not change output validation. See [ai_itineraries.md](ai_itineraries.md)
+and `tests/test_catalog_planning_flow.py`.
 
 ### Phase 15F: Itinerary Feedback
 

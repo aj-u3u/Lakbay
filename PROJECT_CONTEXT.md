@@ -1,5 +1,22 @@
 # Lakbay+ system context and Claude Code handoff
 
+**Approved scope update — 10 November 2026:** the current version uses saved
+place pins for Top 5, AI itinerary context and approximate route planning.
+Visitor-arrival verification and its admin editor are deferred. Keep optional
+arrival fields and their validation; no schema change is approved or needed.
+Admin review still covers place identity, pin location, access, prices and hours.
+This supersedes arrival-verification priorities in the historical snapshot below.
+Read the [current audit and handoff](docs/claude_codex_objectives_audit_2026-11-10.md)
+and [updated objectives plan](docs/objectives_panel_upgrade_plan_2026-11-09.md)
+for current work status and the locally tested per-person budget correction.
+
+**Implemented locally — 10 November:** saved travel details now reach the
+traveler's existing tips section, and itinerary prompts retain place pins,
+access/travel notes and rate currencies/charging units. Admin save and refresh
+regressions passed (58 focused backend, 204 traveler, 38 admin tests; both apps
+analyze clean). See [the API guide](docs/ai_itineraries.md). No schema change,
+live-data edit, deployment or phone verification was performed for this slice.
+
 **Snapshot date:** 6 November 2026 (Asia/Manila). **Primary checkout:** `lakbay_backend_final`, branch `main` at `ddf304d`, with substantial modified and untracked work. This document describes the files currently present, including that local work; it is not a claim that every local change is deployed. The traveler and admin applications are separate sibling repositories (`UI_FOR_LAKBAY` and `FINAL_ADMINLAKBAY`) and are **not included** when only this backend repository is handed over. Their details below come from read-only inspection of those sibling folders and dated project notes.
 
 ## 1. Executive summary and core objectives

@@ -1,6 +1,14 @@
 # Destination Data Guide
 
-## Arrival point for routing
+## Place pins for current planning scope
+
+Approved on 10 November 2026: use the saved place pin (`lat/lng`) for discovery,
+Top 5, AI itinerary context, and approximate route planning. A separate visitor
+arrival point is optional; its admin editor is deferred. Admins still check
+place identity, pin location, access, prices and hours before relying on those
+facts. Keep unknowns explicit and pin-based routes labeled approximate.
+
+## Optional arrival point for routing
 
 `lat` and `lng` identify the attraction for discovery. `arrival_lat` and
 `arrival_lng` identify a reviewed visitor gate, parking area, trailhead, or
@@ -10,8 +18,9 @@ pier. Admins can set `route_ready=true` only when the arrival pair has an
 
 Route readiness covers the coordinate used for routing. Check opening status,
 required permits or bookings, access mode, and seasonal closures separately
-before treating a destination as available to travelers. For islands, route to
-a verified pier and model the boat crossing as a separate transport leg.
+before treating a destination as available to travelers. An island pin does not
+establish a road or boat connection. Verified pier-to-pier boat legs remain a
+separately scoped improvement; do not invent them from a pin.
 
 This document explains the Phase 2 destination, accommodation, and
 transportation API in plain terms.

@@ -5,6 +5,21 @@ implementation-ready way.
 
 Source: [OSRM API documentation](https://project-osrm.org/docs/)
 
+## Approved current scope — 10 November 2026
+
+Use the saved place pin for approximate route planning, Top 5 travel estimates,
+and AI itinerary context. A separately verified visitor arrival point is not a
+requirement for this version. Defer its admin editor and retain the existing
+optional fields, validation and compatibility with reviewed arrival data.
+
+Current services already fall back to place pins. Keep the approximation labels,
+warnings, and suppression of turn-by-turn steps for unverified arrivals. An OSRM
+road result can have `is_estimated=false` for its road calculation while
+`arrival_points_verified=false`; it is still an approximate approach to the place.
+Read both the coordinate basis and verification status when presenting it.
+Unreachable results and straight-line fallbacks must retain their own labels;
+a map pin does not prove visitor access, opening status or a ferry crossing.
+
 ## What Routing Means In Lakbay
 
 Routing answers this question:
@@ -32,8 +47,8 @@ public gate, parking area, trailhead, or pier where a route should end. Keep
 these as separate facts, with a source and review date for each arrival point.
 
 An attraction coordinate may support a provisional stop order or distance
-estimate only when its road approach has been checked and the result is labeled
-as a planning estimate. It must not be presented as a verified arrival point,
+estimate when the result is labeled as a planning estimate. It must not be
+presented as a verified arrival point,
 final travel time, or turn-by-turn destination. If opening status or required
 booking or permits are unresolved, the itinerary should ask the traveler to
 confirm them before the trip.
