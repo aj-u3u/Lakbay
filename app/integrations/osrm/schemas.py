@@ -58,3 +58,12 @@ class OSRMTableEntry:
 class OSRMTableResult:
     source_snap_meters: float | None
     entries: list[OSRMTableEntry]
+
+
+@dataclass(frozen=True)
+class OSRMMatrixResult:
+    """Travel between every pair of coordinates: ``durations_seconds[i][j]`` is i to j."""
+
+    # A None entry means OSRM found no route for that pair.
+    durations_seconds: list[list[float | None]]
+    distances_meters: list[list[float | None]]

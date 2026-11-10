@@ -10,8 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.exceptions import LakbayAPIError
 from app.features.destinations.models import Destination
+from app.features.routes.ordering import (
+    EXACT_ORDER_MAX_STOPS,
+    exact_order,
+    nearest_neighbor_two_opt,
+)
 from app.features.routes.repository import RouteRepository
 from app.features.routes.schemas import (
+    OrderMethod,
     RouteCoordinate,
     RouteDirectionStep,
     RouteFerryCrossing,
@@ -143,14 +149,15 @@ class RouteService:
     ) -> RouteSummaryResponse:
         stops = await self._build_stops(data)
 
+        preserve_first = data.origin is not None or data.preserve_first_destination
+
         if data.travel_mode == "public_transport":
-            ordered_stops = _nearest_neighbor_order(
-                stops,
-                preserve_first=data.origin is not None or data.preserve_first_destination,
+            ordered_stops = _heuristic_order(
+                stops, preserve_first=preserve_first, roundtrip=data.return_to_origin,
             )
             route_stops = _append_return_stop(ordered_stops, data.return_to_origin)
 
-            return _estimated_response(
+            return _with_order_method(_estimated_response(
                 travel_mode=data.travel_mode,
                 stops=route_stops,
                 route_provider="stored_transportation_estimate",
@@ -158,7 +165,7 @@ class RouteService:
                     "Public transport route order is estimated from destination "
                     "coordinates in Phase 6.",
                 ],
-            )
+            ), "nearest_neighbor_2opt")
 
         if len(stops) <= 1:
             return _empty_route_response(
@@ -173,7 +180,15 @@ class RouteService:
         if data.origin is not None and len(data.destination_ids) == 1:
             return await self._preview_stops(data, stops)
 
-        preserve_first = data.origin is not None or data.preserve_first_destination
+        # Small routes compare every possible order with OSRM travel times; larger
+        # ones, or a failed exact attempt, use OSRM Trip, then nearest neighbor.
+        if len(stops) <= EXACT_ORDER_MAX_STOPS:
+            exact_response = await self._exact_order_route(
+                data, stops, preserve_first=preserve_first,
+            )
+            if exact_response is not None:
+                return exact_response
+
         order_warning = (
             "OSRM Trip returns a suggested route order; it is not "
             "guaranteed to be mathematically optimal."
@@ -199,9 +214,8 @@ class RouteService:
         except (OSRMClientError, ValueError) as exc:
             if data.travel_mode == "driving":
                 logger.warning("Driving OSRM trip lookup failed: %s", exc)
-            ordered_stops = _nearest_neighbor_order(
-                stops,
-                preserve_first=preserve_first,
+            ordered_stops = _heuristic_order(
+                stops, preserve_first=preserve_first, roundtrip=data.return_to_origin,
             )
             route_stops = _append_return_stop(ordered_stops, data.return_to_origin)
 
@@ -210,25 +224,25 @@ class RouteService:
                 route_stops,
                 success_warnings=[
                     "OSRM optimization was unavailable, so Haversine "
-                    "nearest-neighbor ordering was used before adding "
+                    "nearest-neighbor ordering with 2-opt was used before adding "
                     "live traffic ETA.",
                 ],
             )
             if traffic_response is not None:
-                return traffic_response
+                return _with_order_method(traffic_response, "nearest_neighbor_2opt")
 
             warnings = [live_traffic_warning] if live_traffic_warning else []
             warnings.append(
                 "OSRM optimization was unavailable, so a Haversine "
-                "nearest-neighbor estimate was used."
+                "nearest-neighbor estimate with 2-opt was used."
             )
 
-            return _estimated_response(
+            return _with_order_method(_estimated_response(
                 travel_mode=data.travel_mode,
                 stops=route_stops,
                 route_provider="haversine",
                 warnings=warnings,
-            )
+            ), "nearest_neighbor_2opt")
 
         traffic_response, live_traffic_warning = await self._try_live_traffic(
             data,
@@ -240,10 +254,67 @@ class RouteService:
             ],
         )
         if traffic_response is not None:
-            return traffic_response
+            return _with_order_method(traffic_response, "osrm_trip")
         if live_traffic_warning:
             osrm_response.warnings.insert(0, live_traffic_warning)
-        return osrm_response
+        return _with_order_method(osrm_response, "osrm_trip")
+
+    async def _exact_order_route(
+        self,
+        data: RouteOptimizeRequest,
+        stops: list[RoutePlanStop],
+        *,
+        preserve_first: bool,
+    ) -> RouteSummaryResponse | None:
+        """Order by the lowest total OSRM travel time, or None to use OSRM Trip."""
+        try:
+            matrix = await self.osrm_client.matrix(
+                travel_mode=data.travel_mode,
+                coordinates=[stop.coordinate for stop in stops],
+            )
+        except (OSRMClientError, ValueError) as exc:
+            logger.info("OSRM table for exact stop ordering failed: %s", exc)
+            return None
+        durations = matrix.durations_seconds
+        if any(value is None for row in durations for value in row):
+            # A pair without a road connection cannot be compared fairly.
+            return None
+
+        order = exact_order(
+            durations, fixed_start=preserve_first, roundtrip=data.return_to_origin,
+        )
+        route_stops = _append_return_stop(
+            [stops[index] for index in order], data.return_to_origin,
+        )
+        order_warning = (
+            "Stops are in the order with the shortest total travel time, found by "
+            "comparing every possible order with OSRM travel times."
+        )
+        try:
+            osrm_result = await self.osrm_client.preview_route(
+                travel_mode=data.travel_mode,
+                coordinates=[stop.coordinate for stop in route_stops],
+            )
+            osrm_response = _osrm_response(
+                travel_mode=data.travel_mode,
+                stops=route_stops,
+                osrm_result=osrm_result,
+                warnings=[order_warning],
+            )
+        except (OSRMClientError, ValueError) as exc:
+            logger.info("OSRM route for the exact stop order failed: %s", exc)
+            return None
+
+        traffic_response, live_traffic_warning = await self._try_live_traffic(
+            data,
+            route_stops,
+            success_warnings=[order_warning, "Google Routes added live traffic ETA."],
+        )
+        if traffic_response is not None:
+            return _with_order_method(traffic_response, "exact")
+        if live_traffic_warning:
+            osrm_response.warnings.insert(0, live_traffic_warning)
+        return _with_order_method(osrm_response, "exact")
 
     async def _try_live_traffic(
         self,
@@ -704,46 +775,23 @@ def _osrm_instruction(step: OSRMStep) -> str:
     return f"{maneuver.capitalize()} {modifier}{road}".strip()
 
 
-def _nearest_neighbor_order(
+def _heuristic_order(
     stops: list[RoutePlanStop],
     *,
     preserve_first: bool,
+    roundtrip: bool,
 ) -> list[RoutePlanStop]:
-    if len(stops) <= 2:
-        return stops
-
-    if preserve_first:
-        return _nearest_neighbor_from_start(stops, start_index=0)
-
-    candidates = [
-        _nearest_neighbor_from_start(stops, start_index=index)
-        for index in range(len(stops))
-    ]
-
-    return min(candidates, key=_total_haversine_distance)
+    """Nearest neighbor plus 2-opt over straight-line distances."""
+    costs = [[_haversine_km(start, end) for end in stops] for start in stops]
+    order = nearest_neighbor_two_opt(costs, fixed_start=preserve_first, roundtrip=roundtrip)
+    return [stops[index] for index in order]
 
 
-def _nearest_neighbor_from_start(
-    stops: list[RoutePlanStop],
-    *,
-    start_index: int,
-) -> list[RoutePlanStop]:
-    remaining = stops.copy()
-    ordered = [remaining.pop(start_index)]
-
-    while remaining:
-        current = ordered[-1]
-        next_index = min(
-            range(len(remaining)),
-            key=lambda index: _haversine_km(current, remaining[index]),
-        )
-        ordered.append(remaining.pop(next_index))
-
-    return ordered
-
-
-def _total_haversine_distance(stops: list[RoutePlanStop]) -> float:
-    return sum(_haversine_km(start, end) for start, end in zip(stops, stops[1:]))
+def _with_order_method(
+    response: RouteSummaryResponse,
+    method: OrderMethod,
+) -> RouteSummaryResponse:
+    return response.model_copy(update={"order_method": method})
 
 
 def _haversine_km(start: RoutePlanStop, end: RoutePlanStop) -> float:

@@ -118,6 +118,7 @@ requires a fresh source URL and verification time in the same update.
 | `polyline`, `polyline_encoding` | Draw the returned encoded polyline (`polyline5`) on a map when the provider supplies one |
 | `legs[].distance_km`, `legs[].duration_minutes` | Show distance and ETA for each stop pair |
 | `legs[].steps[]` | Show maneuver text, meters, and seconds only for routes with verified arrival points |
+| `order_method` | How the stop order was chosen: `requested` (kept as given), `exact` (every order compared with OSRM travel times), `osrm_trip` (OSRM's suggested order) or `nearest_neighbor_2opt` (straight-line estimate when OSRM is unavailable, and for public transport) |
 | `is_estimated`, `route_provider`, `warnings` | Explain provider quality and fallback estimates |
 | `ferry_crossings[]` | Boat parts of an OSRM road route: `name`, `distance_km`, `duration_minutes`, boarding point `from_lat/from_lng` and landing point `to_lat/to_lng`. Each crossing also adds a warning to check the schedule and fare |
 
@@ -196,7 +197,8 @@ time.
 
 ### OSRM Table Service
 
-OSRM Table creates a distance and duration matrix between many places.
+OSRM Table creates a distance and duration matrix between many places. Lakbay
+uses it (`OSRMClient.matrix`) for the exact stop-order search described below.
 
 Use it when:
 
@@ -236,40 +238,61 @@ Current implementation:
 - A request to optimize one destination from an origin also uses OSRM Route:
   there is no destination order to optimize. This applies to the traveler
   Location & Route card and checks the road snap at both endpoints.
-- OSRM Trip is used for suggested route order when multiple destinations are
-  selected.
-- Haversine distance is used as a fallback estimate.
-- Haversine nearest-neighbor is used as the fallback optimization method.
+- `POST /routes/optimize` for driving and walking chooses the stop order in
+  three steps, and reports the one it used in `order_method`:
+  1. **Exact** (`exact`): with 11 stops or fewer (the 10-destination limit plus
+     the traveler's start), one OSRM Table request gives the travel time between
+     every pair of stops, and the backend compares every possible order with
+     Held-Karp dynamic programming. The cheapest order wins, using one-way road
+     times, so it respects direction. OSRM Route then draws that order. If OSRM
+     reports no road between any pair of stops, or the Table or Route request
+     fails, this step is skipped.
+  2. **OSRM Trip** (`osrm_trip`): used for more than 11 stops, or when the exact
+     step was skipped. OSRM suggests an order that is not guaranteed to be the
+     shortest.
+  3. **Nearest neighbor plus 2-opt** (`nearest_neighbor_2opt`): used when OSRM
+     is unavailable. The backend builds an order over Haversine distances by
+     always going to the nearest unvisited stop, then reverses sections of the
+     route wherever that shortens it, which removes crossed paths. It is
+     estimated (`is_estimated=true`).
+- `public_transport` is not routed on roads. It uses step 3 over stored
+  coordinates.
+- `POST /routes/preview` and the one-destination-from-origin case keep the
+  requested order and report `requested`.
+- Haversine distance is also used as the fallback distance estimate.
 
-Recommended enhancement path:
+All ordering methods keep the traveler's start first when an origin is given or
+`preserve_first_destination` is true, and when `return_to_origin` is true the
+trip's last leg back to the start is counted in the comparison. When the
+requested order is just as good as the best order found, it is kept, so a list
+is not reshuffled for no gain. The ordering code is in
+`app/features/routes/ordering.py` and is tested in `tests/test_route_ordering.py`.
 
-1. Keep OSRM Route and OSRM Trip for the current route endpoints.
-2. Add OSRM Table later when the backend needs a full travel-time matrix.
-3. Use nearest-neighbor to create a first route order when OSRM optimization is
-   unavailable.
-4. Add 2-opt improvement later to reduce route loops and inefficient backtracking.
-5. Use exact small-set TSP-style optimization only for small destination sets
-   when route accuracy matters more than simplicity.
+Limits to know about:
 
-Recommended first-choice algorithm:
+- A normal optimized route makes two OSRM requests (Table, then Route) instead
+  of one. If OSRM is slow or down, both can time out before the estimate is used.
+- Both ordering methods run inside the request handler. The exact search takes
+  about 0.16 seconds for 11 stops and 2-opt about 0.5 seconds for the 26-stop
+  worst case, so consider moving them to a worker thread if traffic grows.
+- Live traffic (`use_live_traffic`) only adds ETA to the chosen order. It does
+  not change which order is chosen.
 
-```text
-OSRM road duration data + nearest-neighbor ordering + optional 2-opt improvement
-```
+Reason for this design:
 
-Reason:
-
-- OSRM gives road-aware distance and duration.
-- nearest-neighbor is easy to explain and test.
-- 2-opt can improve obvious route loops without making the service hard to
-  maintain.
-- the existing route response keeps its original fields while adding optional
-  geometry, directions, and arrival verification for Flutter.
+- OSRM gives road-aware travel times, so the exact comparison reflects real
+  roads and one-way streets, not straight lines.
+- The exact search stays fast because route requests are small.
+- Nearest neighbor with 2-opt is easy to explain and test, and still removes
+  obvious route loops when roads are unavailable.
+- The route response keeps its original fields while adding `order_method`,
+  optional geometry, directions, and arrival verification for Flutter.
 
 Fallback behavior:
 
 ```text
-If OSRM is unavailable, use Haversine distance and fallback speeds.
+If OSRM is unavailable, use Haversine distance and fallback speeds, ordering
+stops with nearest neighbor plus 2-opt.
 ```
 
 Do not treat fallback estimates as live traffic. They should be marked with

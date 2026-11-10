@@ -6,6 +6,10 @@ from pydantic import BaseModel, Field, PositiveInt, model_validator
 TravelMode = Literal["driving", "walking", "public_transport"]
 DistanceKm = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
 TrafficLevel = Literal["unknown", "light", "moderate", "heavy", "severe"]
+# How the stop order was chosen: kept as requested, exact search over every
+# order with OSRM travel times, OSRM Trip's heuristic, or nearest neighbor
+# improved by 2-opt when OSRM is unavailable or the mode is estimated.
+OrderMethod = Literal["requested", "exact", "osrm_trip", "nearest_neighbor_2opt"]
 
 
 class RouteCoordinate(BaseModel):
@@ -105,6 +109,7 @@ class RouteSummaryResponse(BaseModel):
     travel_mode: TravelMode
     route_provider: str
     is_estimated: bool
+    order_method: OrderMethod = "requested"
     total_distance_km: DistanceKm
     total_duration_minutes: int = Field(ge=0)
     stops: list[RouteStop]

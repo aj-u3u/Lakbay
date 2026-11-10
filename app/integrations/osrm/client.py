@@ -12,6 +12,7 @@ from app.integrations.osrm.errors import (
 from app.integrations.osrm.schemas import (
     OSRMFerryCrossing,
     OSRMLeg,
+    OSRMMatrixResult,
     OSRMRouteResult,
     OSRMStep,
     OSRMTableEntry,
@@ -105,6 +106,22 @@ class OSRMClient:
             base_url=base_url,
         )
         return _parse_table_response(body, expected_count=len(destinations))
+
+    async def matrix(
+        self,
+        *,
+        travel_mode: TravelMode,
+        coordinates: list[RouteCoordinate],
+    ) -> OSRMMatrixResult:
+        """Return travel between every pair of coordinates in a single request."""
+        profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
+        body = await self._get_json(
+            f"/table/v1/{profile}/{_coordinates_path(coordinates)}",
+            params={"annotations": "duration,distance"},
+            base_url=base_url,
+        )
+        return _parse_matrix_response(body, expected_count=len(coordinates))
 
     async def _get_json(
         self, path: str, *, params: dict[str, str], base_url: str
@@ -238,6 +255,25 @@ def _parse_table_response(body: dict, *, expected_count: int) -> OSRMTableResult
             )
             for duration, distance, waypoint in zip(durations[0], distance_row, destinations)
         ],
+    )
+
+
+def _parse_matrix_response(body: dict, *, expected_count: int) -> OSRMMatrixResult:
+    def square(rows: object) -> bool:
+        return (
+            isinstance(rows, list) and len(rows) == expected_count
+            and all(isinstance(row, list) and len(row) == expected_count for row in rows)
+        )
+
+    durations = body.get("durations")
+    if not square(durations):
+        raise OSRMClientError("OSRM table response did not match the request.")
+    distances = body.get("distances")
+    if not square(distances):
+        distances = [[None] * expected_count for _ in range(expected_count)]
+    return OSRMMatrixResult(
+        durations_seconds=[[_optional_number(value) for value in row] for row in durations],
+        distances_meters=[[_optional_number(value) for value in row] for row in distances],
     )
 
 

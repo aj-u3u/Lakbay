@@ -28,6 +28,10 @@ class FakeOSRM:
         self.leg_seconds = leg_seconds
         self.calls = 0
 
+    async def matrix(self, **kwargs):
+        # Without a table, group routes use OSRM Trip as these tests expect.
+        raise OSRMClientError("This fake has no travel-time table.")
+
     async def optimize_route(self, *, coordinates, **kwargs):
         self.calls += 1
         if self.fail:

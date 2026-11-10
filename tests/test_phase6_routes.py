@@ -6,7 +6,7 @@ from app.integrations.google_routes.errors import GoogleRoutesClientError
 from app.integrations.google_routes.schemas import GoogleRouteLeg, GoogleRouteResult
 from app.integrations.osrm.client import get_osrm_client
 from app.integrations.osrm.errors import OSRMClientError
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult, OSRMStep
+from app.integrations.osrm.schemas import OSRMLeg, OSRMMatrixResult, OSRMRouteResult, OSRMStep
 
 
 DESTINATION_A = {
@@ -44,13 +44,27 @@ class FakeOSRMClient:
         *,
         preview_result: OSRMRouteResult | None = None,
         optimize_result: OSRMRouteResult | None = None,
+        matrix_result: OSRMMatrixResult | None = None,
         error: Exception | None = None,
     ) -> None:
         self.preview_result = preview_result
         self.optimize_result = optimize_result
+        self.matrix_result = matrix_result
         self.error = error
         self.preview_calls = []
         self.optimize_calls = []
+        self.matrix_calls = []
+
+    async def matrix(self, **kwargs) -> OSRMMatrixResult:
+        self.matrix_calls.append(kwargs)
+
+        if self.error is not None:
+            raise self.error
+        if self.matrix_result is None:
+            # Without a table, optimization uses OSRM Trip as before.
+            raise OSRMClientError("This fake has no travel-time table.")
+
+        return self.matrix_result
 
     async def preview_route(self, **kwargs) -> OSRMRouteResult:
         self.preview_calls.append(kwargs)
@@ -808,3 +822,192 @@ def test_route_request_enforces_configured_destination_limit(client) -> None:
     assert response.status_code == 400
     assert response.json()["error"]["code"] == "route_destination_limit_exceeded"
     assert response.json()["error"]["details"]["max_destinations"] == 10
+
+
+# Travel seconds between stops A, B and C (row = from, column = to). Visiting
+# C, then A, then B is the quickest order at 200 seconds in total.
+EXACT_ORDER_MATRIX = OSRMMatrixResult(
+    durations_seconds=[
+        [0, 100, 1000],
+        [1000, 0, 1000],
+        [100, 1000, 0],
+    ],
+    distances_meters=[
+        [0, 1000, 10000],
+        [10000, 0, 10000],
+        [1000, 10000, 0],
+    ],
+)
+TWO_LEG_ROUTE = OSRMRouteResult(
+    total_distance_meters=2000,
+    total_duration_seconds=200,
+    legs=[
+        OSRMLeg(distance_meters=1000, duration_seconds=100),
+        OSRMLeg(distance_meters=1000, duration_seconds=100),
+    ],
+)
+
+
+@pytest.mark.parametrize(
+    "preserve_first_destination,expected_order",
+    [
+        (False, [2, 0, 1]),
+        (True, [0, 1, 2]),
+    ],
+)
+def test_route_optimize_picks_the_exact_shortest_order(
+    client, preserve_first_destination: bool, expected_order: list[int],
+) -> None:
+    destinations = create_route_destinations(client)
+    destination_ids = [destination["destination_id"] for destination in destinations]
+    fake_osrm = FakeOSRMClient(
+        matrix_result=EXACT_ORDER_MATRIX,
+        preview_result=TWO_LEG_ROUTE,
+        error=None,
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": destination_ids,
+            "travel_mode": "driving",
+            "preserve_first_destination": preserve_first_destination,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["order_method"] == "exact"
+    assert body["route_provider"] == "osrm"
+    assert body["is_estimated"] is False
+    assert [stop["destination_id"] for stop in body["stops"]] == [
+        destination_ids[index] for index in expected_order
+    ]
+    assert any("shortest total travel time" in warning for warning in body["warnings"])
+    assert len(fake_osrm.matrix_calls) == 1
+    assert fake_osrm.optimize_calls == []
+    assert [
+        (coordinate.lat, coordinate.lng)
+        for coordinate in fake_osrm.preview_calls[0]["coordinates"]
+    ] == [(destinations[index]["lat"], destinations[index]["lng"]) for index in expected_order]
+
+
+def test_route_optimize_uses_osrm_trip_when_a_stop_pair_has_no_road(client) -> None:
+    destination_a, destination_b, destination_c = create_route_destinations(client)
+    durations = [list(row) for row in EXACT_ORDER_MATRIX.durations_seconds]
+    durations[0][2] = None
+    fake_osrm = FakeOSRMClient(
+        matrix_result=OSRMMatrixResult(
+            durations_seconds=durations,
+            distances_meters=EXACT_ORDER_MATRIX.distances_meters,
+        ),
+        optimize_result=OSRMRouteResult(
+            total_distance_meters=2000,
+            total_duration_seconds=200,
+            legs=TWO_LEG_ROUTE.legs,
+            stop_order=[0, 1, 2],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+                destination_c["destination_id"],
+            ],
+            "travel_mode": "driving",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["order_method"] == "osrm_trip"
+    assert len(fake_osrm.matrix_calls) == 1
+    assert len(fake_osrm.optimize_calls) == 1
+    assert fake_osrm.preview_calls == []
+
+
+def test_route_optimize_labels_osrm_trip_when_the_table_is_unavailable(client) -> None:
+    destination_a, destination_b, destination_c = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(optimize_result=OSRMRouteResult(
+        total_distance_meters=2000,
+        total_duration_seconds=200,
+        legs=TWO_LEG_ROUTE.legs,
+        stop_order=[0, 2, 1],
+    ))
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+                destination_c["destination_id"],
+            ],
+            "travel_mode": "driving",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["order_method"] == "osrm_trip"
+
+
+def test_route_optimize_labels_the_haversine_fallback_when_osrm_is_down(client) -> None:
+    destination_a, destination_b, destination_c = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(error=OSRMClientError("OSRM is down."))
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+
+    response = client.post(
+        "/api/v1/routes/optimize",
+        headers=user_headers(client),
+        json={
+            "destination_ids": [
+                destination_a["destination_id"],
+                destination_b["destination_id"],
+                destination_c["destination_id"],
+            ],
+            "travel_mode": "driving",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["order_method"] == "nearest_neighbor_2opt"
+    assert body["route_provider"] == "haversine"
+    assert any("2-opt" in warning for warning in body["warnings"])
+
+
+def test_public_transport_optimize_and_preview_report_their_order_method(client) -> None:
+    destination_a, destination_b, _ = create_route_destinations(client)
+    fake_osrm = FakeOSRMClient(
+        preview_result=OSRMRouteResult(
+            total_distance_meters=1000,
+            total_duration_seconds=100,
+            legs=[OSRMLeg(distance_meters=1000, duration_seconds=100)],
+        ),
+    )
+    client.app.dependency_overrides[get_osrm_client] = lambda: fake_osrm
+    headers = user_headers(client)
+    destination_ids = [destination_a["destination_id"], destination_b["destination_id"]]
+
+    transit = client.post(
+        "/api/v1/routes/optimize",
+        headers=headers,
+        json={"destination_ids": destination_ids, "travel_mode": "public_transport"},
+    )
+    preview = client.post(
+        "/api/v1/routes/preview",
+        headers=headers,
+        json={"destination_ids": destination_ids, "travel_mode": "driving"},
+    )
+
+    assert transit.json()["order_method"] == "nearest_neighbor_2opt"
+    assert preview.json()["order_method"] == "requested"
