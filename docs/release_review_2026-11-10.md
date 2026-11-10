@@ -2,7 +2,13 @@
 
 Prepared on 10 November 2026 after the user approved separating the completed
 fixes from unfinished work. This is a local release preparation record. Nothing
-has been pushed, merged into a remote branch, or deployed by this review.
+was pushed, merged into a remote branch, or deployed by this review.
+
+**Backend deployment, later on 10 November:** the three backend commits below,
+followed by the route-order and cleanup commits, reached `main` as `d8a0af4`
+(fast-forward from `ae82ccc`). Render auto-deployed it, as confirmed by the
+user from Render's events. The traveler and admin commits below are not merged,
+and no phone check has been run against the deployed backend.
 
 ## Reviewed commits
 
@@ -87,9 +93,10 @@ proof of the later fix. See the [routing guide](routing.md).
 
 1. Review the complete traveler branch scope against `main`, including its
    inherited 17 commits. Choose the deployment/merge target explicitly.
-2. Publish the reviewed branches and deploy the backend revision. Check the
-   actual Render deployment source/revision; a health response without a build
-   identifier does not prove that this code is running. No migration is needed.
+2. ~~Publish the reviewed branches and deploy the backend revision.~~ Done for
+   the backend: `d8a0af4` is deployed (see the note at the top). The health
+   endpoint still has no build identifier, so Render's events remain the proof
+   of which revision is running. The traveler and admin branches are unpublished.
 3. Install the traveler test build on the connected phone. The final device
    discovery detected a physical Android 15 phone; earlier checks showed only
    Windows and Edge. No phone journey was run during this review. After backend
@@ -104,4 +111,6 @@ catalog prices/units and source verification still need actual admin review.
 The accommodation selector, saved-route order/return preservation, >50 Top 5
 shortlist edge case and other open findings in the
 [Claude handoff](claude_codex_objectives_audit_2026-11-10.md) are not fixed by
-these release commits.
+these release commits. The backend route-order rule and the >50 Top 5
+shortlist fix were added in later commits that are now deployed; the traveler
+route-preservation change is still uncommitted.

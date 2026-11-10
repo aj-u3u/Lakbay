@@ -4,10 +4,13 @@
 
 The user approved fixing two blocking issues and removing duplicated and
 unused code that serves no study objective or panel comment. No schema,
-endpoint, provider setting or live data changed. The backend work is committed
+endpoint, provider setting or live data changed. The backend work was committed
 on `route-order-cleanup-20261110`, which builds on the three
-`codex/release-budget-catalog-20261110` commits; it is not merged to `main` or
-deployed. The traveler and admin changes below remain uncommitted.
+`codex/release-budget-catalog-20261110` commits. On 10 November `main` was
+fast-forwarded to `d8a0af4` and Render auto-deployed it; the user confirmed the
+deploy in Render's events. No migration was needed. Phone checks against the
+deployed backend have not been run yet. The traveler and admin changes below
+remain uncommitted.
 
 - **F6 fixed.** Top 5 now picks its 50 routed places by their score with a
   straight-line travel estimate, so distant places cannot crowd out nearby ones
@@ -148,7 +151,8 @@ used simulated Groq and OSRM responses.
 `app/integrations/groq/prompts.py` at `phase15e_calculated_route_order_v5`, and
 `tests/test_planning_ai_save.py` / `tests/test_planning_chat.py`) is committed as
 `fafddf3` on `route-order-cleanup-20261110`, after the three
-`codex/release-budget-catalog-20261110` commits. That release branch itself still
+`codex/release-budget-catalog-20261110` commits, and is on `main` and deployed
+since `d8a0af4`. That release branch itself still
 uses `phase15e_scored_groups_catalog_facts_v4`. The traveler app's matching
 route-clearing change in `lib/models/chat_planning_session.dart` is still
 uncommitted.
