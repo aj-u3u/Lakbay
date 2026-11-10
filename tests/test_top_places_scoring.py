@@ -256,6 +256,22 @@ def test_verified_routes_come_first_even_with_a_lower_score(client, osrm) -> Non
     assert any("approximate" in warning for warning in response.json()["warnings"])
 
 
+def test_nearby_place_is_routed_when_more_than_fifty_qualify(client, osrm) -> None:
+    admin = admin_headers(client)
+    # Created first, so they win every tie on ID; about 210 km from the start.
+    for number in range(50):
+        place(client, admin, f"Beach Far {number}", lat=9.0, lng=125.6 + number * 0.001)
+    near = place(client, admin, "Beach Near", lat=7.11, lng=125.6)
+
+    response = client.post(PATH, headers=user_headers(client), json={"interests": ["beach"], "origin": NEAR_A})
+
+    body = response.json()
+    assert response.status_code == 201
+    assert body["items"][0]["destination_id"] == near["destination_id"]
+    assert body["skipped"]["too_far"] == 49
+    assert osrm.calls == 1
+
+
 def test_far_snap_to_road_is_not_verified(client) -> None:
     place(client, admin_headers(client), "Beach Verified", **verified_arrival(7.3, 125.6))
 

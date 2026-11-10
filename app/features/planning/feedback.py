@@ -24,11 +24,16 @@ def evaluate_preview(
             message="Review unavailable or inconsistent catalog selections before saving.",
             fields=sorted({problem.field for problem in preview.selection_problems}),
         ))
-    if preview.missing_inputs:
+    # The start's map pin is needed only to calculate a requested route.
+    missing_inputs = [
+        field for field in preview.missing_inputs
+        if field != "origin.coordinates" or state.route_preferences is not None
+    ]
+    if missing_inputs:
         findings.append(PlanningFeedbackFinding(
             code="trip_details_missing", category="data", severity="required",
             message="Complete the missing trip details before judging cost or pacing.",
-            fields=preview.missing_inputs,
+            fields=missing_inputs,
         ))
 
     unknown_cost_ids = [

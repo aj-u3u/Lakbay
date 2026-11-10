@@ -39,7 +39,7 @@ different prices.
 
 | Area | Finding | Rule |
 | --- | --- | --- |
-| Data | `selection_invalid`, `trip_details_missing` | Surface preview selection problems and missing inputs as required details. |
+| Data | `selection_invalid`, `trip_details_missing` | Surface preview selection problems and missing inputs as required details. A missing start map pin (`origin.coordinates`) is required only when `route_preferences` requests a route. |
 | Budget | `catalog_cost_unknown` | Selected active destination has `estimated_cost=null`; `0.00` is a known zero and is not flagged. An allowance does not make the catalog price known. |
 | Budget | `budget_incomplete`, `over_budget` | Use preview completeness and fit. A partial plan can still prove a minimum overage. |
 | Route | `arrival_unverified` | Selected destination is not marked `route_ready`; attraction coordinates do not establish visitor access. |

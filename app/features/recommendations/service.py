@@ -163,8 +163,10 @@ class RecommendationService:
             ))
 
         # Route only the strongest candidates, so one table request stays small.
+        # A straight-line estimate stands in for travel while shortlisting, so
+        # distant places cannot crowd out nearby ones before the road check.
         candidates.sort(key=lambda item: (
-            -scoring.total_score(scoring.weighted_points({**item.values, "travel": scoring.NEUTRAL})),
+            -_shortlist_score(data, item, max_minutes),
             item.destination.destination_id,
         ))
         candidates = candidates[:MAX_ROUTED_CANDIDATES]
@@ -805,6 +807,21 @@ async def _travel_times(
             verified=verified,
         )
     return trips, []
+
+
+def _shortlist_score(
+    data: TopPlacesRequest,
+    candidate: _TopPlaceCandidate,
+    max_minutes: int,
+) -> float:
+    """The weighted score with straight-line travel, used only to pick places to route."""
+    travel = scoring.NEUTRAL
+    if data.origin is not None:
+        estimate = _straight_line_trip(
+            data.origin, candidate.destination, data.travel_mode, "straight_line_estimate",
+        )
+        travel = scoring.travel_score(estimate.minutes, max_minutes)
+    return scoring.total_score(scoring.weighted_points({**candidate.values, "travel": travel}))
 
 
 def _straight_line_trip(

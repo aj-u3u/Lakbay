@@ -54,6 +54,27 @@ def test_known_zero_is_not_reported_as_unknown_and_missing_details_are_required(
     assert "catalog_cost_unknown" not in _findings(body)
 
 
+def test_unpinned_start_is_required_only_when_a_route_is_requested(client) -> None:
+    admin = register(client, admin=True)
+    destination = create_destination(client, admin)
+    traveler = register(client)
+    request = preview_request(
+        destination["destination_id"], origin={"label": "Davao City", "lat": None, "lng": None},
+    )
+
+    without_route = client.post("/api/v1/planning/feedback", headers=traveler, json=request)
+    request["state"]["route_preferences"] = {"optimize_order": False}
+    with_route = client.post("/api/v1/planning/feedback", headers=traveler, json=request)
+
+    assert without_route.status_code == 200, without_route.text
+    assert "origin.coordinates" in without_route.json()["preview"]["missing_inputs"]
+    assert "trip_details_missing" not in _findings(without_route.json())
+    assert without_route.json()["status"] != "needs_details"
+    assert with_route.status_code == 200, with_route.text
+    assert _findings(with_route.json())["trip_details_missing"]["fields"] == ["origin.coordinates"]
+    assert with_route.json()["status"] == "needs_details"
+
+
 def test_feedback_flags_activity_load_and_child_suitability_without_pricing_children(client) -> None:
     admin = register(client, admin=True)
     destination = create_destination(

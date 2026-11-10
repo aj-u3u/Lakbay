@@ -179,7 +179,9 @@ is farther than `max_minutes`. When no place matches the interests at all,
 interests." Unknown-cost places are kept.
 
 **Travel time.** Driving and walking use one OSRM Table request from the start
-point to every candidate (at most 50, chosen by their score without travel).
+point to every candidate (at most 50). When more places qualify, the 50 are
+chosen by their score with a straight-line travel estimate, so distant places
+cannot crowd out nearby ones before the road check.
 
 | `travel_basis` | Meaning |
 | --- | --- |
