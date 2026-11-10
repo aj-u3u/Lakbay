@@ -11,7 +11,10 @@
   `Lakbay-API` User-Agent, as the server's fair-use policy asks.
 - **Catalog "Private Car" no longer blocks routes.** The live catalog's
   `private_vehicle` record was not a recognized road mode, so selecting it gave
-  "mixed or unknown modes". Hired or rented cars now route as `driving`.
+  "mixed or unknown modes". Hired or rented cars now route as `driving`. With
+  the user's approval, taxis do too: the live Taxi record is filed under
+  `public_transport`, so its vehicle type is checked. Vans, buses and other
+  shared transport stay estimated commute routes.
   Road-access confirmation is required only for `mode:personal_vehicle`, matching
   the app's "Can you drive the full trip?" dialog; fuel stays personal-vehicle only.
 - Files: `B:app/integrations/osrm/client.py`, `B:app/features/planning/routing.py`,

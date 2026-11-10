@@ -482,18 +482,26 @@ def test_public_transport_route_is_estimated_and_has_no_car_fuel(client) -> None
     assert fake.preview_calls == fake.optimize_calls == []
 
 
-@pytest.mark.parametrize("transport_mode", ["private_vehicle", "Private Car"])
-def test_catalog_private_car_uses_road_route_without_traveler_fuel(client, transport_mode) -> None:
+@pytest.mark.parametrize(
+    "vehicle_type,transport_mode",
+    [
+        ("Private Car", "private_vehicle"), ("Private Car", "Private Car"),
+        ("Taxi", "public_transport"), ("Taxi", "taxi"),
+    ],
+)
+def test_catalog_hired_car_uses_road_route_without_traveler_fuel(
+    client, vehicle_type, transport_mode,
+) -> None:
     admin = register(client, admin=True)
     destination = create_destination(client, admin)
     transportation = create_transportation(
         client, admin, destination["destination_id"],
-        vehicle_type="Private Car", transport_mode=transport_mode,
+        vehicle_type=vehicle_type, transport_mode=transport_mode,
     )
     fake = FakeOSRMClient(preview_result=route_result(10000, 20000))
     override_route_service(client, fake)
 
-    # A hired car's driver handles road access, so no traveler confirmation is sent.
+    # A hired car's or taxi's driver handles road access, so no traveler confirmation is sent.
     body = post_preview(
         client, register(client),
         routing_request(

@@ -41,9 +41,11 @@ _ROAD_CATALOG_MODES = {
     "land", "road", "driving", "public_transport", "public transport",
     "bus", "van", "jeepney", "tricycle", "taxi", "rail", "train",
 }
-# A hired or rented car follows roads like a personal vehicle, but its operator
-# drives it and its listed fare covers fuel.
-_PRIVATE_CATALOG_MODES = {"private_vehicle", "private vehicle", "private car", "car rental"}
+# A hired or rented car or a taxi follows roads like a personal vehicle, but its
+# operator drives it and its listed fare covers fuel.
+_HIRED_CAR_MODES = {"private_vehicle", "private vehicle", "private car", "car rental", "taxi"}
+# Admins may file a taxi under a shared mode such as public_transport.
+_TAXI_VEHICLE = re.compile(r"\btaxi(?:s|cabs?)?\b", re.IGNORECASE)
 
 
 async def build_route_preview(
@@ -203,17 +205,24 @@ def _travel_mode(options: list[PlanningTransportOption]) -> TravelMode | None:
         return "driving"
     if len(options) == 1 and options[0].option_id == "mode:walking":
         return "walking"
-    road_catalog = _ROAD_CATALOG_MODES | _PRIVATE_CATALOG_MODES
+    road_catalog = _ROAD_CATALOG_MODES | _HIRED_CAR_MODES
     if options and all(
         item.kind == "catalog_transport"
         and _canonical(item.transport_mode) in road_catalog
         and not _NON_ROAD_VEHICLE.search(item.vehicle_type)
         for item in options
     ):
-        if all(_canonical(item.transport_mode) in _PRIVATE_CATALOG_MODES for item in options):
+        if all(_is_hired_car(item) for item in options):
             return "driving"
         return "public_transport"
     return None
+
+
+def _is_hired_car(option: PlanningTransportOption) -> bool:
+    return (
+        _canonical(option.transport_mode) in _HIRED_CAR_MODES
+        or bool(_TAXI_VEHICLE.search(option.vehicle_type))
+    )
 
 
 def _summary_covers_journey(state: PlanningState, summary: RouteSummaryResponse) -> bool:

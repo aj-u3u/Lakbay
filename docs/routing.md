@@ -318,12 +318,14 @@ Recommended behavior:
 - `public_transport`: use stored transportation rates and estimated durations,
   then clearly mark the result as estimated.
 
-In the planning preview, a selected catalog vehicle whose transport mode is
-`private_vehicle`, `private vehicle`, `private car` or `car rental` (a hired or
-rented car) routes as `driving` when every selected catalog choice is one.
+In the planning preview, a hired car routes as `driving` when every selected
+catalog choice is one. A hired car is a catalog vehicle whose transport mode is
+`private_vehicle`, `private vehicle`, `private car`, `car rental` or `taxi`, or
+whose vehicle type names a taxi (the live Taxi record uses `public_transport`).
 Its operator drives, so it needs no traveler road-access confirmation and gets
-no traveler fuel estimate; its listed fare is the cost. A private car selected
-with shared transport stays an estimated `public_transport` route.
+no traveler fuel estimate; its listed fare is the cost. A hired car selected
+with shared transport such as a bus or van stays an estimated
+`public_transport` route.
 
 Planned Phase 15 travel categories:
 
