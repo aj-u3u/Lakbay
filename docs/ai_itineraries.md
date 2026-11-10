@@ -16,6 +16,32 @@ POST /api/v1/ai/itineraries/generate
 POST /api/v1/ai/chat
 ```
 
+## Saved catalog facts in itinerary prompts
+
+The generation service reloads selected active catalog records for each request.
+As of 10 November 2026, its prompt retains the destination description, saved
+place pin, optional arrival coordinates/readiness, fees, hours, best visiting
+time, access instructions, travel-time note, travel notes and packing advice.
+Accommodation and transportation rows retain both `currency` and
+`charging_unit` alongside their price and canonical ID. A null unit stays null;
+the model must not infer a per-person, room, night or stay basis from the amount.
+
+Pins support approximate planning. Free-text access and travel-time notes are
+reference data, not live route calculations or evidence of current opening,
+booking or entrance verification. Missing values remain unknown. These fields
+do not bypass selected-ID, cost-arithmetic or budget validation. The prompt
+versions are `phase5_itinerary_catalog_facts_v3` and
+`phase15e_scored_groups_catalog_facts_v4`, so audit records distinguish the change.
+
+The traveler retains the five saved travel-detail fields and displays nonempty
+values in the existing Travel Notes & Tips section after catalog refresh. An
+empty or cleared field does not fall back to demo advice. The admin editor
+already saves these fields without requiring a separate arrival point.
+`tests/test_catalog_planning_flow.py` exercises admin edits through public reads,
+Top 5, pin-based planning preview and a mocked Groq generation request, including
+known and unknown charging units. This is local contract verification, not a
+live admin-to-phone deployment check.
+
 ## Planning preview to itinerary options
 
 The existing generation endpoint also accepts `planning_state` and

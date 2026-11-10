@@ -686,11 +686,17 @@ def _build_catalog_payload(
             {
                 "destination_id": destination.destination_id,
                 "name": destination.name,
+                "description": destination.description,
                 "district": destination.district,
                 "location": destination.location,
                 "category": destination.category,
                 "vibes": destination.vibes,
                 "activities": destination.activities,
+                "lat": destination.lat,
+                "lng": destination.lng,
+                "arrival_lat": destination.arrival_lat,
+                "arrival_lng": destination.arrival_lng,
+                "route_ready": destination.route_ready,
                 "estimated_cost": (
                     str(destination.estimated_cost)
                     if destination.estimated_cost is not None else None
@@ -699,6 +705,10 @@ def _build_catalog_payload(
                 "overnight_fee": destination.overnight_fee,
                 "operating_hours": destination.operating_hours,
                 "best_time_to_visit": destination.best_time_to_visit,
+                "how_to_get_there": destination.how_to_get_there,
+                "estimated_travel_time": destination.estimated_travel_time,
+                "travel_notes": destination.travel_notes,
+                "what_to_bring": destination.what_to_bring,
                 "difficulty_level": destination.difficulty_level,
                 "stay_duration_type": destination.stay_duration_type,
             }
@@ -711,6 +721,8 @@ def _build_catalog_payload(
                 "name": accommodation.name,
                 "room_type": accommodation.room_type,
                 "price": str(accommodation.price),
+                "currency": accommodation.currency,
+                "charging_unit": accommodation.charging_unit,
                 "capacity": accommodation.capacity,
                 "description": accommodation.description,
             }
@@ -725,6 +737,8 @@ def _build_catalog_payload(
                 "route_from": transportation.route_from,
                 "route_to": transportation.route_to,
                 "price": str(transportation.price),
+                "currency": transportation.currency,
+                "charging_unit": transportation.charging_unit,
                 "duration_minutes": transportation.duration_minutes,
                 "duration_text": transportation.duration_text,
                 "notes": transportation.notes,
