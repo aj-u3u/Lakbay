@@ -41,3 +41,20 @@ class OSRMRouteResult:
     stop_order: list[int] | None = None
     polyline: str | None = None
     ferry_crossings: list[OSRMFerryCrossing] = field(default_factory=list)
+
+
+@dataclass(frozen=True)
+class OSRMTableEntry:
+    """Travel from the table's single source to one destination coordinate."""
+
+    # None when OSRM found no route to this destination.
+    duration_seconds: float | None
+    distance_meters: float | None
+    # How far OSRM moved the destination to reach the road network.
+    snap_meters: float | None
+
+
+@dataclass(frozen=True)
+class OSRMTableResult:
+    source_snap_meters: float | None
+    entries: list[OSRMTableEntry]

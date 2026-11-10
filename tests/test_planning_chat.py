@@ -4,7 +4,12 @@ import pytest
 
 from app.integrations.groq.client import get_groq_client
 from app.integrations.osrm.errors import OSRMRouteNotFoundError
-from app.integrations.osrm.schemas import OSRMLeg, OSRMRouteResult
+from app.integrations.osrm.schemas import (
+    OSRMLeg,
+    OSRMRouteResult,
+    OSRMTableEntry,
+    OSRMTableResult,
+)
 from app.features.ai import service as ai_service_module
 from app.features.ai import router as ai_router_module
 from app.features.ai.rag import RagMatch
@@ -45,6 +50,18 @@ class CandidateOSRM:
             total_distance_meters=12000,
             total_duration_seconds=1200,
             legs=[OSRMLeg(distance_meters=12000, duration_seconds=1200)],
+        )
+
+    async def table(self, *, travel_mode, origin, destinations):
+        self.calls += 1
+        return OSRMTableResult(
+            source_snap_meters=5.0,
+            entries=[
+                OSRMTableEntry(duration_seconds=None, distance_meters=None, snap_meters=5.0)
+                if point.lat in self.unreachable_lats
+                else OSRMTableEntry(duration_seconds=1200, distance_meters=12000, snap_meters=5.0)
+                for point in destinations
+            ],
         )
 
 
@@ -116,19 +133,26 @@ def test_planning_chat_returns_grounded_candidates_without_saving_preferences(
     }
     assert all("category" in item["matched_fields"] for item in planning["recommendations"])
     assert all(item["route_provider"] == "osrm" for item in planning["recommendations"])
+    assert all(item["route_verified"] for item in planning["recommendations"])
+    assert all(item["travel_basis"] == "road_route" for item in planning["recommendations"])
     assert all(item["route_distance_km"] == "12.00" for item in planning["recommendations"])
+    assert all(item["route_duration_minutes"] == 20 for item in planning["recommendations"])
+    assert all(0 <= item["score"] <= 100 for item in planning["recommendations"])
     assert planning["recommendation_shortfall_reason"] is None
-    assert osrm.calls == 6
+    # One travel-time table request covers every candidate.
+    assert osrm.calls == 1
     assert client.get(
         "/api/v1/recommendations/preferences/latest",
         headers=traveler,
     ).status_code == 404
 
 
-def test_planning_chat_explains_fewer_verified_reachable_matches(client, monkeypatch) -> None:
+def test_planning_chat_puts_verified_routes_first_and_explains_skipped_places(
+    client, monkeypatch,
+) -> None:
     configure_ai(monkeypatch)
     admin = admin_headers(client)
-    create_destination(client, headers=admin, name="Beach Unverified")
+    unverified = create_destination(client, headers=admin, name="Beach Unverified")
     create_destination(client, headers=admin, name="Beach Ferry", how_to_get_there="By ferry", **verified_arrival(1))
     create_destination(client, headers=admin, name="Beach No Route", **verified_arrival(2))
     reachable = create_destination(client, headers=admin, name="Beach Reachable", **verified_arrival(3))
@@ -153,13 +177,20 @@ def test_planning_chat_explains_fewer_verified_reachable_matches(client, monkeyp
 
     assert response.status_code == 200
     planning = response.json()["planning"]
-    assert [item["destination_id"] for item in planning["recommendations"]] == [reachable["destination_id"]]
-    assert planning["recommendation_total_candidates"] == 1
-    assert "4 preference matches" in planning["recommendation_shortfall_reason"]
-    assert "1 lack a verified arrival point" in planning["recommendation_shortfall_reason"]
-    assert "1 need a separate non-road connection" in planning["recommendation_shortfall_reason"]
-    assert "1 have no confirmed driving route" in planning["recommendation_shortfall_reason"]
-    assert osrm.calls == 2
+    # The verified road route comes first; the unverified place fills the next
+    # slot with an approximate label instead of being hidden.
+    assert [item["destination_id"] for item in planning["recommendations"]] == [
+        reachable["destination_id"], unverified["destination_id"],
+    ]
+    assert [item["route_verified"] for item in planning["recommendations"]] == [True, False]
+    assert planning["recommendations"][1]["travel_basis"] == "approximate_location"
+    assert planning["recommendation_total_candidates"] == 2
+    assert planning["recommendation_shortfall_reason"] == (
+        "Only 2 places qualify for your Top 5: 1 does not match your interests, "
+        "1 needs a boat or ferry and 1 has no road route from your start."
+    )
+    assert response.json()["chat_response"] == planning["recommendation_shortfall_reason"]
+    assert osrm.calls == 1
 
 
 def test_planning_chat_does_not_fill_empty_preference_match(client, monkeypatch) -> None:
@@ -193,9 +224,9 @@ def test_planning_chat_does_not_fill_empty_preference_match(client, monkeypatch)
     assert osrm.calls == 0
 
 
-def test_planning_chat_requires_map_origin_to_claim_reachability(client, monkeypatch) -> None:
+def test_planning_chat_without_map_origin_never_claims_a_road_route(client, monkeypatch) -> None:
     configure_ai(monkeypatch)
-    create_destination(client, headers=admin_headers(client), **verified_arrival(0))
+    beach = create_destination(client, headers=admin_headers(client), **verified_arrival(0))
     client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([
         json.dumps({"chat_response": "I found a beach.", "state_updates": {"interests": ["beach"]}}),
     ])
@@ -213,14 +244,19 @@ def test_planning_chat_requires_map_origin_to_claim_reachability(client, monkeyp
     )
 
     planning = response.json()["planning"]
-    assert planning["recommendations"] == []
-    assert "map-selected origin coordinate" in planning["recommendation_shortfall_reason"]
+    [item] = planning["recommendations"]
+    assert item["destination_id"] == beach["destination_id"]
+    assert item["route_verified"] is False
+    assert item["travel_basis"] == "unknown"
+    assert item["route_duration_minutes"] is None
+    assert "Set a start point to rank by travel time." in item["reasons"]
+    assert planning["recommendation_shortfall_reason"] == "Only 1 place qualifies for your Top 5."
     assert response.json()["chat_response"] == planning["recommendation_shortfall_reason"]
 
 
-def test_planning_chat_reports_when_matching_arrivals_are_unverified(client, monkeypatch) -> None:
+def test_planning_chat_shows_unverified_matches_with_a_label(client, monkeypatch) -> None:
     configure_ai(monkeypatch)
-    create_destination(client, headers=admin_headers(client), name="Beach Without Gate")
+    beach = create_destination(client, headers=admin_headers(client), name="Beach Without Gate")
     client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([
         json.dumps({"chat_response": "I found a beach.", "state_updates": {"interests": ["beach"]}}),
     ])
@@ -232,9 +268,10 @@ def test_planning_chat_reports_when_matching_arrivals_are_unverified(client, mon
     )
 
     planning = response.json()["planning"]
-    assert planning["recommendations"] == []
-    assert planning["recommendation_total_candidates"] == 0
-    assert "1 lack a verified arrival point" in planning["recommendation_shortfall_reason"]
+    [item] = planning["recommendations"]
+    assert item["destination_id"] == beach["destination_id"]
+    assert item["route_verified"] is False
+    assert planning["recommendation_total_candidates"] == 1
 
 
 def test_planning_chat_applies_explicit_updates_and_returns_revision_preview(

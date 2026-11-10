@@ -12,9 +12,13 @@ from app.features.recommendations.schemas import (
     PreferenceSignalResponse,
     RecommendationRequest,
     RecommendationResponse,
+    TopPlacesRequest,
+    TopPlacesResponse,
 )
 from app.features.recommendations.service import RecommendationService
+from app.features.routes.dependencies import enforce_route_request_limit
 from app.features.users.models import User
+from app.integrations.osrm.client import OSRMClient, get_osrm_client
 
 
 router = APIRouter(prefix="/recommendations", tags=["recommendations"])
@@ -43,6 +47,35 @@ async def create_recommendations(
     return await RecommendationService(session).recommend_destinations(
         user=current_user,
         data=data,
+    )
+
+
+@router.post(
+    "/top-places",
+    response_model=TopPlacesResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Rank the personalized Top 5 places",
+    description=(
+        "Ranks active destinations with a weighted scoring model (Simple "
+        "Additive Weighting) using interests, start point, travel mode, budget, "
+        "party, and trip length. Each place returns its 0-100 score, factor "
+        "breakdown, reasons, and how travel time and cost were measured. Places "
+        "with a verified road route to a visitor entrance come first. Saves the "
+        "preference signal like POST /recommendations."
+    ),
+    dependencies=[Depends(enforce_route_request_limit)],
+)
+async def rank_top_places(
+    data: TopPlacesRequest,
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    osrm_client: Annotated[OSRMClient, Depends(get_osrm_client)],
+) -> TopPlacesResponse:
+    return await RecommendationService(session).rank_top_places(
+        data=data,
+        osrm_client=osrm_client,
+        user=current_user,
+        save_preference=True,
     )
 
 

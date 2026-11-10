@@ -1,11 +1,14 @@
+from dataclasses import dataclass
 from decimal import Decimal
 
 from fastapi import status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import LakbayAPIError
+from app.features.destinations.candidate_repository import distance_meters
 from app.features.destinations.models import Destination
 from app.features.planning.routing import _has_non_road_access_hint
+from app.features.recommendations import scoring
 from app.features.recommendations.models import (
     DestinationInteraction,
     DestinationPopularity,
@@ -20,12 +23,42 @@ from app.features.recommendations.schemas import (
     RecommendationItem,
     RecommendationRequest,
     RecommendationResponse,
+    TopPlaceBreakdown,
+    TopPlaceFactor,
+    TopPlaceItem,
+    TopPlacesRequest,
+    TopPlacesResponse,
+    TopPlacesSkipped,
+    TopPlaceTravelBasis,
 )
-from app.features.routes.schemas import RouteCoordinate, RoutePreviewRequest, RouteSummaryResponse
-from app.features.routes.service import RouteService
+from app.features.routes.schemas import RouteCoordinate
+from app.features.routes.service import FALLBACK_SPEED_KMH
 from app.features.users.models import User
+from app.integrations.osrm.client import MAX_PREVIEW_WAYPOINT_SNAP_METERS, OSRMClient
+from app.integrations.osrm.errors import OSRMClientError
 
 NON_REPEATABLE_INTERACTIONS = {"save", "rate", "add_to_itinerary"}
+# One OSRM table request covers at most this many places (public OSRM allows 100).
+MAX_ROUTED_CANDIDATES = 50
+
+
+@dataclass
+class _TopPlaceCandidate:
+    destination: Destination
+    matched: list[str]
+    matched_fields: list[str]
+    # Normalized 0-1 factor values, except travel, which needs a route first.
+    values: dict[str, float]
+
+
+@dataclass(frozen=True)
+class _Trip:
+    minutes: int | None
+    distance_km: Decimal | None
+    basis: TopPlaceTravelBasis
+    provider: str | None
+    verified: bool
+    reachable: bool = True
 
 
 class RecommendationService:
@@ -33,119 +66,198 @@ class RecommendationService:
         self.session = session
         self.recommendations = RecommendationRepository(session)
 
-    async def rank_planning_candidates(
+    async def rank_top_places(
         self,
         *,
-        interests: list[str],
-        traveler_count: int | None,
-        origin: RouteCoordinate | None,
-        travel_mode: str | None,
-        route_service: RouteService | None,
-        limit: int = 5,
-    ) -> tuple[list[PlanningRecommendationItem], int, str | None]:
-        """Return only preference matches with verified arrivals and provider routes."""
-        if not interests:
-            return [], 0, "No travel interests were supplied, so there is no preference match to rank."
-        preference = RecommendationRequest(
-            preferred_categories=interests,
-            preferred_vibes=interests,
-            preferred_activities=interests,
-            group_friendly=True if traveler_count and traveler_count > 1 else None,
-            limit=limit,
-        )
+        data: TopPlacesRequest,
+        osrm_client: OSRMClient | None,
+        user: User | None = None,
+        save_preference: bool = False,
+    ) -> TopPlacesResponse:
+        """Rank places with the weighted scoring model in `scoring.py`.
+
+        Places with a verified entrance and a confirmed road route fill the list
+        first; places whose location is approximate fill any remaining slots.
+        """
+        preference_signal_id = None
+        if save_preference and user is not None:
+            preference = await self.recommendations.create_preference_signal(
+                user_id=user.user_id,
+                data=RecommendationRequest(
+                    preferred_categories=data.interests,
+                    preferred_vibes=data.interests,
+                    preferred_activities=data.interests,
+                    preferred_districts=data.preferred_districts,
+                    requires_kid_friendly=data.requires_kid_friendly,
+                    requires_wheelchair_accessible=data.requires_wheelchair_accessible,
+                    requires_pet_friendly=data.requires_pet_friendly,
+                    requires_elderly_friendly=data.requires_elderly_friendly,
+                    group_friendly=True if data.party_size > 1 else None,
+                    limit=data.limit,
+                ),
+            )
+            preference_signal_id = preference.preference_signal_id
+
         destinations = await self.recommendations.list_active_destinations()
         popularity = await self.recommendations.list_popularity()
-        matches = [
-            item
-            for destination in destinations
-            if (
-                item := self.score_destination(
-                    destination=destination,
-                    preference=preference,
-                    popularity=popularity.get(destination.destination_id),
-                )
-            ) is not None
-            and bool({"category", "vibes", "activities"} & set(item.matched_fields))
-        ]
-        matches.sort(key=lambda item: (-item.score, item.destination_id))
-        if not matches:
-            return [], 0, "No active catalog destination matches the supplied travel interests."
-
-        destinations_by_id = {item.destination_id: item for item in destinations}
-        verified = [
-            item for item in matches
-            if _has_verified_arrival(destinations_by_id[item.destination_id])
-        ]
-        unverified_count = len(matches) - len(verified)
-        road_candidates = [
-            item for item in verified
-            if not _has_non_road_access_hint(destinations_by_id[item.destination_id])
-        ]
-        non_road_count = len(verified) - len(road_candidates)
-        if not road_candidates:
-            return [], 0, (
-                f"No verified road candidates qualify from {len(matches)} preference matches: "
-                f"{unverified_count} lack a verified arrival point and "
-                f"{non_road_count} need a separate non-road connection."
-            )
-        if origin is None:
-            return [], 0, (
-                f"{len(matches)} preference matches found; {unverified_count} lack a verified "
-                f"arrival point and {non_road_count} need a non-road connection. Reachability "
-                "of the remaining candidates cannot be confirmed without a map-selected origin coordinate."
-            )
-        if travel_mode not in {"driving", "walking"}:
-            return [], 0, (
-                f"{len(matches)} preference matches found; {unverified_count} lack a verified "
-                f"arrival point and {non_road_count} need a non-road connection. A single "
-                "driving or walking mode is needed to confirm routes to the remaining candidates."
-            )
-        if route_service is None:
-            return [], 0, "Routing is unavailable, so no candidate can be confirmed reachable."
-
-        qualified: list[PlanningRecommendationItem] = []
-        route_failed_count = 0
-        for item in road_candidates:
-            try:
-                route = await route_service.preview_route(RoutePreviewRequest(
-                    destination_ids=[item.destination_id],
-                    origin=origin,
-                    travel_mode=travel_mode,
-                ))
-            except LakbayAPIError:
-                route_failed_count += 1
+        party = data.party_size
+        budget_per_person = (
+            None if data.total_budget is None
+            else data.total_budget if data.budget_scope == "per_person"
+            else data.total_budget / party
+        )
+        max_minutes = scoring.max_travel_minutes(data.day_count)
+        districts = {item.strip().lower() for item in data.preferred_districts}
+        required_flags = (
+            (data.requires_kid_friendly, "is_kid_friendly"),
+            (data.requires_wheelchair_accessible, "is_wheelchair_accessible"),
+            (data.requires_pet_friendly, "is_pet_friendly"),
+            (data.requires_elderly_friendly, "is_elderly_friendly"),
+        )
+        road_mode = data.travel_mode in {"driving", "walking"}
+        skipped = TopPlacesSkipped()
+        interest_match_count = 0
+        candidates: list[_TopPlaceCandidate] = []
+        for destination in destinations:
+            matched, matched_fields = scoring.interest_matches(data.interests, {
+                "category": destination.category,
+                "vibes": destination.vibes,
+                "activities": destination.activities,
+            })
+            if matched:
+                interest_match_count += 1
+            if districts and (destination.district or "").strip().lower() not in districts:
+                skipped.outside_preferred_districts += 1
                 continue
-            if not _confirms_candidate_route(
-                route, destinations_by_id[item.destination_id], origin, travel_mode,
-            ):
-                route_failed_count += 1
+            if any(required and not getattr(destination, flag) for required, flag in required_flags):
+                skipped.missing_required_accessibility += 1
                 continue
-            qualified.append(PlanningRecommendationItem(
-                **{
-                    **item.model_dump(),
-                    "reasons": [*item.reasons, "Provider route reaches the verified visitor arrival point."],
+            if data.interests and not matched:
+                skipped.no_interest_match += 1
+                continue
+            cost = destination.estimated_cost
+            if cost is not None and budget_per_person is not None and cost > budget_per_person:
+                skipped.over_budget += 1
+                continue
+            if road_mode and _has_non_road_access_hint(destination):
+                skipped.needs_boat_or_ferry += 1
+                continue
+            record = popularity.get(destination.destination_id)
+            candidates.append(_TopPlaceCandidate(
+                destination=destination,
+                matched=matched,
+                matched_fields=matched_fields,
+                values={
+                    "interest": scoring.interest_score(len(data.interests), len(matched)),
+                    "budget": scoring.budget_score(cost, budget_per_person),
+                    "group_fit": scoring.group_fit_score(
+                        has_children=bool(data.child_ages),
+                        traveler_count=party,
+                        is_kid_friendly=destination.is_kid_friendly,
+                        group_friendly=destination.group_friendly,
+                    ),
+                    "popularity": scoring.popularity_score(
+                        record.popularity_score if record else None
+                    ),
                 },
-                route_provider=route.route_provider,
-                travel_mode=travel_mode,
-                route_distance_km=route.total_distance_km,
-                route_duration_minutes=route.total_duration_minutes,
             ))
 
-        # Preserve preference rank; a shorter confirmed trip breaks equal scores.
-        qualified.sort(key=lambda item: (
-            -item.score, item.route_duration_minutes,
-            item.route_distance_km, item.destination_id,
+        # Route only the strongest candidates, so one table request stays small.
+        candidates.sort(key=lambda item: (
+            -scoring.total_score(scoring.weighted_points({**item.values, "travel": scoring.NEUTRAL})),
+            item.destination.destination_id,
         ))
-        total = len(qualified)
-        reason = None
-        if total < limit:
-            reason = (
-                f"Only {total} verified, reachable candidates qualify from {len(matches)} "
-                f"preference matches: {unverified_count} lack a verified arrival point, "
-                f"{non_road_count} need a separate non-road connection, and "
-                f"{route_failed_count} have no confirmed {travel_mode} route."
+        candidates = candidates[:MAX_ROUTED_CANDIDATES]
+        travel, warnings = await _travel_times(data, candidates, osrm_client)
+
+        qualified: list[TopPlaceItem] = []
+        for candidate in candidates:
+            destination = candidate.destination
+            trip = travel[destination.destination_id]
+            if not trip.reachable:
+                skipped.no_route += 1
+                continue
+            if trip.minutes is not None and trip.minutes > max_minutes:
+                skipped.too_far += 1
+                continue
+            values = {**candidate.values, "travel": scoring.travel_score(trip.minutes, max_minutes)}
+            points = scoring.weighted_points(values)
+            qualified.append(TopPlaceItem(
+                rank=0,
+                destination_id=destination.destination_id,
+                name=destination.name,
+                district=destination.district,
+                category=destination.category,
+                image_url=destination.image_url,
+                estimated_cost=destination.estimated_cost,
+                cost_basis="not_listed" if destination.estimated_cost is None else "catalog_estimate",
+                score=scoring.total_score(points),
+                breakdown=TopPlaceBreakdown(**{
+                    name: TopPlaceFactor(
+                        value=round(values[name], 4),
+                        weight=scoring.WEIGHTS[name],
+                        points=points[name],
+                    )
+                    for name in scoring.WEIGHTS
+                }),
+                matched_interests=candidate.matched,
+                matched_fields=candidate.matched_fields,
+                reasons=_top_place_reasons(
+                    data=data,
+                    candidate=candidate,
+                    trip=trip,
+                    budget_per_person=budget_per_person,
+                ),
+                route_verified=trip.verified,
+                travel_mode=data.travel_mode,
+                travel_basis=trip.basis,
+                route_provider=trip.provider,
+                travel_minutes=trip.minutes,
+                travel_distance_km=trip.distance_km,
+            ))
+
+        # Verified road routes first, then approximate places; best score first in each.
+        qualified.sort(key=lambda item: (
+            not item.route_verified,
+            -item.score,
+            item.travel_minutes if item.travel_minutes is not None else float("inf"),
+            item.destination_id,
+        ))
+        items = [
+            item.model_copy(update={"rank": index})
+            for index, item in enumerate(qualified[: data.limit], start=1)
+        ]
+        approximate = sum(1 for item in items if not item.route_verified)
+        if data.origin is None:
+            warnings.append("Set a start point on the map to rank places by travel time.")
+        elif approximate:
+            warnings.append(
+                f"{approximate} of these places {'has' if approximate == 1 else 'have'} "
+                "no verified road route to a visitor entrance yet, so travel times are approximate."
             )
-        return qualified[:limit], total, reason
+        if data.total_budget is not None:
+            warnings.append(
+                "Costs are catalog estimates per person; transport, lodging and meals are not included."
+            )
+
+        if save_preference:
+            await self.session.commit()
+        return TopPlacesResponse(
+            weights=scoring.WEIGHTS,
+            max_travel_minutes=max_minutes,
+            preference_signal_id=preference_signal_id,
+            total_candidates=len(qualified),
+            verified_count=sum(1 for item in qualified if item.route_verified),
+            items=items,
+            skipped=skipped,
+            shortfall_reason=_top_place_shortfall(
+                data=data,
+                qualified=len(qualified),
+                interest_match_count=interest_match_count,
+                skipped=skipped,
+            ),
+            warnings=warnings,
+        )
 
     async def recommend_destinations(
         self,
@@ -501,38 +613,6 @@ def _has_verified_arrival(destination: Destination) -> bool:
     )
 
 
-def _confirms_candidate_route(
-    route: RouteSummaryResponse,
-    destination: Destination,
-    origin: RouteCoordinate,
-    travel_mode: str,
-) -> bool:
-    if len(route.stops) != 2 or len(route.legs) != 1:
-        return False
-    start, end = route.stops
-    leg = route.legs[0]
-    return bool(
-        route.route_provider in {"osrm", "google_routes"}
-        and route.travel_mode == travel_mode
-        and not route.is_estimated
-        and route.arrival_points_verified
-        and start.is_origin and start.destination_id is None
-        and start.coordinate_basis == "origin"
-        and abs(start.lat - origin.lat) <= 0.000001
-        and abs(start.lng - origin.lng) <= 0.000001
-        and not end.is_origin
-        and end.destination_id == destination.destination_id
-        and end.coordinate_basis == "verified_arrival"
-        and abs(end.lat - destination.arrival_lat) <= 0.000001
-        and abs(end.lng - destination.arrival_lng) <= 0.000001
-        and leg.from_destination_id is None
-        and leg.to_destination_id == destination.destination_id
-        and not leg.is_estimated
-        and abs(route.total_distance_km - leg.distance_km) <= Decimal("0.01")
-        and abs(route.total_duration_minutes - leg.duration_minutes) <= 1
-    )
-
-
 def _match_list(
     *,
     values: list[str],
@@ -624,3 +704,212 @@ def _count_interactions(
 
 def _int(value: int | None) -> int:
     return value or 0
+
+
+def planning_recommendation_from_top_place(item: TopPlaceItem) -> PlanningRecommendationItem:
+    """Shape a Top 5 place for the planning chat response."""
+    return PlanningRecommendationItem(
+        destination_id=item.destination_id,
+        name=item.name,
+        district=item.district,
+        category=item.category,
+        estimated_cost=item.estimated_cost,
+        score=item.score,
+        matched_fields=item.matched_fields,
+        reasons=item.reasons,
+        route_provider=item.route_provider,
+        travel_mode=item.travel_mode,
+        route_distance_km=item.travel_distance_km,
+        route_duration_minutes=item.travel_minutes,
+        route_verified=item.route_verified,
+        travel_basis=item.travel_basis,
+        breakdown=item.breakdown,
+    )
+
+
+def _route_point(destination: Destination) -> RouteCoordinate:
+    """The verified visitor entrance when there is one, otherwise the attraction pin."""
+    if _has_verified_arrival(destination):
+        return RouteCoordinate(lat=destination.arrival_lat, lng=destination.arrival_lng)
+    return RouteCoordinate(lat=destination.lat, lng=destination.lng)
+
+
+async def _travel_times(
+    data: TopPlacesRequest,
+    candidates: list[_TopPlaceCandidate],
+    osrm_client: OSRMClient | None,
+) -> tuple[dict[int, _Trip], list[str]]:
+    """Travel from the start point to each candidate, with how it was measured."""
+    if data.origin is None:
+        return {
+            item.destination.destination_id: _Trip(None, None, "unknown", None, False)
+            for item in candidates
+        }, []
+    if data.travel_mode == "public_transport":
+        return {
+            item.destination.destination_id: _straight_line_trip(
+                data.origin, item.destination, "public_transport", "commute_estimate",
+            )
+            for item in candidates
+        }, []
+
+    table = None
+    if osrm_client is not None and candidates:
+        try:
+            table = await osrm_client.table(
+                travel_mode=data.travel_mode,
+                origin=data.origin,
+                destinations=[_route_point(item.destination) for item in candidates],
+            )
+        except OSRMClientError:
+            table = None
+    if table is None:
+        return {
+            item.destination.destination_id: _straight_line_trip(
+                data.origin, item.destination, data.travel_mode, "straight_line_estimate",
+            )
+            for item in candidates
+        }, (
+            ["Road routing was unavailable, so travel times are straight-line estimates."]
+            if candidates else []
+        )
+
+    source_on_road = (
+        table.source_snap_meters is not None
+        and table.source_snap_meters <= MAX_PREVIEW_WAYPOINT_SNAP_METERS
+    )
+    trips: dict[int, _Trip] = {}
+    for item, entry in zip(candidates, table.entries):
+        destination_id = item.destination.destination_id
+        if entry.duration_seconds is None:
+            trips[destination_id] = _Trip(
+                None, None, "approximate_location", "osrm", False, reachable=False,
+            )
+            continue
+        # A road route counts as verified only to a sourced visitor entrance that
+        # OSRM reached without moving either end more than 250 m.
+        verified = bool(
+            _has_verified_arrival(item.destination)
+            and source_on_road
+            and entry.snap_meters is not None
+            and entry.snap_meters <= MAX_PREVIEW_WAYPOINT_SNAP_METERS
+        )
+        trips[destination_id] = _Trip(
+            minutes=_whole_minutes(entry.duration_seconds),
+            distance_km=(
+                None if entry.distance_meters is None
+                else (Decimal(str(entry.distance_meters)) / 1000).quantize(Decimal("0.01"))
+            ),
+            basis="road_route" if verified else "approximate_location",
+            provider="osrm",
+            verified=verified,
+        )
+    return trips, []
+
+
+def _straight_line_trip(
+    origin: RouteCoordinate,
+    destination: Destination,
+    travel_mode: str,
+    basis: TopPlaceTravelBasis,
+) -> _Trip:
+    point = _route_point(destination)
+    km = distance_meters(origin.lat, origin.lng, point.lat, point.lng) / 1000
+    return _Trip(
+        minutes=_whole_minutes(km / float(FALLBACK_SPEED_KMH[travel_mode]) * 3600),
+        distance_km=Decimal(str(round(km, 2))).quantize(Decimal("0.01")),
+        basis=basis,
+        provider="haversine",
+        verified=False,
+    )
+
+
+def _whole_minutes(seconds: float) -> int:
+    return max(1, round(seconds / 60)) if seconds > 0 else 0
+
+
+_MODE_WORDS = {"driving": "by car", "walking": "on foot", "public_transport": "by commute"}
+
+
+def _top_place_reasons(
+    *,
+    data: TopPlacesRequest,
+    candidate: _TopPlaceCandidate,
+    trip: _Trip,
+    budget_per_person: Decimal | None,
+) -> list[str]:
+    destination = candidate.destination
+    reasons: list[str] = []
+    if candidate.matched:
+        reasons.append(f"Matches {', '.join(candidate.matched)}.")
+    elif not data.interests:
+        reasons.append("Add a vibe or interest to rank places by what you like.")
+
+    way = _MODE_WORDS[data.travel_mode]
+    if trip.basis == "road_route":
+        reasons.append(f"About {trip.minutes} min {way} from your start by road.")
+    elif trip.basis == "approximate_location":
+        reasons.append(
+            f"About {trip.minutes} min {way}; approximate, because the visitor entrance "
+            "is not verified yet."
+        )
+    elif trip.basis == "straight_line_estimate":
+        reasons.append(f"About {trip.minutes} min {way} (straight-line estimate).")
+    elif trip.basis == "commute_estimate":
+        reasons.append(f"About {trip.minutes} min by commute (estimate).")
+    else:
+        reasons.append("Set a start point to rank by travel time.")
+
+    cost = destination.estimated_cost
+    if cost is None:
+        reasons.append("Cost not listed.")
+    elif budget_per_person is not None:
+        reasons.append(
+            f"About ₱{cost:,.0f} per person, within your ₱{budget_per_person:,.0f} per person."
+        )
+    else:
+        reasons.append(f"About ₱{cost:,.0f} per person (catalog estimate).")
+
+    if data.child_ages:
+        reasons.append("Kid-friendly." if destination.is_kid_friendly else "Not marked kid-friendly.")
+    if data.party_size >= scoring.LARGE_GROUP_SIZE and destination.group_friendly:
+        reasons.append("Good for groups.")
+    if candidate.values["popularity"] > 0:
+        reasons.append("Popular with Lakbay travelers.")
+    return reasons
+
+
+_SKIP_PHRASES = {
+    "no_interest_match": ("does not match your interests", "do not match your interests"),
+    "outside_preferred_districts": ("is outside your chosen districts", "are outside your chosen districts"),
+    "missing_required_accessibility": (
+        "lacks a required accessibility feature", "lack a required accessibility feature",
+    ),
+    "over_budget": ("is over your budget", "are over your budget"),
+    "needs_boat_or_ferry": ("needs a boat or ferry", "need a boat or ferry"),
+    "no_route": ("has no road route from your start", "have no road route from your start"),
+    "too_far": ("is too far for your trip length", "are too far for your trip length"),
+}
+
+
+def _top_place_shortfall(
+    *,
+    data: TopPlacesRequest,
+    qualified: int,
+    interest_match_count: int,
+    skipped: TopPlacesSkipped,
+) -> str | None:
+    if data.interests and interest_match_count == 0:
+        return "No active catalog destination matches the supplied travel interests."
+    if qualified >= data.limit:
+        return None
+    parts = [
+        f"{count} {single if count == 1 else plural}"
+        for name, (single, plural) in _SKIP_PHRASES.items()
+        if (count := getattr(skipped, name)) > 0
+    ]
+    found = f"Only {qualified} {'place qualifies' if qualified == 1 else 'places qualify'} for your Top {data.limit}"
+    if not parts:
+        return f"{found}."
+    listed = parts[0] if len(parts) == 1 else f"{', '.join(parts[:-1])} and {parts[-1]}"
+    return f"{found}: {listed}."

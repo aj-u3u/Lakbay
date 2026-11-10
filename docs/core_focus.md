@@ -777,6 +777,30 @@ Done when:
 - Leaving the route refreshes it at most once per minute.
 - No position is stored or shared by the backend; no schema change is made.
 
+### Phase 15I: Personalized Top 5 Weighted Scoring
+
+Purpose: base the Top 5 on the traveler's interests, start point, travel mode,
+budget, party, and trip length, as the panel and adviser asked.
+
+Scope: [top5_weighted_scoring_scope_2026-11-10.md](top5_weighted_scoring_scope_2026-11-10.md),
+approved on 10 November 2026 with its four recommended decisions.
+
+- A weighted scoring model (Simple Additive Weighting) in
+  `app/features/recommendations/scoring.py`: interest 0.35, travel 0.25,
+  budget 0.20, group fit 0.10, popularity 0.10.
+- `POST /api/v1/recommendations/top-places` with a 0–100 score, factor
+  breakdown, reasons, and labels for how travel time and cost were measured.
+- One OSRM Table request for travel times; Haversine fallback.
+- Verified road routes fill the list first; approximate places fill the rest
+  with a label.
+- Planning chat uses the same ranking.
+- `POST /api/v1/recommendations` and Phase 15B grouping are unchanged; no
+  schema change.
+
+Implemented on 10 November 2026; see `docs/recommendations.md`. The traveler app
+still calls `POST /api/v1/recommendations` from its Top 5 button; switching it to
+the new endpoint and showing the breakdown needs separate approval.
+
 ## Suggested MVP Boundary
 
 The first usable MVP should include:

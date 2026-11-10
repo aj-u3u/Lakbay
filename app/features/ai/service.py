@@ -33,7 +33,11 @@ from app.features.ai.validators import (
 from app.features.destinations.models import Destination
 from app.features.planning.schemas import PlanningOrigin, PlanningPreviewRequest, PlanningPreviewResponse, PlanningState
 from app.features.planning.service import PlanningService
-from app.features.recommendations.service import RecommendationService
+from app.features.recommendations.schemas import TopPlacesRequest
+from app.features.recommendations.service import (
+    RecommendationService,
+    planning_recommendation_from_top_place,
+)
 from app.features.routes.schemas import RouteCoordinate
 from app.features.routes.service import RouteService
 from app.features.transportations.models import Transportation
@@ -908,32 +912,47 @@ async def _build_planning_chat_result(
     recommendations = []
     recommendation_total_candidates = 0
     recommendation_shortfall_reason = None
-    if not next_state.destination_ids:
-        (
-            recommendations,
-            recommendation_total_candidates,
-            recommendation_shortfall_reason,
-        ) = await RecommendationService(session).rank_planning_candidates(
-            interests=next_state.interests,
-            traveler_count=next_state.traveler_count,
-            origin=(
-                RouteCoordinate(
-                    label=next_state.origin.label,
-                    lat=next_state.origin.lat,
-                    lng=next_state.origin.lng,
-                )
-                if next_state.origin is not None
-                and next_state.origin.lat is not None
-                and next_state.origin.lng is not None
-                else None
-            ),
-            travel_mode={
-                ("mode:personal_vehicle",): "driving",
-                ("mode:walking",): "walking",
-            }.get(tuple(next_state.selected_transport_option_ids)),
-            route_service=route_service,
+    if not next_state.destination_ids and not next_state.interests:
+        recommendation_shortfall_reason = (
+            "No travel interests were supplied, so there is no preference match to rank."
         )
-        if next_state.interests and recommendation_shortfall_reason is not None:
+    elif not next_state.destination_ids:
+        selected_modes = tuple(next_state.selected_transport_option_ids)
+        top_places = await RecommendationService(session).rank_top_places(
+            data=TopPlacesRequest(
+                interests=next_state.interests,
+                origin=(
+                    RouteCoordinate(
+                        label=next_state.origin.label,
+                        lat=next_state.origin.lat,
+                        lng=next_state.origin.lng,
+                    )
+                    if next_state.origin is not None
+                    and next_state.origin.lat is not None
+                    and next_state.origin.lng is not None
+                    else None
+                ),
+                # Catalog fare choices mean the traveler is commuting; no choice
+                # yet is ranked by car.
+                travel_mode={
+                    ("mode:personal_vehicle",): "driving",
+                    ("mode:walking",): "walking",
+                }.get(selected_modes, "public_transport" if selected_modes else "driving"),
+                total_budget=next_state.total_budget,
+                budget_scope=next_state.budget_scope,
+                traveler_count=next_state.traveler_count,
+                adult_count=next_state.adult_count,
+                child_ages=next_state.child_ages,
+                day_count=next_state.day_count,
+            ),
+            osrm_client=route_service.osrm_client if route_service is not None else None,
+        )
+        recommendations = [
+            planning_recommendation_from_top_place(item) for item in top_places.items
+        ]
+        recommendation_total_candidates = top_places.total_candidates
+        recommendation_shortfall_reason = top_places.shortfall_reason
+        if recommendation_shortfall_reason is not None:
             # Catalog and route checks are authoritative over model prose.
             chat_response = recommendation_shortfall_reason
     return (

@@ -14,6 +14,8 @@ from app.integrations.osrm.schemas import (
     OSRMLeg,
     OSRMRouteResult,
     OSRMStep,
+    OSRMTableEntry,
+    OSRMTableResult,
 )
 
 
@@ -76,6 +78,30 @@ class OSRMClient:
         )
 
         return _parse_trip_response(body, expected_count=len(coordinates))
+
+    async def table(
+        self,
+        *,
+        travel_mode: TravelMode,
+        origin: RouteCoordinate,
+        destinations: list[RouteCoordinate],
+    ) -> OSRMTableResult:
+        """Return travel from one origin to every destination in a single request."""
+        if not destinations:
+            return OSRMTableResult(source_snap_meters=None, entries=[])
+        profile = self._profile_for_mode(travel_mode)
+        base_url = self._base_url_for_mode(travel_mode)
+        coordinates = [origin, *destinations]
+        body = await self._get_json(
+            f"/table/v1/{profile}/{_coordinates_path(coordinates)}",
+            params={
+                "sources": "0",
+                "destinations": ";".join(str(index) for index in range(1, len(coordinates))),
+                "annotations": "duration,distance",
+            },
+            base_url=base_url,
+        )
+        return _parse_table_response(body, expected_count=len(destinations))
 
     async def _get_json(
         self, path: str, *, params: dict[str, str], base_url: str
@@ -176,6 +202,46 @@ def _require_near_route_waypoints(body: dict, expected_count: int) -> None:
             raise OSRMRouteNotFoundError(
                 "OSRM snapped a route waypoint too far from the requested point."
             )
+
+
+def _parse_table_response(body: dict, *, expected_count: int) -> OSRMTableResult:
+    durations = body.get("durations")
+    distances = body.get("distances")
+    destinations = body.get("destinations")
+    sources = body.get("sources")
+    if (
+        not isinstance(durations, list) or len(durations) != 1
+        or not isinstance(durations[0], list) or len(durations[0]) != expected_count
+        or not isinstance(destinations, list) or len(destinations) != expected_count
+    ):
+        raise OSRMClientError("OSRM table response did not match the request.")
+    distance_row = (
+        distances[0]
+        if isinstance(distances, list) and len(distances) == 1
+        and isinstance(distances[0], list) and len(distances[0]) == expected_count
+        else [None] * expected_count
+    )
+    source = sources[0] if isinstance(sources, list) and sources else None
+    return OSRMTableResult(
+        source_snap_meters=_optional_number(source.get("distance") if isinstance(source, dict) else None),
+        entries=[
+            OSRMTableEntry(
+                duration_seconds=_optional_number(duration),
+                distance_meters=_optional_number(distance),
+                snap_meters=_optional_number(
+                    waypoint.get("distance") if isinstance(waypoint, dict) else None
+                ),
+            )
+            for duration, distance, waypoint in zip(durations[0], distance_row, destinations)
+        ],
+    )
+
+
+def _optional_number(value: object) -> float | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    number = float(value)
+    return number if isfinite(number) and number >= 0 else None
 
 
 def _parse_route_response(body: dict) -> OSRMRouteResult:
