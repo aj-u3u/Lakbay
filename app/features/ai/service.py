@@ -130,7 +130,15 @@ class AIItineraryService:
         )
 
         geo_analytics_context = None
+        route_destination_order = None
         if planning_preview is not None:
+            route = planning_preview.route
+            if route.status == "calculated" and route.summary is not None:
+                route_destination_order = tuple(
+                    stop.destination_id
+                    for stop in route.summary.stops
+                    if not stop.is_origin and stop.destination_id is not None
+                )
             recommendations, scored_groups = await selected_geo_inputs(
                 session=self.session,
                 user=user,
@@ -163,6 +171,7 @@ class AIItineraryService:
             day_count=data.day_count,
             minimum_option_count=settings.ai_itinerary_option_count,
             required_destination_ids=set(data.destination_ids),
+            route_destination_order=route_destination_order,
             required_accommodation_ids=set(data.accommodation_ids) if planning_preview else None,
             required_transportation_ids=set(data.transportation_ids) if planning_preview else None,
             accommodation_destination_ids={
@@ -178,6 +187,7 @@ class AIItineraryService:
             option_count=settings.ai_itinerary_option_count,
             planning_preview=planning_preview,
             geo_analytics_context=geo_analytics_context,
+            route_destination_order=route_destination_order,
         )
         quality_warnings = _itinerary_quality_warnings(
             destinations=destinations,
@@ -889,6 +899,13 @@ async def _build_planning_chat_result(
         try:
             if changes:
                 state_values = current_state.model_dump()
+                if (
+                    current_state.route_preferences is not None
+                    and current_state.route_preferences.road_access_confirmed
+                    and changes.keys() & {"origin", "destination_ids", "return_to_origin"}
+                ):
+                    state_values["route_preferences"] = None
+                    changes_json["route_preferences"] = None
                 if (
                     "destination_ids" in changes
                     and changes["destination_ids"] != current_state.destination_ids

@@ -446,7 +446,7 @@ def test_planning_chat_accepts_destination_id_from_retrieved_catalog_context(
     assert planning["preview"]["state"]["child_ages"] == [8]
 
 
-def test_planning_chat_origin_label_update_clears_stale_coordinates(
+def test_planning_chat_origin_label_update_clears_stale_coordinates_and_road_confirmation(
     client,
     monkeypatch,
 ) -> None:
@@ -454,6 +454,7 @@ def test_planning_chat_origin_label_update_clears_stale_coordinates(
     destination = create_destination(client, headers=admin_headers(client))
     state = planning_state(destination["destination_id"])
     state["origin"] = {"label": "Davao City", "lat": 7.0731, "lng": 125.6128}
+    state["route_preferences"] = {"road_access_confirmed": True}
     fake_client = FakeGroqClient([
         json.dumps(
             {
@@ -475,8 +476,11 @@ def test_planning_chat_origin_label_update_clears_stale_coordinates(
     )
 
     assert response.status_code == 200
-    preview_origin = response.json()["planning"]["preview"]["state"]["origin"]
-    assert preview_origin == {"label": "Mati City", "lat": None, "lng": None}
+    planning = response.json()["planning"]
+    preview_state = planning["preview"]["state"]
+    assert preview_state["origin"] == {"label": "Mati City", "lat": None, "lng": None}
+    assert preview_state["route_preferences"] is None
+    assert planning["state_updates"]["route_preferences"] is None
 
 
 def test_planning_chat_recovers_valid_fields_when_origin_has_wrong_shape(

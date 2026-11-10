@@ -8,7 +8,7 @@ from app.features.planning.schemas import PlanningPreviewResponse
 from app.features.recommendations.schemas import RecommendationItem
 
 PROMPT_VERSION = "phase5_itinerary_catalog_facts_v3"
-PLANNING_PROMPT_VERSION = "phase15e_scored_groups_catalog_facts_v4"
+PLANNING_PROMPT_VERSION = "phase15e_calculated_route_order_v5"
 CHAT_PROMPT_VERSION = "phase5_chat_v5_explicit_trip_details"
 
 
@@ -19,6 +19,7 @@ def build_itinerary_messages(
     option_count: int,
     planning_preview: PlanningPreviewResponse | None = None,
     geo_analytics_context: dict[str, Any] | None = None,
+    route_destination_order: tuple[int, ...] | None = None,
 ) -> list[dict[str, str]]:
     system_prompt = (
         "You are Lakbay's itinerary planner for Davao Region travel. "
@@ -89,6 +90,14 @@ def build_itinerary_messages(
             "Use the planning_preview budget and route as backend facts. Catalog prices with a verified charging unit are known rates; traveler allowances, quantities, and unverified units are assumptions.",
             "AI activity and option costs are draft estimates, never verified catalog prices.",
             "Use geo_analytics_context only for the selected destinations. Phase 15B group routes exclude the trip origin and may be estimates. An estimated route, missing arrival verification, or a missing route summary does not establish travel feasibility. Do not invent group scores or recommend unselected IDs.",
+        ])
+
+    if route_destination_order is not None:
+        user_prompt["required_destination_visit_order"] = list(route_destination_order)
+        user_prompt["rules"].extend([
+            "Every option must follow required_destination_visit_order exactly across ascending days and the activity order within each day. This order comes from the calculated trip route and takes precedence over the request list and any suggested group order.",
+            "Keep activities at a destination together before moving to the next stop. Consecutive activities at the same place count as one visit, including across days. A null destination_id does not count as a visit. Do not revisit an earlier stop after visiting a different destination.",
+            "The start and any return leg are already in the route summary. Do not add them to the destination visit order or invent a destination ID for the origin.",
         ])
 
     return [

@@ -4,6 +4,7 @@ import asyncio
 import importlib
 import json
 
+import pytest
 from fastapi.testclient import TestClient
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
@@ -18,12 +19,15 @@ from app.main import create_app
 from tests.conftest import register_sqlite_spatial_functions
 from tests.test_phase5_ai_itineraries import (
     FakeGroqClient,
+    admin_headers,
     configure_ai,
     create_destination,
     create_transportation,
     valid_ai_response,
 )
+from tests.test_phase6_routes import FakeOSRMClient
 from tests.test_planning_preview import register
+from tests.test_planning_routes import route_result
 
 
 def test_planning_snapshot_migration_upgrades_and_downgrades(monkeypatch) -> None:
@@ -87,6 +91,126 @@ def _file_app(database_url: str):
     app = create_app()
     app.dependency_overrides[get_db_session] = session_override
     return app, engine
+
+
+@pytest.mark.parametrize("optimize_order", [False, True], ids=["keep-order", "optimized"])
+def test_three_stop_itinerary_follows_round_trip_through_save_and_reopen(
+    client, monkeypatch, optimize_order,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    user = register(client)
+    selected = [
+        create_destination(client, headers=admin, name=f"Park {index}", lat=7.08 + index / 100,
+                           lng=125.62, category="park", estimated_cost="100.00")["destination_id"]
+        for index in range(3)
+    ]
+    expected = [selected[1], selected[2], selected[0]] if optimize_order else selected
+    osrm = FakeOSRMClient(
+        preview_result=route_result(1000, 2000, 3000, 4000),
+        optimize_result=route_result(1000, 2000, 3000, 4000, stop_order=[0, 2, 3, 1]),
+    )
+    monkeypatch.setattr("app.features.ai.router.get_osrm_client", lambda: osrm)
+
+    valid = json.loads(valid_ai_response(destination_id=expected[0], day_count=2))
+    for option in valid["options"]:
+        first, second = option["days"]
+        activity = first["activities"][0]
+        first["activities"] = [
+            {**activity, "destination_id": expected[0]},
+            {**activity, "destination_id": None},
+        ]
+        second["activities"] = [
+            {**activity, "destination_id": destination_id}
+            for destination_id in expected
+        ]
+        option["estimated_total_cost"] = "2500.00"
+        # A response may list day two first. The traveler reviews by day number.
+        option["days"] = [second, first]
+
+    invalid = json.loads(json.dumps(valid))
+    bad_activities = invalid["options"][-1]["days"][0]["activities"]
+    bad_activities[0], bad_activities[1] = bad_activities[1], bad_activities[0]
+    fake = FakeGroqClient([json.dumps(invalid), json.dumps(valid)])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake
+
+    origin = {"label": "Our hotel", "lat": 7.07, "lng": 125.61}
+    trip_inputs = {
+        "total_budget": "10000.00", "traveler_count": 1,
+        "day_count": 2, "destination_ids": selected,
+    }
+    generated = client.post(
+        "/api/v1/ai/itineraries/generate", headers=user,
+        json={
+            **trip_inputs, "input_revision": 4, "allow_fallback": True,
+            "planning_state": {
+                **trip_inputs, "origin": origin, "night_count": 0,
+                "return_to_origin": True,
+                "selected_transport_option_ids": ["mode:personal_vehicle"],
+                "route_preferences": {
+                    "optimize_order": optimize_order, "road_access_confirmed": True,
+                },
+                "cost_allowances": [
+                    {"category": "destination", "destination_id": place, "amount": "100.00"}
+                    for place in selected
+                ] + [
+                    {"category": "food", "amount": "200.00"},
+                    {"category": "transportation", "amount": "400.00"},
+                ],
+            },
+        },
+    )
+    assert generated.status_code == 200, generated.text
+    body = generated.json()
+    assert body["planning_preview"]["route"]["status"] == "calculated"
+    rejected, accepted = body["model_runs"]
+    assert rejected["validation_status"] == "invalid"
+    assert accepted["validation_status"] == "valid"
+    assert body["selected_generation_run_id"] == accepted["ai_generation_run_id"]
+    for call in fake.calls:
+        prompt = json.loads(call["messages"][1]["content"])
+        assert prompt["required_destination_visit_order"] == expected
+
+    route = body["planning_preview"]["route"]["summary"]
+    assert route["route_provider"] == "osrm"
+    assert [stop["destination_id"] for stop in route["stops"]] == [None, *expected, None]
+    assert len(route["legs"]) == 4
+    assert route["arrival_points_verified"] is False
+    for stop in (route["stops"][0], route["stops"][-1]):
+        assert stop["is_origin"] is True
+        assert (stop["name"], stop["lat"], stop["lng"]) == (origin["label"], origin["lat"], origin["lng"])
+
+    option_number = 5
+    assert [
+        item["destination_id"]
+        for day in sorted(body["options"][-1]["days"], key=lambda day: day["day"])
+        for item in day["activities"]
+    ] == [expected[0], None, *expected]
+    save_path = "/api/v1/trips/from-ai-option"
+    assert client.post(save_path, headers=user, json={
+        "generation_run_id": rejected["ai_generation_run_id"], "option_number": option_number,
+    }).status_code == 404
+    saved = client.post(save_path, headers=user, json={
+        "generation_run_id": body["selected_generation_run_id"], "option_number": option_number,
+    })
+    assert saved.status_code == 201, saved.text
+    reopened = client.get(f"/api/v1/trips/{saved.json()['trip_id']}", headers=user)
+    assert reopened.status_code == 200, reopened.text
+    trip = reopened.json()
+    assert trip["route"]["stops"] == route["stops"]
+    leg_fields = (
+        "order", "from_destination_id", "to_destination_id", "from_name", "to_name",
+        "distance_km", "duration_minutes", "is_estimated", "steps",
+    )
+    assert trip["route"]["legs"] == [
+        {field: leg[field] for field in leg_fields} for leg in route["legs"]
+    ]
+    assert trip["planning_snapshot"]["preview"]["route"]["summary"] == route
+    assert [
+        item["destination_id"]
+        for day in sorted(trip["itinerary_days"], key=lambda day: day["day_number"])
+        for item in day["activities"]
+    ] == [expected[0], None, *expected]
 
 
 def test_selected_ai_itinerary_costs_and_route_survive_app_restart(tmp_path, monkeypatch) -> None:

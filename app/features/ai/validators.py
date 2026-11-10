@@ -28,6 +28,7 @@ class AIItineraryCatalog:
     required_transportation_ids: set[int] | None = None
     accommodation_destination_ids: dict[int, int] | None = None
     transportation_destination_ids: dict[int, int] | None = None
+    route_destination_order: tuple[int, ...] | None = None
 
 
 def parse_and_validate_itinerary_output(
@@ -159,6 +160,19 @@ def _validate_option(*, option: AIItineraryOption, catalog: AIItineraryCatalog) 
                 raise AIOutputValidationError(
                     f"Every option must use exactly the selected {field} values: {sorted(required)}."
                 )
+
+    if catalog.route_destination_order is not None:
+        visits: list[int] = []
+        for day in sorted(option.days, key=lambda item: item.day):
+            for activity in day.activities:
+                destination_id = activity.destination_id
+                if destination_id is not None and (not visits or visits[-1] != destination_id):
+                    visits.append(destination_id)
+        if tuple(visits) != catalog.route_destination_order:
+            raise AIOutputValidationError(
+                "Itinerary destination visits must follow the calculated route order. "
+                f"Expected {list(catalog.route_destination_order)}, got {visits}."
+            )
 
 
 def _validate_activity_ids(*, activity, catalog: AIItineraryCatalog) -> None:

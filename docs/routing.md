@@ -22,6 +22,39 @@ a map pin does not prove visitor access, opening status or a ferry crossing.
 
 ## What Routing Means In Lakbay
 
+### Saved-trip route preservation — approved 10 November 2026
+
+The user approved correcting the traveler display while deferring deployment
+and phone checks. This fits the existing route/trip/planning phases and uses the
+current trip response and route APIs; it adds no database fields or endpoint.
+
+The traveler retains the full saved route and its planning snapshot in
+`TripRoutePlan`. A top-level saved `route` takes precedence over an older planning
+preview. The saved stop list supplies visit order, starting point, mode and
+whether the last leg returns to the start. When there is no route summary,
+planning state supplies available choices without inventing a route.
+
+Opening a saved trip restores that snapshot without an OSRM request. The map
+keeps its recorded geometry, legs, estimates and warnings; no geometry is
+fabricated if none was saved. Unverified arrivals do not gain maneuver steps.
+Saved-trip GPS tracking does not trigger automatic rerouting.
+
+The traveler can explicitly request **Recalculate route**. That action uses
+`POST /routes/preview`, the chosen start/mode/return choice, and the saved visit
+order. Its result is labeled **Recalculated preview** and does not write to the
+trip or replace its saved itinerary. A failed request leaves the displayed route
+intact. **Show saved route** restores the original snapshot. Session refresh
+retains the same request choices. Existing callers that request optimization
+continue to use `/routes/optimize` by default.
+
+Implementation is in the sibling traveler application's `lib/models/trip_route_plan.dart`,
+`lib/providers/route_ways_controller.dart`, `lib/providers/live_route_tracker.dart`,
+`lib/services/api_service.dart` and the existing trip dashboard. Regressions cover
+saved order/return/mode, trip reloading and copying, stale requests, missing
+geometry, session refresh, explicit recalculation/restoration/failure, GPS and
+narrow-screen layouts. This does not implement accommodation selection, the
+pre-save itinerary/route review, multi-day scheduling or a new optimizer.
+
 Routing answers this question:
 
 ```text

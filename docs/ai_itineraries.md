@@ -30,8 +30,8 @@ Pins support approximate planning. Free-text access and travel-time notes are
 reference data, not live route calculations or evidence of current opening,
 booking or entrance verification. Missing values remain unknown. These fields
 do not bypass selected-ID, cost-arithmetic or budget validation. The prompt
-versions are `phase5_itinerary_catalog_facts_v3` and
-`phase15e_scored_groups_catalog_facts_v4`, so audit records distinguish the change.
+versions are `phase5_itinerary_catalog_facts_v3` for direct requests and
+`phase15e_calculated_route_order_v5` for planning requests.
 
 The traveler retains the five saved travel-detail fields and displays nonempty
 values in the existing Travel Notes & Tips section after catalog refresh. An
@@ -76,6 +76,26 @@ route or unverified arrival does not establish feasibility. Grouping uses the
 existing per-user Phase 15B rate limit as well as the planning route limit.
 Its result is read-only and saved with the validated generation run for audit.
 No unselected recommendation ID is passed to the model or allowed in its output.
+
+When the planning route is `calculated`, the prompt and validator use the same
+ordered destination IDs from its stops. The prompt calls this list
+`required_destination_visit_order`. The validator reads days in numerical order
+and activities in their listed order. It skips null destination IDs and counts
+consecutive activities at one destination as a single visit. It rejects a model
+run if any option changes the order or revisits an earlier destination. The
+configured fallback can try the same order. The start and return leg remain in
+the stored route, outside the itinerary's destination ID sequence. Requests
+without a calculated route retain the existing destination coverage check.
+
+The traveler confirms road access when calculating a personal-vehicle route.
+When a confirmed journey changes, the route request itself is removed
+(`route_preferences` becomes null), not only the confirmation. The traveler
+then recalculates the route and confirms the revised journey. The chat endpoint
+does this for start, destination, and return changes. Chat cannot change the
+transport selection; the traveler app clears the route request itself when the
+traveler changes transport, start, destinations, or return choice in its own
+controls. This keeps the visit sequence consistent with the route. Daily transfer schedules and
+opening hours still need their own feasibility checks.
 
 The response includes `selected_generation_run_id`, `planning_preview`, and
 `geo_analytics_context`. The preview's
