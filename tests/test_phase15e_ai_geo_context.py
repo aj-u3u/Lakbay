@@ -3,8 +3,46 @@
 from decimal import Decimal
 from types import SimpleNamespace
 
+import pytest
+
+from app.core.exceptions import LakbayAPIError
+from app.features.ai.schemas import AIItineraryGenerateRequest
+from app.features.ai.service import _validate_generation_planning_state
 from app.features.geo_analytics.schemas import DestinationGroupsResponse
+from app.features.planning.schemas import PlanningState
 from app.integrations.groq.prompts import build_geo_analytics_context
+
+
+@pytest.mark.parametrize(
+    ("scope", "travelers", "whole_trip_budget"),
+    [
+        ("per_person", 3, "9000.15"),
+        ("per_person", 1, "3000.05"),
+        ("whole_trip", 3, "3000.05"),
+    ],
+)
+def test_generation_budget_matches_canonical_preview(scope, travelers, whole_trip_budget):
+    state = PlanningState(
+        destination_ids=[7], total_budget=Decimal("3000.05"),
+        budget_scope=scope, traveler_count=travelers, day_count=1,
+    )
+    preview = SimpleNamespace(
+        state=state, transport_options=[], selection_problems=[],
+        budget=SimpleNamespace(minimum_over_budget_amount=Decimal("0")),
+        whole_trip_budget=Decimal(whole_trip_budget),
+    )
+    data = AIItineraryGenerateRequest(
+        destination_ids=[7], total_budget=whole_trip_budget,
+        traveler_count=travelers, day_count=1, planning_state=state,
+    )
+    _validate_generation_planning_state(data, preview)
+    assert data.planning_state.total_budget == Decimal("3000.05")
+    if scope == "per_person" and travelers > 1:
+        with pytest.raises(LakbayAPIError) as error:
+            _validate_generation_planning_state(
+                data.model_copy(update={"total_budget": state.total_budget}), preview,
+            )
+        assert error.value.code == "planning_input_mismatch"
 
 
 def _preview(*, summary=None, missing_costs=()):
