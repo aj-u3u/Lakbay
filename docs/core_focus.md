@@ -797,9 +797,10 @@ approved on 10 November 2026 with its four recommended decisions.
 - `POST /api/v1/recommendations` and Phase 15B grouping are unchanged; no
   schema change.
 
-Implemented on 10 November 2026; see `docs/recommendations.md`. The traveler app
-still calls `POST /api/v1/recommendations` from its Top 5 button; switching it to
-the new endpoint and showing the breakdown needs separate approval.
+Implemented on 10 November 2026; see `docs/recommendations.md`. The traveler
+app's Top 5 entry points were switched to the new endpoint the same day, with
+travel labels and the factor breakdown
+([scope](top5_app_button_scope_2026-11-10.md)).
 
 ## Suggested MVP Boundary
 
