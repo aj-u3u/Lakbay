@@ -11,10 +11,10 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import get_settings
 from app.features.ai.service import _ai_user_limiter
-from app.features.memories.service import _cloudinary_upload_limiter
 from app.features.routes.dependencies import _route_request_limiter
 from app.features.destinations.candidate_router import _osm_lookup_limiter
 from app.integrations.osm.client import _cache as _osm_cache
+from app.integrations.storage.uploads import cloudinary_upload_limiter
 from app.db.base import Base, import_model_modules
 from app.db.session import get_db_session
 from app.main import create_app
@@ -32,14 +32,14 @@ def compile_geography_for_sqlite(type_, compiler, **kw) -> str:
 def clear_settings_cache() -> None:
     get_settings.cache_clear()
     _ai_user_limiter.clear()
-    _cloudinary_upload_limiter.clear()
+    cloudinary_upload_limiter.clear()
     _route_request_limiter.clear()
     _osm_lookup_limiter.clear()
     _osm_cache.clear()
     yield
     get_settings.cache_clear()
     _ai_user_limiter.clear()
-    _cloudinary_upload_limiter.clear()
+    cloudinary_upload_limiter.clear()
     _route_request_limiter.clear()
     _osm_lookup_limiter.clear()
     _osm_cache.clear()

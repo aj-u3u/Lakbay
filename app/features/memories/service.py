@@ -5,7 +5,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.exceptions import LakbayAPIError
-from app.core.provider_usage import ProviderLimiter
 from app.features.memories.models import TripMemory
 from app.features.memories.repository import MemoryRepository
 from app.features.memories.schemas import (
@@ -17,10 +16,10 @@ from app.features.memories.schemas import (
 from app.features.trips.models import Trip, TripMember
 from app.features.users.models import User
 from app.integrations.storage.client import CloudinaryStorageClient, StorageUploadResult
-
-
-_IMAGE_READ_CHUNK_SIZE = 64 * 1024
-_cloudinary_upload_limiter = ProviderLimiter()
+from app.integrations.storage.uploads import (
+    read_validated_image,
+    reserve_cloudinary_upload,
+)
 
 
 class MemoryService:
@@ -45,15 +44,8 @@ class MemoryService:
     ) -> TripMemoryUploadResponse:
         trip, _ = await self._require_active_member(user=user, trip_id=trip_id)
         self._require_trip_mutable(trip)
-        file_bytes = await self._read_validated_image(file)
-        _cloudinary_upload_limiter.reserve_many(
-            [
-                (f"cloudinary:user:{user.user_id}", self.settings.cloudinary_uploads_per_user_day, 86400, 1),
-                ("cloudinary:all", self.settings.cloudinary_uploads_per_app_day, 86400, 1),
-            ],
-            code="cloudinary_upload_rate_limit_exceeded",
-            message="Photo upload limit reached. Please try again later.",
-        )
+        file_bytes = await read_validated_image(file, self.settings)
+        reserve_cloudinary_upload(user_id=user.user_id, settings=self.settings)
         storage = self.storage_client or CloudinaryStorageClient(self.settings)
         result = await storage.upload_image(
             file_bytes=file_bytes,
@@ -199,68 +191,6 @@ class MemoryService:
         )
 
         return _memory_response(deleted_memory)
-
-    async def _read_validated_image(self, file: UploadFile) -> bytes:
-        content_type = (file.content_type or "").lower()
-
-        if content_type not in self.settings.allowed_image_types:
-            raise LakbayAPIError(
-                "Only JPEG, PNG, or WebP images are allowed.",
-                code="invalid_image_type",
-                status_code=status.HTTP_400_BAD_REQUEST,
-                details={"content_type": file.content_type},
-            )
-
-        chunks: list[bytes] = []
-        total_bytes = 0
-
-        while chunk := await file.read(_IMAGE_READ_CHUNK_SIZE):
-            total_bytes += len(chunk)
-
-            if total_bytes > self.settings.upload_max_image_bytes:
-                raise LakbayAPIError(
-                    "Uploaded image is too large.",
-                    code="upload_too_large",
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    details={
-                        "max_bytes": self.settings.upload_max_image_bytes,
-                        "actual_bytes": total_bytes,
-                    },
-                )
-
-            chunks.append(chunk)
-
-        file_bytes = b"".join(chunks)
-
-        if not file_bytes:
-            raise LakbayAPIError(
-                "Uploaded image cannot be empty.",
-                code="empty_upload",
-                status_code=status.HTTP_400_BAD_REQUEST,
-            )
-
-        detected_content_type = _detect_image_content_type(file_bytes)
-
-        if detected_content_type is None:
-            raise LakbayAPIError(
-                "Uploaded file content is not a supported image.",
-                code="invalid_image_content",
-                status_code=status.HTTP_400_BAD_REQUEST,
-                details={"content_type": file.content_type},
-            )
-
-        if detected_content_type != content_type:
-            raise LakbayAPIError(
-                "Uploaded file content does not match its declared image type.",
-                code="image_type_mismatch",
-                status_code=status.HTTP_400_BAD_REQUEST,
-                details={
-                    "declared_content_type": content_type,
-                    "detected_content_type": detected_content_type,
-                },
-            )
-
-        return file_bytes
 
     async def _require_active_member(
         self,
@@ -429,20 +359,3 @@ def _active_member_for_user(trip: Trip, user_id: int) -> TripMember | None:
 
 def _is_trip_manager(member: TripMember) -> bool:
     return member.role in {"owner", "organizer"}
-
-
-def _detect_image_content_type(file_bytes: bytes) -> str | None:
-    if file_bytes.startswith(b"\xff\xd8\xff"):
-        return "image/jpeg"
-
-    if file_bytes.startswith(b"\x89PNG\r\n\x1a\n"):
-        return "image/png"
-
-    if (
-        len(file_bytes) >= 12
-        and file_bytes.startswith(b"RIFF")
-        and file_bytes[8:12] == b"WEBP"
-    ):
-        return "image/webp"
-
-    return None

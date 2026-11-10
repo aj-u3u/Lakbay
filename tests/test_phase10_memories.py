@@ -197,6 +197,43 @@ def test_active_member_can_upload_memory_image(client) -> None:
     assert response.status_code == 200
     assert body["image_url"].endswith("/memory.jpg")
     assert body["cloudinary_public_id"] == "lakbay/memory.jpg"
+
+
+def test_uploaded_memory_can_be_saved_and_listed(client) -> None:
+    owner_headers = register_user(client, email="memory-upload-list@example.com")
+    trip = create_trip(client, owner_headers)
+    storage = FakeStorageClient()
+    override_storage(client, storage)
+    upload_url = f"/api/v1/trips/{trip['trip_id']}/memories/upload"
+
+    upload_response = client.post(
+        upload_url,
+        headers=owner_headers,
+        files={"file": ("listed-memory.jpg", JPEG_BYTES, "image/jpeg")},
+    )
+    assert upload_response.status_code == 200
+    upload = upload_response.json()
+
+    create_response = client.post(
+        f"/api/v1/trips/{trip['trip_id']}/memories",
+        headers=owner_headers,
+        json={
+            "image_url": upload["image_url"],
+            "cloudinary_public_id": upload["cloudinary_public_id"],
+            "caption": "Visible after upload",
+        },
+    )
+    assert create_response.status_code == 201
+
+    list_response = client.get(
+        f"/api/v1/trips/{trip['trip_id']}/memories",
+        headers=owner_headers,
+    )
+
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+    assert list_response.json()[0]["image_url"] == upload["image_url"]
+    assert list_response.json()[0]["caption"] == "Visible after upload"
     assert storage.calls[0]["folder_suffix"] == f"trips/{trip['trip_id']}/memories"
     assert storage.calls[0]["file_bytes"] == JPEG_BYTES
 

@@ -99,8 +99,8 @@ Implementation notes:
   `ADMIN_REGISTRATION_CODE`.
 - Login uses an `application/json` request body for Flutter.
 - Email verification is deferred to a later phase or security enhancement.
-- `avatar_url` is editable in Phase 1, but Cloudinary upload endpoints are
-  deferred to the upload/photo phase.
+- `avatar_url` is stored on the user profile. Gallery uploads use the Phase 10
+  Cloudinary photo upload integration.
 
 ## Phase 2: Destination Data Foundation
 
@@ -427,6 +427,7 @@ Scope:
 
 - Image upload endpoint.
 - Storage provider integration.
+- Profile photo upload through the existing user `avatar_url` field.
 - Trip memory records.
 - Caption, location tag, uploader, and timestamps.
 - Basic like/comment counters if needed.
@@ -442,6 +443,8 @@ Current implementation notes:
 - Phase 10 uses `trip_memories`.
 - Images are uploaded to Cloudinary through
   `POST /api/v1/trips/{trip_id}/memories/upload`.
+- Profile photos are uploaded through `POST /api/v1/users/me/avatar`; the
+  Cloudinary URL is persisted to `users.avatar_url` without a schema change.
 - Memory metadata is saved separately through
   `POST /api/v1/trips/{trip_id}/memories`.
 - Uploads accept JPEG, PNG, and WebP images by default.
