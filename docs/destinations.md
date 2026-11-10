@@ -215,16 +215,16 @@ To load only the five independently reviewed public visitor attractions, use
 `python -m app.seeds.davao_destinations --curated-only`. This excludes the older
 starter batch and adds no accommodation or transportation rates. The evidence,
 coordinate provenance, fee limitations, and routing gaps are recorded in
-[`davao_curated_visitor_seed_2026-11-01.md`](davao_curated_visitor_seed_2026-11-01.md).
+[`archive/davao_curated_visitor_seed_2026-11-01.md`](archive/davao_curated_visitor_seed_2026-11-01.md).
 
 To load only the four discovery-only attractions with unknown costs, use
 `python -m app.seeds.davao_destinations --discovery-only` after migration
-`95bb71db451f`. The [four-place source and import review](davao_discovery_visitor_seed_2026-11-01.md)
+`95bb71db451f`. The [four-place source and import review](archive/davao_discovery_visitor_seed_2026-11-01.md)
 records their approximate coordinates and remaining access work.
 
 To load the separate eight-place Phase 2 coverage batch, use
 `python -m app.seeds.davao_destinations --coverage-only` after the same
-migration. Its [source review](davao_coverage_completion_seed_2026-11-01.md)
+migration. Its [source review](archive/davao_coverage_completion_seed_2026-11-01.md)
 records each attraction point and unresolved visitor rules. The configured
 Neon catalog now has five active destinations in each target district.
 
@@ -248,7 +248,7 @@ The Phase 2 OSM review queue is **admin only**. It stores candidate places separ
 from public `destinations`. Staged and rejected candidates are absent from
 traveler browse, recommendations, itineraries, and route planning. The source
 inventory and first-pass decisions are in
-[`davao_region_osm_catalog_review_2026-11-04.md`](davao_region_osm_catalog_review_2026-11-04.md).
+[`archive/davao_region_osm_catalog_review_2026-11-04.md`](archive/davao_region_osm_catalog_review_2026-11-04.md).
 
 Migration `2026_11_04_0800` creates `destination_candidates` with a unique OSM
 type/ID, source URL and tag, proposed place pin, review fields, and a link to a

@@ -45,7 +45,7 @@ audit. Tick each box when the fix is done and verified.
   (lines 936–938) replaces the AI reply with it. The same gap means routes end
   at attraction pins and turn-by-turn steps are suppressed.
   - Data fix: record verified entrances using
-    [lakbay_manual_arrival_checklist.md](lakbay_manual_arrival_checklist.md)
+    [lakbay_manual_arrival_checklist.md](../lakbay_manual_arrival_checklist.md)
     (all items unchecked).
   - Code options awaiting a decision: recommend unverified places with an
     "approximate location" warning, or keep the AI reply and show the shortfall

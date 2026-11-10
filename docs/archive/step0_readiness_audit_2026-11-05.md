@@ -1,6 +1,6 @@
 # Step 0 readiness audit — 5 November 2026
 
-Scope: read-only checks for the first increment of the [multi-day proposal](multiday_live_trip_proposal_2026-11-04.md). No application code, database rows, or deployed service was changed during this audit.
+Scope: read-only checks for the first increment of the [multi-day proposal](../multiday_live_trip_proposal_2026-11-04.md). No application code, database rows, or deployed service was changed during this audit.
 
 ## Confirmed state
 

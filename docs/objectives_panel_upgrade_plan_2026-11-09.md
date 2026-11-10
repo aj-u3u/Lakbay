@@ -31,8 +31,8 @@ approval under `AGENTS.md`; steps that change the schema are marked.
 What was checked, and how:
 
 - Catalog figures (30 active destinations, 0 route-ready, 648 staged candidates)
-  come from [system_issues_audit_2026-11-06.md](system_issues_audit_2026-11-06.md)
-  and [step0_readiness_audit_2026-11-05.md](step0_readiness_audit_2026-11-05.md).
+  come from [archive/system_issues_audit_2026-11-06.md](archive/system_issues_audit_2026-11-06.md)
+  and [archive/step0_readiness_audit_2026-11-05.md](archive/step0_readiness_audit_2026-11-05.md).
   They were not re-checked against the live database on 9 November.
 - Backend statements were checked against the code in this repository.
 - Traveler-app statements were checked in `../UI_FOR_LAKBAY` for the destination

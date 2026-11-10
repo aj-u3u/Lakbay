@@ -79,6 +79,12 @@ documents and removal of an excess EOF blank line in the new backend test.
 
 ## Remaining release work
 
+The user subsequently deferred deployment and phone checks to work on itinerary
+and route behavior. The approved saved-route correction is a later local change;
+the six release commits and APK described here are preserved and do not include
+it. Resume with a fresh review and rebuild rather than treating this APK as
+proof of the later fix. See the [routing guide](routing.md).
+
 1. Review the complete traveler branch scope against `main`, including its
    inherited 17 commits. Choose the deployment/merge target explicitly.
 2. Publish the reviewed branches and deploy the backend revision. Check the

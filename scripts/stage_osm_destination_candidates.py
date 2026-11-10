@@ -18,7 +18,7 @@ from app.features.destinations.models import DestinationCandidate
 
 DEFAULT_INPUT = (
     Path(__file__).resolve().parents[1]
-    / "docs/davao_region_osm_catalog_triage_2026-11-04.jsonl"
+    / "docs/archive/davao_region_osm_catalog_triage_2026-11-04.jsonl"
 )
 
 

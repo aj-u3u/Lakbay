@@ -236,7 +236,7 @@ preference-only ranking that must not be described as route-feasible.
 
 As of 4 November 2026 the configured catalog had 30 active destinations and no
 verified visitor entrances, so every Top 5 place is currently labeled
-approximate. See the [arrival review](davao_region_access_arrival_review_2026-10-29_README.md).
+approximate. See the [arrival review](archive/davao_region_access_arrival_review_2026-10-29_README.md).
 
 ## Planned Geo-Analytics Grouping
 

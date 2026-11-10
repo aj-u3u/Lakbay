@@ -2,7 +2,7 @@
 
 Reviewed 1 November 2026. This batch adds five named tourist attractions to the
 existing Davao destination seed. It is a small, evidence-backed addition to the
-[75 supported place candidates](davao_region_destination_candidates_README.md),
+[75 supported place candidates](../davao_region_destination_candidates_README.md),
 not a claim to contain every tourist listing on Google Maps. Google Maps searches
 were used to discover or cross-check names in the earlier
 [18-place review](davao_region_google_maps_review_2026-10-29_README.md). Persisted

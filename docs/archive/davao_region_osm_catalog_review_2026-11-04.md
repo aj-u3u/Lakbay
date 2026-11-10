@@ -4,7 +4,7 @@
 
 ## Phase alignment and decision
 
-Reviewing and preloading destination records fits **Phase 2: Destination Data Foundation** in [core_focus.md](core_focus.md). The existing model and admin create endpoint can hold a place name and attraction coordinate without fees or arrival coordinates. New destinations default to `route_ready=false`. A new schema is not required just to store an initial place pin. Publishing unreviewed records as active destinations would affect traveler browse, recommendations, AI itinerary selection, and routing previews, so the full OSM extract should not be inserted wholesale.
+Reviewing and preloading destination records fits **Phase 2: Destination Data Foundation** in [core_focus.md](../core_focus.md). The existing model and admin create endpoint can hold a place name and attraction coordinate without fees or arrival coordinates. New destinations default to `route_ready=false`. A new schema is not required just to store an initial place pin. Publishing unreviewed records as active destinations would affect traveler browse, recommendations, AI itinerary selection, and routing previews, so the full OSM extract should not be inserted wholesale.
 
 No backend code, seed, live catalog, database table, or arrival point was changed in this review. `catalog_added=false` and `arrival_verified=false` in every review line.
 

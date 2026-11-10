@@ -157,7 +157,7 @@ Neon. The table below covers the initial 18; the twelve newer records have
 arrival work listed in their seed reviews. Keep these fields separate from
 attraction `lat` and `lng`. The earlier
 [access review](davao_region_access_arrival_review_2026-10-29_README.md) and
-[manual checklist](lakbay_manual_arrival_checklist.md) contain source leads.
+[manual checklist](../lakbay_manual_arrival_checklist.md) contain source leads.
 
 | District | Existing destination | Next arrival decision |
 | --- | --- | --- |

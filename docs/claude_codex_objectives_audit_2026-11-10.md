@@ -1,5 +1,51 @@
 # Lakbay+ objectives, unfinished work, and Claude Code handoff audit
 
+## Approved cleanup follow-up — fixes and unused code, 10 November 2026
+
+The user approved fixing two blocking issues and removing duplicated and
+unused code that serves no study objective or panel comment. No schema,
+endpoint, provider setting or live data changed. The backend work is committed
+on `route-order-cleanup-20261110`, which builds on the three
+`codex/release-budget-catalog-20261110` commits; it is not merged to `main` or
+deployed. The traveler and admin changes below remain uncommitted.
+
+- **F6 fixed.** Top 5 now picks its 50 routed places by their score with a
+  straight-line travel estimate, so distant places cannot crowd out nearby ones
+  (`B:app/features/recommendations/service.py`). A new 51-place regression
+  failed with the old rule and passes now.
+- **F7 fixed.** Feedback requires the start's map pin only when
+  `route_preferences` requests a route (`B:app/features/planning/feedback.py`).
+- **Backend duplicates merged.** The catalog selection lookups and four checks
+  that were copied into `ai/`, `budgets/` and `trips/` (and the route lookup)
+  now live in `B:app/features/destinations/catalog_selection.py`. The two
+  identical rate-limiter classes share `PerUserRequestLimiter` in
+  `B:app/core/provider_usage.py`; their names, error codes and messages are
+  unchanged. Unused `AIGenerationRunResponse`, `GroqChatMessage` and
+  `TripRepository.list_trip_members` were removed; review comment trimming now
+  uses one shared type.
+- **Traveler unused code removed.** The 13 unreachable files listed below, the
+  uncalled `generatePlan()` → `generateAIItinerary()` chain with its three
+  private helpers, the null `fetchItineraryFeedback()` stub, `Trip.seedMembers`
+  and `AppNotification.mockNotifications`. Tests of deleted code were removed;
+  the four feedback-dialog tests now run through a test host that follows the
+  conversational planner's review-then-save order.
+- **Admin unused code removed.** The six unreachable files listed below. The
+  legacy `/transport`, `/accommodation`, `/activities` and `/meals` routes still
+  resolve to the current screens.
+- **Dated docs archived.** 32 superseded dated reports and datasets moved to
+  `B:docs/archive/` with links updated; the OSM staging script reads its default
+  input from there. Current dated plans, scopes and this handoff stay in `docs/`.
+
+Kept on purpose: endpoints no app calls yet but that support an objective or the
+use-case diagram (destination groups, evaluation summary, trip reviews, expense
+summary, budget estimate, trip routes), Google Routes live traffic, weather,
+seed data and the separate Haversine uses.
+
+Verification: full backend suite **509 passed, 1 skipped** (the limiter clock
+test was repointed to the moved class); traveler **238 passed**, admin **38
+passed**; both apps analyze with no issues; no broken relative Markdown links.
+Tests used isolated SQLite and mocked providers.
+
 ## Approved follow-up scope — place pins, 10 November 2026
 
 The user approved using saved place pins for the current version's Top 5,
@@ -73,7 +119,86 @@ original-file hash guards. Logs and original-file backups are under ignored
 
 ## Scope, evidence, and limits
 
-**Release preparation follow-up:** the user subsequently approved starting the
+**Pre-save itinerary review:** the conversational planner can request a route
+when the start has a map pin and the traveler has chosen transport and whether
+to return. The request keeps the selected destination order. The itinerary card
+opens a review of the exact generation run before the existing feedback check
+and save. The review shows the day-by-day activities, recorded route and leg
+distances and times, budget scope, and cost breakdown. It labels AI activity
+prices as drafts and shows when pin-based routing is approximate. The route
+describes the overall trip.
+
+**Generation route order:** the prompt and validator now share the ordered stops
+from the calculated planning route. The validator checks every option before
+it reaches review. It allows consecutive activities at one place and rejects
+reordered stops or a return visit without a matching route stop. Driving route
+requests now collect road-access confirmation. After a confirmed journey
+changes, the whole route request is removed (`route_preferences` becomes null),
+not only the confirmation. The traveler taps **Calculate route** and confirms
+road access again. The backend chat does this for start, destination and return
+changes. Chat cannot change the transport selection; the traveler app clears the
+route request itself for transport, start, destination and return changes made
+in its own controls. The tests cover kept and optimized order, a conflicting
+option, fallback, and the return leg through save and reopen. The focused runs
+passed 108 backend tests and 38 traveler tests. The backend round-trip cases
+used simulated Groq and OSRM responses.
+
+**Commit status, updated 10 November:** the backend part of this work
+(`app/features/ai/validators.py`, `app/features/ai/service.py`,
+`app/integrations/groq/prompts.py` at `phase15e_calculated_route_order_v5`, and
+`tests/test_planning_ai_save.py` / `tests/test_planning_chat.py`) is committed as
+`fafddf3` on `route-order-cleanup-20261110`, after the three
+`codex/release-budget-catalog-20261110` commits. That release branch itself still
+uses `phase15e_scored_groups_catalog_facts_v4`. The traveler app's matching
+route-clearing change in `lib/models/chat_planning_session.dart` is still
+uncommitted.
+
+**Same-day transfer warning:** the traveler review compares the gap between
+consecutive activity starts at different destinations with the recorded leg
+for that direction. When travel alone takes longer, **Check before travel**
+shows the affected day, stops and route estimate. The traveler can continue
+to save. The check needs readable start times and a calculated leg. Full
+scheduling still needs activity durations, overnight travel and opening hours.
+The focused run passed 27 traveler tests, including the warning at a narrow
+phone width and the existing review, save and reopen flows.
+
+The traveler can confirm an intentionally route-free itinerary. A missing
+requested route or a mismatch between itinerary visits and route stops blocks
+confirmation. Changes to the selection or plan revision invalidate the review.
+The existing save endpoint takes the reviewed run and option IDs and persists
+the associated route and cost projection. Deployment and phone checks remain
+deferred. The previously built APK predates this work.
+
+Local verification passed all **238 traveler tests**, including 18 new review
+regressions. Static analysis of the changed files found no issues. The applied
+files match the reviewed copies, and the other original traveler files were
+verified by hash. Logs and original-file backups are under
+`B:tmp/pre-save-review-20261110/`.
+
+**Route-preservation follow-up:** the user deferred deployment and phone checks
+and approved fixing saved-route preservation next. The local traveler correction
+retains the embedded route/planning snapshot, restores it without a new route
+request, and preserves its start, order, mode and return leg. Explicit
+recalculation uses the keep-order preview endpoint, is labeled as a preview, and
+does not overwrite the saved trip. Failed requests retain the previous display;
+the original saved route can be restored. Saved-trip GPS does not automatically
+reroute. See [routing.md](routing.md) and F5 below. No backend runtime, schema,
+provider configuration or live data change is included in this correction.
+The earlier release commits and debug APK are preserved and do not yet contain
+this later route fix; they must be reviewed/rebuilt when release work resumes.
+
+Validation: **220 traveler tests passed**, including 16 new regressions across
+saved-route models, API requests/session refresh, trip screens and GPS behavior.
+Flutter analysis reported no issues. The UI source scan reported no findings;
+physical-device visual/behavior verification remains deferred by the user.
+Ten tested traveler implementation/regression files were applied only after
+original-file hash checks; all unrelated traveler source, tests and assets are
+unchanged. Test copies, logs, original-file backups and a patch containing only
+this correction are under ignored `B:tmp/route-preservation-20261110/`.
+This is a working-checkout correction on top of the pending trip-view work,
+not an additional commit on the earlier isolated release branches.
+
+**Earlier release preparation:** the user approved starting the
 change review. Fix-only commits now exist on isolated `codex/release-*` branches.
 They passed 58 focused backend, 193 traveler and 29 admin tests; both apps analyze
 clean. The smaller client counts exclude other unfinished work. See the
@@ -144,6 +269,7 @@ routes, external consumers, and tests must be considered before deletion.
 4. **Displayed routes can lose saved planning choices.** The shared route
    controller requests a fresh optimized open route (`returnToStart: false`);
    it does not consume the saved trip-route contract or preserve a saved round trip.
+   **Follow-up: corrected locally; see the approved route-preservation update and F5.**
 5. **Top 5 has a reproduced scaling edge case.** It truncates candidates to 50
    before route-feasibility filtering. A reachable 51st candidate was omitted,
    yielding zero results. Today's 30-place catalog does not trigger that case.
@@ -242,7 +368,7 @@ than accepted as proof of deployment.
 | `deae1952` (backend project) | Confirm Amounts/save dead-end fixes; missing origin map pin downgraded in the app | Current app contains the workaround. Backend feedback still labels all missing preview inputs as required. |
 | `d582cbba` (backend project) | Weighted Top 5 backend/app, selective commits, explanation of unrelated app edits | Backend Top 5 is on local main; traveler `d89ba1d` is committed on its feature branch; trip/assessment edits remain uncommitted. |
 | `7b27cb65` (traveler project) | Shared map redesign and local browser run | Shared map components exist. Historical run/tiling claims are not a fresh phone or production check. |
-| `fa9c47ab` (traveler project) | Conversational planner, Top 5 details, overflow fixes; remaining route/model/group/evaluation UI | Several earlier gaps have since received code. In particular, assessment screens now exist locally; the pre-save route and model-comparison presentation remain incomplete. |
+| `fa9c47ab` (traveler project) | Conversational planner, Top 5 details, overflow fixes; remaining route/model/group/evaluation UI | Assessment screens and the pre-save route review now exist locally. Model-comparison presentation remains open. |
 
 Additional Claude material reviewed:
 
@@ -400,7 +526,9 @@ Do not describe catalog availability as room vacancy or a booking confirmation.
 
 ### F5 — The map route does not preserve the saved planning route contract
 
-**Priority:** medium. **Status:** source-confirmed behavior; device journey pending.
+**Priority:** medium. **Status:** corrected locally in the approved follow-up;
+deployment and phone verification deferred by the user. The evidence below
+describes the original behavior.
 
 `T:lib/providers/route_ways_controller.dart:39` calls route optimization with
 `returnToStart: false`. Its request interface has no saved return/order choice.
@@ -416,7 +544,9 @@ and distinguish a saved snapshot from a new route from the user's location.
 
 ### F6 — Top 5 truncates before feasibility filtering
 
-**Priority:** medium, triggered as the catalog grows. **Status:** reproduced.
+**Priority:** medium, triggered as the catalog grows. **Status:** fixed locally
+on 10 November (see the cleanup follow-up at the top). The evidence below
+describes the original behavior.
 
 `B:app/features/recommendations/service.py:165` sorts candidates without their
 actual travel score and keeps only `MAX_ROUTED_CANDIDATES=50` before routing and
@@ -431,7 +561,8 @@ that can still find feasible/verified places. Add a >50-place regression case.
 
 ### F7 — Feedback and generation disagree about an unpinned origin
 
-**Priority:** medium contract debt. **Status:** confirmed; an app workaround exists.
+**Priority:** medium contract debt. **Status:** fixed locally on 10 November
+(see the cleanup follow-up at the top); the app workaround still matches.
 
 `B:app/features/planning/feedback.py:27` marks any missing preview input as
 required, including `origin.coordinates`. The traveler intentionally ignores a
@@ -615,7 +746,7 @@ not proof that the current user journey implements that screen's functionality.
 | 1. At least five suitable destinations through geo-analytics | Weighted Top 5, explanations, filters, groups, and traveler integration implemented | Place-pin/access/cost review; phone proof; fix >50 shortlist behavior. Arrival verification is deferred. Return an honest shortfall when fewer than five qualify. |
 | 2. Compare three Groq models | Comparison selection/audits exist, all three models have recorded attempts, local configuration is enabled | Controlled benchmark, quality/relevance evidence, comparison UI/reporting and final manuscript names. |
 | 3. AI-chat itinerary generation | RAG, canonical planning state, preview, structured validation, audited options, run-based saving; per-person correction tested locally | Device-check corrected budget flow; connect intended stay selection; optional-budget decision/integration; catalog and approximate route-context completion. |
-| 4. Adaptive route optimization with Haversine and OSRM | OSRM routes/Trip, Haversine/nearest-neighbor fallback, shared maps and foreground tracker | Saved route/return/order preservation; adaptive algorithm selection; ordered pre-save review; multi-day constraints; actual walking graph and mixed-mode work. |
+| 4. Adaptive route optimization with Haversine and OSRM | OSRM routes/Trip, Haversine/nearest-neighbor fallback, shared maps and foreground tracker, saved-route preservation and ordered pre-save review | Deferred deployment and device verification, adaptive algorithm selection, multi-day constraints, walking graph and mixed-mode work. |
 | 5. Group coordination | Members/invites, tasks, expenses, memories, notifications, reports and ownership/membership checks exist | Review/commit current View Trip changes; group preference aggregation and party-age persistence. Do not reimplement invitations as if none exist. |
 | 6. ISO/IEC 25010-informed evaluation | Completed-trip assessment backend and admin summaries; pending traveler/admin forms implemented locally | Review/commit forms; user-testing protocol, anonymized export, and recommendation-result attribution. Perception ratings do not establish full technical conformance. |
 
@@ -632,7 +763,7 @@ predate newer work; use this reconciliation rather than copying them unchanged.
 | 4. Unknown suitability/check dates | Planned; current flags still boolean defaults | Agreed unknown/source/date contract and approved migration. |
 | 5. Destination photos | Pasted URL exists; upload flow planned | Admin upload/source/license review and traveler delivery. |
 | 6. Traveler place details | Saved travel fields connected locally; refresh regression added | Deploy/device-check edited and cleared fields, images, rates and unit labels. Catalog/rate refetch already exists. |
-| 7. Multi-stop/adaptive routes | Working foundation, incomplete objective | Resolve return/order/snapshot behavior and route review before choosing new algorithms. |
+| 7. Multi-stop/adaptive routes | Saved route preservation and ordered pre-save review implemented locally | Review and integrate these changes when release resumes. Adaptive optimization remains open. |
 | 8. Land/air/sea | Road-ferry metadata exists; mixed-mode itinerary legs planned | Approved connection/leg/source contracts and schema scope; do not invent timetables. |
 | 9. Group/child scoring | Party-level costing and destination age bands exist | Group aggregation, persistent composition, activity/transport age controls in the active UI. |
 | 10. Activity cost catalog | Stateless allowances/projection work | Structured activity price/duration/source records and stable IDs; current options derive identity from labels. |
@@ -707,9 +838,9 @@ contracts or larger-catalog cases remain uncovered.
    and shell/profile changes. Preserve shared-file edits.
 4. **Connect intended catalog stays/travel information** through the active
    planner and traveler models. Confirm price units and explicit unknowns.
-5. **Preserve route order, origin and return choice**, and add the planned route
-   review before implementing a larger optimizer. Keep saved and recalculated
-   routes distinguishable.
+5. **Verify route preservation and pre-save review when release work resumes.**
+   Check the displayed itinerary, route order and saved route together. The user
+   deferred deployment and phone checks.
 6. **Fix the >50 Top 5 shortlist behavior** before a large candidate-publication
    campaign. Validate a few published places end to end first.
 7. **Reconcile optional-budget/quality branches by behavior**, then choose an

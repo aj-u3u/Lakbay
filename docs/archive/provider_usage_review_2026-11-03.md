@@ -98,4 +98,4 @@ live asset was deleted or modified.
   use Groq's Limits page for exact account limits. Cloudinary credits are
   monitored, not hard-capped, because its usage data can lag.
 - Production use with multiple workers requires a configured Redis service and
-  a live multiworker smoke test. See [the operational guide](provider_usage.md).
+  a live multiworker smoke test. See [the operational guide](../provider_usage.md).

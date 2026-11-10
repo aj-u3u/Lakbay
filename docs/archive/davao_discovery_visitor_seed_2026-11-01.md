@@ -31,7 +31,7 @@ estimate identifies the selected destination IDs needing costs, and a saved
 maximum cost excludes unknown-cost destinations from recommendations. Group
 scoring excludes unknown-cost rows and reports a warning. A planning preview
 can still show the place with a null catalog cost. See
-[destination API rules](destinations.md) and
+[destination API rules](../destinations.md) and
 [coverage continuation](phase2_coverage_arrival_continuation_2026-11-01.md).
 
 Read-back after import found revision `95bb71db451f`, the four IDs above, and

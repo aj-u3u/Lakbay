@@ -124,7 +124,7 @@ Done when:
 On 1 November 2026 the configured Neon catalog had 30 active destinations:
 five in each target district. The numeric Phase 2 coverage target is met.
 All 30 remain `route_ready=false`; visitor arrival and access verification
-continues separately. See the [coverage review](phase2_coverage_arrival_continuation_2026-11-01.md).
+continues separately. See the [coverage review](archive/phase2_coverage_arrival_continuation_2026-11-01.md).
 - Users can browse and filter destinations.
 
 Current implementation notes:
