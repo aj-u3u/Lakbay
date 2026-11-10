@@ -2,10 +2,8 @@ from sqlalchemy import and_, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.features.accommodations.models import Accommodation
 from app.features.ai.models import AIGenerationRun
-from app.features.destinations.models import Destination
-from app.features.transportations.models import Transportation
+from app.features.destinations.catalog_selection import CatalogSelectionQueries
 from app.features.trips.models import (
     Trip,
     TripDestination,
@@ -18,7 +16,7 @@ from app.features.trips.schemas import TripRouteCreate
 from app.features.users.models import User
 
 
-class TripRepository:
+class TripRepository(CatalogSelectionQueries):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
 
@@ -82,19 +80,6 @@ class TripRepository:
         )
 
         return result.scalar_one_or_none()
-
-    async def list_trip_members(self, *, trip_id: int) -> list[TripMember]:
-        result = await self.session.execute(
-            select(TripMember)
-            .where(
-                TripMember.trip_id == trip_id,
-                TripMember.status == "active",
-            )
-            .options(selectinload(TripMember.user))
-            .order_by(TripMember.role.desc(), TripMember.trip_member_id.asc())
-        )
-
-        return list(result.scalars().all())
 
     async def get_trip_member(
         self,
@@ -186,51 +171,6 @@ class TripRepository:
     async def delete_trip_task(self, task: TripTask) -> None:
         await self.session.delete(task)
         await self.session.flush()
-
-    async def list_active_destinations_by_ids(
-        self,
-        destination_ids: list[int],
-    ) -> list[Destination]:
-        result = await self.session.execute(
-            select(Destination).where(
-                Destination.destination_id.in_(destination_ids),
-                Destination.is_active.is_(True),
-            )
-        )
-
-        return list(result.scalars().all())
-
-    async def list_available_accommodations_by_ids(
-        self,
-        accommodation_ids: list[int],
-    ) -> list[Accommodation]:
-        if not accommodation_ids:
-            return []
-
-        result = await self.session.execute(
-            select(Accommodation).where(
-                Accommodation.accommodation_id.in_(accommodation_ids),
-                Accommodation.is_available.is_(True),
-            )
-        )
-
-        return list(result.scalars().all())
-
-    async def list_available_transportations_by_ids(
-        self,
-        transportation_ids: list[int],
-    ) -> list[Transportation]:
-        if not transportation_ids:
-            return []
-
-        result = await self.session.execute(
-            select(Transportation).where(
-                Transportation.transportation_id.in_(transportation_ids),
-                Transportation.is_available.is_(True),
-            )
-        )
-
-        return list(result.scalars().all())
 
     async def save_route(self, *, trip: Trip, data: TripRouteCreate) -> TripRoute:
         route_values = data.model_dump(mode="json")

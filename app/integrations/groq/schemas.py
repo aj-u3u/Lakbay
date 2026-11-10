@@ -1,11 +1,6 @@
 from pydantic import BaseModel
 
 
-class GroqChatMessage(BaseModel):
-    role: str
-    content: str
-
-
 class GroqChatCompletion(BaseModel):
     content: str
     model: str

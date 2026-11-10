@@ -7,6 +7,7 @@ from sqlalchemy import event
 from sqlalchemy.engine import Engine
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core import provider_usage
 from app.core.config import get_settings
 from app.core.exceptions import LakbayAPIError
 from app.db.session import get_db_session
@@ -708,7 +709,7 @@ def test_route_limit_is_per_user_and_cost_only_requests_do_not_consume_it(client
 
 def test_route_limit_window_expires_without_sleep(monkeypatch) -> None:
     clock = {"now": 100.0}
-    monkeypatch.setattr(planning_dependencies, "monotonic", lambda: clock["now"])
+    monkeypatch.setattr(provider_usage, "monotonic", lambda: clock["now"])
     limiter = PlanningRouteLimiter(limit=1, window_seconds=60)
     limiter.check(user_id=1)
     clock["now"] = 159.999

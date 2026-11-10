@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Any, Literal
 
@@ -188,29 +187,6 @@ class AIChatResponse(BaseModel):
     prompt_tokens: int | None = None
     completion_tokens: int | None = None
     total_tokens: int | None = None
-
-
-class AIGenerationRunResponse(BaseModel):
-    ai_generation_run_id: int
-    user_id: int
-    request_purpose: str
-    model_role: str
-    model_id: str
-    prompt_version: str
-    status: str
-    validation_status: str
-    response_time_ms: int | None
-    prompt_tokens: int | None
-    completion_tokens: int | None
-    total_tokens: int | None
-    error_message: str | None
-    input_summary: dict | None
-    output_summary: dict | None
-    fallback_used: bool
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 def _require_unique_ids(field_name: str, values: list[int]) -> None:

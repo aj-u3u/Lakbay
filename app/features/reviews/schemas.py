@@ -2,11 +2,23 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import AfterValidator, BaseModel, EmailStr, Field, field_validator
 
 
 ReviewStatus = Literal["active", "deleted"]
 Rating = Annotated[int, Field(ge=1, le=5)]
+
+
+def _blank_to_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+
+    normalized = value.strip()
+    return normalized or None
+
+
+# Trimmed review text; blank text is stored as no comment.
+ReviewComments = Annotated[str | None, Field(max_length=2000), AfterValidator(_blank_to_none)]
 
 
 class TripReviewCreate(BaseModel):
@@ -16,16 +28,7 @@ class TripReviewCreate(BaseModel):
     route_efficiency_rating: Rating
     budget_adherence_rating: Rating
     overall_experience_rating: Rating
-    comments: str | None = Field(default=None, max_length=2000)
-
-    @field_validator("comments")
-    @classmethod
-    def normalize_comments(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-
-        normalized = value.strip()
-        return normalized or None
+    comments: ReviewComments = None
 
 
 class TripReviewUpdate(BaseModel):
@@ -34,7 +37,7 @@ class TripReviewUpdate(BaseModel):
     route_efficiency_rating: Rating | None = None
     budget_adherence_rating: Rating | None = None
     overall_experience_rating: Rating | None = None
-    comments: str | None = Field(default=None, max_length=2000)
+    comments: ReviewComments = None
 
     @field_validator(
         "post_trip_rating",
@@ -50,15 +53,6 @@ class TripReviewUpdate(BaseModel):
             raise ValueError("Rating fields cannot be null when provided.")
 
         return value
-
-    @field_validator("comments")
-    @classmethod
-    def normalize_comments(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-
-        normalized = value.strip()
-        return normalized or None
 
 
 class TripReviewResponse(BaseModel):

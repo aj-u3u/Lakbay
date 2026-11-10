@@ -260,3 +260,46 @@ class ProviderCache:
 
     def clear(self) -> None:
         self.local.clear()
+
+
+class PerUserRequestLimiter:
+    """Sliding window per worker; a shared limiter is needed for multiple workers.
+
+    Subclasses set the 429 `message` and `code` returned to the client.
+    """
+
+    message = "Too many requests. Try again shortly."
+    code = "rate_limit_exceeded"
+
+    def __init__(self, limit: int = 10, window_seconds: float = 60) -> None:
+        self.limit = limit
+        self.window_seconds = window_seconds
+        self._requests: dict[int, deque[float]] = {}
+        self._lock = Lock()
+
+    def check(self, user_id: int) -> None:
+        now = monotonic()
+        cutoff = now - self.window_seconds
+        with self._lock:
+            # Prune expired users when the bounded registry needs space.
+            if user_id not in self._requests and len(self._requests) >= 10000:
+                self._requests = {
+                    key: history for key, history in self._requests.items()
+                    if history and history[-1] > cutoff
+                }
+                if len(self._requests) >= 10000:
+                    self._reject(1)
+            history = self._requests.setdefault(user_id, deque())
+            while history and history[0] <= cutoff:
+                history.popleft()
+            if len(history) >= self.limit:
+                self._reject(max(1, ceil(history[0] + self.window_seconds - now)))
+            history.append(now)
+
+    def _reject(self, retry_after_seconds: int) -> None:
+        raise LakbayAPIError(
+            self.message,
+            code=self.code,
+            status_code=429,
+            details={"retry_after_seconds": retry_after_seconds},
+        )
