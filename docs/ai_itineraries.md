@@ -136,8 +136,8 @@ Free-text chat purpose:
   replace earlier preferences.
 - Filter and rank active destinations first, then select available accommodation
   and transportation records linked to those destinations.
-- Pass the retrieved context into Groq/Qwen so the answer is grounded in actual
-  Lakbay data.
+- Pass the retrieved context into the configured Groq model (currently
+  `openai/gpt-oss-120b`) so the answer is grounded in actual Lakbay data.
 - Return the assistant response plus the retrieved context used for traceability.
 
 ## Environment Variables
