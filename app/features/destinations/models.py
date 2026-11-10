@@ -145,6 +145,7 @@ class DestinationCandidate(Base):
     description: Mapped[str | None] = mapped_column(Text)
     district: Mapped[str | None] = mapped_column(String(255))
     location: Mapped[str | None] = mapped_column(String(500))
+    vibes: Mapped[str | None] = mapped_column(String(500))
     activities: Mapped[str | None] = mapped_column(Text)
     estimated_cost: Mapped[Decimal | None] = mapped_column(Numeric(10, 2))
     entrance_fee: Mapped[str | None] = mapped_column(String(255))

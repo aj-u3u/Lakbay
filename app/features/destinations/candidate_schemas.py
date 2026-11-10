@@ -38,6 +38,7 @@ class CandidateUpdate(BaseModel):
     description: str | None = None
     district: str | None = Field(default=None, max_length=255)
     location: str | None = Field(default=None, max_length=500)
+    vibes: str | None = Field(default=None, max_length=500)
     activities: str | None = None
     estimated_cost: Decimal | None = Field(default=None, ge=0, max_digits=10, decimal_places=2)
     entrance_fee: str | None = Field(default=None, max_length=255)
@@ -86,6 +87,7 @@ class CandidateResponse(BaseModel):
     description: str | None
     district: str | None
     location: str | None
+    vibes: str | None
     activities: str | None
     estimated_cost: Decimal | None
     entrance_fee: str | None

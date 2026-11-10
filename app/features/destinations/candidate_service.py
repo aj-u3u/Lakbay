@@ -114,6 +114,7 @@ class CandidateService:
             district=candidate.district,
             location=candidate.location,
             category=candidate.category,
+            vibes=candidate.vibes,
             activities=candidate.activities,
             lat=candidate.lat,
             lng=candidate.lng,

@@ -88,6 +88,7 @@ def test_admin_adds_details_then_publishes_without_route_ready(client) -> None:
             "category": "garden",
             "district": "Davao City",
             "visitor_purpose": "Public garden visits and photography",
+            "vibes": "nature, relaxation",
             "activities": "walking, photography",
             "entrance_fee": "Unknown",
             "estimated_cost": None,
@@ -95,6 +96,7 @@ def test_admin_adds_details_then_publishes_without_route_ready(client) -> None:
     )
     assert edited.status_code == 200
     assert edited.json()["entrance_fee"] == "Unknown"
+    assert edited.json()["vibes"] == "nature, relaxation"
     still_denied = client.post(f"{base}/publish", headers=headers)
     assert still_denied.json()["error"]["code"] == "candidate_access_unverified"
 
@@ -115,6 +117,7 @@ def test_admin_adds_details_then_publishes_without_route_ready(client) -> None:
     destination = client.get(f"/api/v1/destinations/{destination_id}").json()
     assert destination["name"] == "Visitor Garden"
     assert destination["activities"] == "walking, photography"
+    assert destination["vibes"] == "nature, relaxation"
     assert destination["estimated_cost"] is None
     assert destination["route_ready"] is False
     assert destination["arrival_lat"] is None
