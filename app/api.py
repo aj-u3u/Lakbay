@@ -31,6 +31,7 @@ from app.features.transportations.router import (
 )
 from app.features.transportations.router import router as transportations_router
 from app.features.users.router import router as users_router
+from app.features.users.admin_router import router as admin_users_router
 from app.features.weather.router import destination_router as destination_weather_router
 from app.features.weather.router import router as weather_router
 
@@ -63,3 +64,4 @@ api_router.include_router(reviews_router)
 api_router.include_router(notifications_router)
 api_router.include_router(health_router)
 api_router.include_router(users_router)
+api_router.include_router(admin_users_router)
