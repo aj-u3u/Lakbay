@@ -360,7 +360,11 @@ adds `route` and `fuel` response objects. Existing requests without
 Selecting only `mode:personal_vehicle` requests driving. With route preferences,
 `mode:walking` is available for a walking preview. Compatible catalog road
 transport choices produce a public-transport estimate; they do not establish
-real services, timetables, or fare coverage. Mixed modes, unavailable choices,
+real services, timetables, or fare coverage. When every selected catalog choice
+is a hired or rented car (`private_vehicle`, `private vehicle`, `private car` or
+`car rental`), the preview requests a driving route instead. Its operator drives,
+so it needs no `road_access_confirmed` and gets no traveler fuel estimate; that
+confirmation is required only for `mode:personal_vehicle`. Mixed modes, unavailable choices,
 non-road vehicles, and catalog access hints requiring boat/ferry/sea/air
 connections require review before a road summary can be returned.
 

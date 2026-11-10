@@ -41,6 +41,9 @@ _ROAD_CATALOG_MODES = {
     "land", "road", "driving", "public_transport", "public transport",
     "bus", "van", "jeepney", "tricycle", "taxi", "rail", "train",
 }
+# A hired or rented car follows roads like a personal vehicle, but its operator
+# drives it and its listed fare covers fuel.
+_PRIVATE_CATALOG_MODES = {"private_vehicle", "private vehicle", "private car", "car rental"}
 
 
 async def build_route_preview(
@@ -178,7 +181,11 @@ async def build_route_preview(
             "Estimated geometry does not confirm road distance or public-transport service; "
             "fares and connections still require separate review."
         )
-    if mode == "driving" and not preferences.road_access_confirmed:
+    # The confirmation asks whether travelers can drive the trip themselves.
+    if (
+        state.selected_transport_option_ids == ["mode:personal_vehicle"]
+        and not preferences.road_access_confirmed
+    ):
         route.status = "needs_review"
         route.missing_information.append("road_access_confirmation")
         route.warnings.append("Confirm that the full journey is accessible by road before estimating fuel.")
@@ -196,12 +203,15 @@ def _travel_mode(options: list[PlanningTransportOption]) -> TravelMode | None:
         return "driving"
     if len(options) == 1 and options[0].option_id == "mode:walking":
         return "walking"
+    road_catalog = _ROAD_CATALOG_MODES | _PRIVATE_CATALOG_MODES
     if options and all(
         item.kind == "catalog_transport"
-        and _canonical(item.transport_mode) in _ROAD_CATALOG_MODES
+        and _canonical(item.transport_mode) in road_catalog
         and not _NON_ROAD_VEHICLE.search(item.vehicle_type)
         for item in options
     ):
+        if all(_canonical(item.transport_mode) in _PRIVATE_CATALOG_MODES for item in options):
+            return "driving"
         return "public_transport"
     return None
 

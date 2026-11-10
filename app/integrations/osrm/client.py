@@ -20,6 +20,9 @@ from app.integrations.osrm.schemas import (
 
 
 MAX_PREVIEW_WAYPOINT_SNAP_METERS = 250.0
+# Shared community OSRM servers, such as the FOSSGIS foot service, ask clients
+# to identify the application instead of sending a library default.
+USER_AGENT = "Lakbay-API (Davao Region trip planner; https://lakbay-backend-final.onrender.com)"
 
 
 class OSRMClient:
@@ -109,6 +112,7 @@ class OSRMClient:
         async with httpx.AsyncClient(
             base_url=base_url.rstrip("/"),
             timeout=self.settings.osrm_request_timeout_seconds,
+            headers={"User-Agent": USER_AGENT},
         ) as client:
             try:
                 response = await client.get(path, params=params)

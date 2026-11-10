@@ -482,6 +482,63 @@ def test_public_transport_route_is_estimated_and_has_no_car_fuel(client) -> None
     assert fake.preview_calls == fake.optimize_calls == []
 
 
+@pytest.mark.parametrize("transport_mode", ["private_vehicle", "Private Car"])
+def test_catalog_private_car_uses_road_route_without_traveler_fuel(client, transport_mode) -> None:
+    admin = register(client, admin=True)
+    destination = create_destination(client, admin)
+    transportation = create_transportation(
+        client, admin, destination["destination_id"],
+        vehicle_type="Private Car", transport_mode=transport_mode,
+    )
+    fake = FakeOSRMClient(preview_result=route_result(10000, 20000))
+    override_route_service(client, fake)
+
+    # A hired car's driver handles road access, so no traveler confirmation is sent.
+    body = post_preview(
+        client, register(client),
+        routing_request(
+            destination["destination_id"], route_preferences={},
+            selected_transport_option_ids=[f"transportation:{transportation['transportation_id']}"],
+        ),
+    )
+
+    assert body["route"]["status"] == "calculated"
+    assert body["route"]["travel_mode"] == "driving"
+    assert body["route"]["summary"]["route_provider"] == "osrm"
+    assert "road_access_confirmation" not in body["route"]["missing_information"]
+    assert fake.preview_calls[0]["travel_mode"] == "driving"
+    assert body["fuel"]["status"] == "unavailable"
+    assert body["fuel"]["missing_information"] == ["sole_personal_vehicle_selection"]
+    assert body["fuel"]["amount"] is None
+
+
+def test_private_car_with_shared_transport_stays_an_estimated_commute(client) -> None:
+    admin = register(client, admin=True)
+    destination = create_destination(client, admin)
+    car = create_transportation(
+        client, admin, destination["destination_id"],
+        vehicle_type="Private Car", transport_mode="private_vehicle",
+    )
+    bus = create_transportation(client, admin, destination["destination_id"])
+    fake = FakeOSRMClient(error=AssertionError("Mixed public and private choices are estimated"))
+    override_route_service(client, fake)
+
+    body = post_preview(
+        client, register(client),
+        routing_request(
+            destination["destination_id"],
+            selected_transport_option_ids=[
+                f"transportation:{car['transportation_id']}",
+                f"transportation:{bus['transportation_id']}",
+            ],
+        ),
+    )
+
+    assert body["route"]["travel_mode"] == "public_transport"
+    assert body["route"]["summary"]["route_provider"] == "stored_transportation_estimate"
+    assert fake.preview_calls == fake.optimize_calls == []
+
+
 def test_walking_choice_uses_walking_route_and_no_vehicle_fuel(client) -> None:
     admin = register(client, admin=True)
     destination = create_destination(client, admin)

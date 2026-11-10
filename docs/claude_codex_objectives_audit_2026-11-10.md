@@ -1,5 +1,26 @@
 # Lakbay+ objectives, unfinished work, and Claude Code handoff audit
 
+## Approved routing follow-up — walking server and hired cars, 11 November 2026
+
+- **Walking routes are real on Render.** The user set
+  `OSRM_WALKING_BASE_URL=https://routing.openstreetmap.de/routed-foot` (the
+  FOSSGIS foot-profile server). A Davao City test walk returned 4.5 km/h on
+  footpaths there, while the public demo server's `/walking/` path returned the
+  car route. This supersedes F10's empty-walking-service note for the deployed
+  backend; the local `.env` is still empty. The OSRM client now sends a
+  `Lakbay-API` User-Agent, as the server's fair-use policy asks.
+- **Catalog "Private Car" no longer blocks routes.** The live catalog's
+  `private_vehicle` record was not a recognized road mode, so selecting it gave
+  "mixed or unknown modes". Hired or rented cars now route as `driving`.
+  Road-access confirmation is required only for `mode:personal_vehicle`, matching
+  the app's "Can you drive the full trip?" dialog; fuel stays personal-vehicle only.
+- Files: `B:app/integrations/osrm/client.py`, `B:app/features/planning/routing.py`,
+  `B:tests/test_route_provider_geometry.py`, `B:tests/test_planning_routes.py`,
+  `B:docs/routing.md`, `B:docs/planning_preview.md`. The four new tests failed on
+  the previous code. No schema, endpoint or traveler-app change.
+- Still open for Objective 4: adaptive stop ordering, sea and mixed-mode legs,
+  and air (not supported anywhere).
+
 ## Approved cleanup follow-up — fixes and unused code, 10 November 2026
 
 The user approved fixing two blocking issues and removing duplicated and

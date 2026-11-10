@@ -318,6 +318,13 @@ Recommended behavior:
 - `public_transport`: use stored transportation rates and estimated durations,
   then clearly mark the result as estimated.
 
+In the planning preview, a selected catalog vehicle whose transport mode is
+`private_vehicle`, `private vehicle`, `private car` or `car rental` (a hired or
+rented car) routes as `driving` when every selected catalog choice is one.
+Its operator drives, so it needs no traveler road-access confirmation and gets
+no traveler fuel estimate; its listed fare is the cost. A private car selected
+with shared transport stays an estimated `public_transport` route.
+
 Planned Phase 15 travel categories:
 
 - `land`
@@ -506,6 +513,18 @@ not sufficient evidence of a walking graph. Without a walking service, walking
 returns a Haversine estimate with `is_estimated=true` and no turn-by-turn line.
 If the selected service is missing or fails, the backend returns the same
 clearly labeled estimate.
+
+**Walking service in use (11 November 2026):** Render sets
+`OSRM_WALKING_BASE_URL=https://routing.openstreetmap.de/routed-foot`, the
+FOSSGIS community foot-profile server. A test walk in central Davao City
+returned 1,416 m in 18.9 minutes (4.5 km/h) there, while the public demo's
+`/walking/` path returned the 1,449 m car route in 3.6 minutes. The FOSSGIS
+server also answered Trip and Table requests. It is a fair-use service without
+an uptime guarantee (see its
+[usage policy](https://routing.openstreetmap.de/about.html)), so the OSRM
+client identifies itself with a `Lakbay-API` User-Agent, and failures still
+fall back to the labeled Haversine estimate. The local `.env` leaves the
+setting empty unless a developer adds it.
 
 For route previews, the OSRM client checks the provider's waypoint snap
 distances. Every requested point must have a returned waypoint within 250 meters.

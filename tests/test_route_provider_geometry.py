@@ -122,6 +122,39 @@ def test_walking_uses_its_configured_service() -> None:
     assert captured["base_url"] == "https://foot.example.test"
 
 
+def test_osrm_requests_identify_lakbay(monkeypatch) -> None:
+    captured = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        captured["user_agent"] = request.headers.get("user-agent")
+        captured["url"] = str(request.url)
+        return httpx.Response(200, json={
+            "code": "Ok",
+            "routes": [{"distance": 100, "duration": 80, "legs": [{"distance": 100, "duration": 80}]}],
+            "waypoints": [{"distance": 0}, {"distance": 0}],
+        })
+
+    real_async_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        "app.integrations.osrm.client.httpx.AsyncClient",
+        lambda **kwargs: real_async_client(transport=httpx.MockTransport(handler), **kwargs),
+    )
+    client = OSRMClient(settings=SimpleNamespace(
+        osrm_profile_walking="walking",
+        osrm_base_url="https://car.example.test",
+        osrm_walking_base_url="https://foot.example.test",
+        osrm_request_timeout_seconds=5,
+    ))
+
+    asyncio.run(client.preview_route(
+        travel_mode="walking",
+        coordinates=[RouteCoordinate(lat=7.0, lng=125.0),
+                     RouteCoordinate(lat=7.1, lng=125.1)],
+    ))
+    assert captured["url"].startswith("https://foot.example.test/route/v1/walking/")
+    assert captured["user_agent"].startswith("Lakbay-API")
+
+
 def test_walking_rejects_driving_service_url() -> None:
     client = OSRMClient(settings=SimpleNamespace(
         osrm_profile_walking="walking",
