@@ -1,0 +1,35 @@
+{
+    "name": "Lakbay+",
+    "short_name": "Lakbay+",
+    "start_url": ".",
+    "display": "standalone",
+    "background_color": "#0D1F1F",
+    "theme_color": "#20878E",
+    "description": "Lakbay+ - Premium AI-powered travel companion for the Davao Region.",
+    "orientation": "portrait-primary",
+    "prefer_related_applications": false,
+    "icons": [
+        {
+            "src": "icons/Icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "icons/Icon-maskable-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "maskable"
+        },
+        {
+            "src": "icons/Icon-maskable-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}
