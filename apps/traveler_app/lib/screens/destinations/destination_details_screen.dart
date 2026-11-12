@@ -18,6 +18,9 @@ import '../../core/routes/app_routes.dart';
 
 import '../../services/api_service.dart';
 
+bool _isValidCoordinate(double lat, double lng) =>
+    lat.isFinite && lng.isFinite && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+
 class TransitHub {
   final String name;
   final LatLng coordinates;
@@ -530,7 +533,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
         _loadingLocation = false;
       });
 
-      if (fitMapCamera) {
+      if (fitMapCamera &&
+          _isValidCoordinate(position.latitude, position.longitude) &&
+          _isValidCoordinate(dest.latitude, dest.longitude)) {
         // Fit map bounds to show both user location and destination
         final bounds = LatLngBounds.fromPoints([
           LatLng(position.latitude, position.longitude),
@@ -1610,7 +1615,9 @@ class _DestinationDetailsScreenState extends State<DestinationDetailsScreen> {
                                     heroTag: 'recenter_btn',
                                     tooltip: 'Center map on this destination',
                                     onPressed: () {
-                                      if (_userPosition != null) {
+                                      if (_userPosition != null &&
+                                          _isValidCoordinate(_userPosition!.latitude, _userPosition!.longitude) &&
+                                          _isValidCoordinate(dest.latitude, dest.longitude)) {
                                         final bounds = LatLngBounds.fromPoints([
                                           LatLng(
                                             _userPosition!.latitude,
