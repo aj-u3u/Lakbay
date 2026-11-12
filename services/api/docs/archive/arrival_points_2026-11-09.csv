@@ -1,0 +1,31 @@
+destination_id,name,pin_change,old_lat,old_lng,lat,lng,arrival_lat,arrival_lng,arrival_basis,arrival_to_pin_m,arrival_source_url
+1,People's Park,yes,7.0707,125.6096,7.0709328,125.6087877,7.070929,125.608791,your point,1,https://www.openstreetmap.org/way/28993492
+2,Philippine Eagle Center,yes,7.1854,125.4169,7.1848752,125.415287,7.184352,125.415843,your point,85,https://www.openstreetmap.org/node/747886405
+3,Eden Nature Park,yes,7.0088,125.3992,7.0282403,125.401755,7.030217,125.398455,your point,425,https://www.openstreetmap.org/way/1135430452
+4,Samal Island Beach Area,yes,7.0744,125.7087,6.965113,125.723125,6.965113,125.723125,replaced,0,https://www.openstreetmap.org/way/1270374055
+5,Mount Apo Trail Area,no,6.9875,125.2708,6.9875,125.2708,6.956623,125.317854,replaced,6226,https://www.openstreetmap.org/node/5690505225
+6,Dahican Beach,yes,6.9487,126.2542,6.9243488,126.2808986,6.923794,126.281014,your point,63,https://www.openstreetmap.org/way/651370443
+7,Panabo City Parks and Plaza,yes,7.3081,125.6842,7.2996292,125.6813143,7.299596,125.681435,your point,14,https://www.openstreetmap.org/way/614154998
+8,Tagbibinta Falls,yes,7.3476,126.1514,7.3163971,126.171868,7.316412,126.171527,your point,38,https://www.openstreetmap.org/node/7076360886
+9,Mainit Hot Springs,yes,7.3636,125.9494,7.4013531,126.0288832,7.401247,126.028484,replaced,46,https://www.openstreetmap.org/way/1000619479
+10,Little Boracay Beach,yes,6.5361,125.4693,6.5651682,125.4968126,6.565296,125.49623,your point,66,https://www.openstreetmap.org/way/1104821790
+11,Balut Island,no,5.4047,125.3765,5.4047,125.3765,5.412288,125.427533,replaced,5712,https://www.openstreetmap.org/node/8755045825
+12,Tudaya Falls,yes,6.9842,125.3912,6.9590797,125.3554587,6.95659,125.355705,replaced,278,https://www.openstreetmap.org/node/5062921518
+13,Aliwagwag Falls,yes,7.7431,126.4218,7.7404501,126.3014983,7.732063,126.299815,your point,951,https://www.openstreetmap.org/node/5799152058
+14,Museo Dabawenyo,no,7.07939,125.60449,7.07939,125.60449,7.079468,125.6044,replaced,13,https://www.openstreetmap.org/node/13179862776
+15,National Museum of the Philippines - Davao,no,7.07016,125.60914,7.07016,125.60914,7.070173,125.609039,your point,11,https://www.openstreetmap.org/way/1153418558
+16,Aqua Water Park,no,7.08705,125.66662,7.08705,125.66662,7.087022,125.667014,your point,44,https://www.openstreetmap.org/node/9211408403
+17,Camp Sabros Mountain Resort,no,6.90514,125.34654,6.90514,125.34654,6.904978,125.346563,your point,18,https://www.openstreetmap.org/way/1454653112
+18,Subangan Museum,no,6.94423,126.24834,6.94423,126.24834,6.944168,126.248411,your point,10,https://www.openstreetmap.org/way/1328605333
+19,Panabo Mangrove Forest Park,no,7.26989,125.68049,7.26989,125.68049,7.272301,125.680821,your point,271,https://www.openstreetmap.org/way/1436929311
+20,Christ the King Cathedral Parish,no,7.44115,125.79992,7.44115,125.79992,7.441192,125.799902,your point,5,https://www.openstreetmap.org/way/828786282
+21,Digos City Eco Park and Arboretum,no,6.77553,125.34392,6.77553,125.34392,6.7754,125.342963,your point,107,https://www.openstreetmap.org/way/1382022448
+22,San Salvador del Mundo Church,no,7.3277,126.56588,7.3277,126.56588,7.3277,126.565877,your point,0,https://www.openstreetmap.org/way/322426196
+23,Rizal Park Digos,no,6.74442,125.35556,6.74442,125.35556,6.744412,125.355551,your point,1,https://www.openstreetmap.org/way/97188461
+24,Cape San Agustin,no,6.26932,126.19297,6.26932,126.19297,6.26949,126.192976,your point,19,https://www.openstreetmap.org/node/4385211700
+25,New Barili Heights and Sights,no,7.35411,126.01136,7.35411,126.01136,7.353794,126.011432,your point,36,https://www.openstreetmap.org/node/9671315617
+26,Pyalitan Falls,no,7.29919,126.1707,7.29919,126.1707,7.297851,126.16519,replaced,626,https://www.openstreetmap.org/node/7345718185
+27,Lake Leonard Eco-Tourism Park,no,7.39792,126.0576,7.39792,126.0576,7.393331,126.051282,your point,864,https://www.openstreetmap.org/node/7170393085
+28,"Christ the Redeemer, Jose Abad Santos",no,5.96223,125.67773,5.96223,125.67773,5.962436,125.677678,replaced,24,https://www.openstreetmap.org/way/916520663
+29,DDG Beach Resort,no,6.62303,125.43369,6.62303,125.43369,6.623359,125.43328,your point,58,https://www.openstreetmap.org/node/10111274417
+30,Meskeen Resort (Malita Dives),no,6.49131,125.57969,6.49131,125.57969,6.490669,125.579624,your point,72,https://www.openstreetmap.org/node/12452684186

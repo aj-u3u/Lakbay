@@ -1,0 +1,56 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.python-version
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# Test and coverage output
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Logs and local runtime files
+*.log
+logs/
+tmp/
+temp/
+
+# IDE/editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Generated reports and uploaded files for local development
+/storage/
+uploads/
+/reports/
+
+# Local tool output and assistant/tool settings
+node_modules/
+/outputs/
+/.claude/
+/.freebuff/
+test_output.txt

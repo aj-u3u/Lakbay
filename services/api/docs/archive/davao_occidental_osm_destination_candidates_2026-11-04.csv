@@ -1,0 +1,117 @@
+﻿osm_name,latitude,longitude,osm_type,osm_id,osm_url,tag_key,tag_value,coordinate_basis,arrival_verified,snapshot_date
+Cablulan Church,6.2201524,125.5820504,way,942472010,https://www.openstreetmap.org/way/942472010,amenity,place_of_worship,polygon_interior,no,2026-11-03
+GKK Senior San Jose,5.6111985,125.4301385,node,6507588786,https://www.openstreetmap.org/node/6507588786,amenity,place_of_worship,mapped_node,no,2026-11-03
+Iglesia ni Cristo,6.3711178,125.6312902,node,6088465808,https://www.openstreetmap.org/node/6088465808,amenity,place_of_worship,mapped_node,no,2026-11-03
+Iglesia ni Cristo,6.4343650,125.5695430,node,7134991185,https://www.openstreetmap.org/node/7134991185,amenity,place_of_worship,mapped_node,no,2026-11-03
+Iglesia ni Cristo,6.3648011,125.5359702,way,648521997,https://www.openstreetmap.org/way/648521997,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,6.2723109,125.6636750,way,899743268,https://www.openstreetmap.org/way/899743268,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Iglesia ni Cristo,6.3207146,125.6524190,way,978037545,https://www.openstreetmap.org/way/978037545,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,5.6110920,125.4301526,node,6503654686,https://www.openstreetmap.org/node/6503654686,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,6.4361323,125.5703815,node,7134990885,https://www.openstreetmap.org/node/7134990885,amenity,place_of_worship,mapped_node,no,2026-11-03
+Kingdom Hall of Jehovah's Witnesses,6.3641268,125.5360185,way,916049660,https://www.openstreetmap.org/way/916049660,amenity,place_of_worship,polygon_interior,no,2026-11-03
+"Lokal ng Malita, Iglesia ni Cristo",6.4139405,125.6069962,way,916053089,https://www.openstreetmap.org/way/916053089,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Santo Rosario Parish,6.4127631,125.6145819,way,436189462,https://www.openstreetmap.org/way/436189462,amenity,place_of_worship,polygon_interior,no,2026-11-03
+The Church of Jesus Christ of Latter-day Saints,6.4147356,125.6094602,node,7134991985,https://www.openstreetmap.org/node/7134991985,amenity,place_of_worship,mapped_node,no,2026-11-03
+Tribal Filipino Apostolate,6.4126263,125.6142288,node,4461117989,https://www.openstreetmap.org/node/4461117989,amenity,place_of_worship,mapped_node,no,2026-11-03
+Vicente Ferrer Church,6.5083961,125.5188311,way,160913176,https://www.openstreetmap.org/way/160913176,amenity,place_of_worship,polygon_interior,no,2026-11-03
+Jose Abad Santos,5.9124898,125.6445185,node,11286266333,https://www.openstreetmap.org/node/11286266333,historic,memorial,mapped_node,no,2026-11-03
+Mga Guho ng Tanggulan ng Marorong,5.4154406,125.4293077,node,9870789782,https://www.openstreetmap.org/node/9870789782,historic,memorial,mapped_node,no,2026-11-03
+Fort Marorong,5.4155518,125.4294493,node,9870789783,https://www.openstreetmap.org/node/9870789783,historic,ruins,mapped_node,no,2026-11-03
+ARPS Beach Resort,6.6221981,125.4345628,node,8931780717,https://www.openstreetmap.org/node/8931780717,leisure,beach_resort,mapped_node,no,2026-11-03
+Colagsing Heartland Beach Resort,6.6206450,125.4369628,node,11813168269,https://www.openstreetmap.org/node/11813168269,leisure,beach_resort,mapped_node,no,2026-11-03
+DDG Beach Resort,6.6230303,125.4336855,node,10111274417,https://www.openstreetmap.org/node/10111274417,leisure,beach_resort,mapped_node,no,2026-11-03
+El'Lemar Beach 38 Resort,6.5308784,125.5613624,node,12011788169,https://www.openstreetmap.org/node/12011788169,leisure,beach_resort,mapped_node,no,2026-11-03
+Little Boracay Beach Resort,6.5651682,125.4968126,way,1104821790,https://www.openstreetmap.org/way/1104821790,leisure,beach_resort,polygon_interior,no,2026-11-03
+Miskeen Beach Resort,6.4913065,125.5796917,node,12452684186,https://www.openstreetmap.org/node/12452684186,leisure,beach_resort,mapped_node,no,2026-11-03
+Malita Municipal Plaza,6.4142664,125.6108857,way,244396925,https://www.openstreetmap.org/way/244396925,leisure,park,polygon_interior,no,2026-11-03
+Alcordo Farm Resort,6.4127718,125.4903728,node,6923553929,https://www.openstreetmap.org/node/6923553929,leisure,resort,mapped_node,no,2026-11-03
+Little Paradise,6.1955659,125.7028227,node,4929845001,https://www.openstreetmap.org/node/4929845001,leisure,resort,mapped_node,no,2026-11-03
+Baños Point Lighthouse,5.9617481,125.6777894,node,8512395812,https://www.openstreetmap.org/node/8512395812,man_made,lighthouse,mapped_node,no,2026-11-03
+Calian Lighthouse,6.1037448,125.7129733,node,6348979318,https://www.openstreetmap.org/node/6348979318,man_made,lighthouse,mapped_node,no,2026-11-03
+Colapsin Point Lighthouse,6.6313607,125.4282964,node,9506713248,https://www.openstreetmap.org/node/9506713248,man_made,lighthouse,mapped_node,no,2026-11-03
+Hill 450 Lighthouse,6.6150554,125.4275963,node,9506733207,https://www.openstreetmap.org/node/9506733207,man_made,lighthouse,mapped_node,no,2026-11-03
+Manamil Lighthouse,5.3680594,125.3499886,node,6905118402,https://www.openstreetmap.org/node/6905118402,man_made,lighthouse,mapped_node,no,2026-11-03
+Olanivan Lighthouse,5.5149947,125.4873030,node,6905118401,https://www.openstreetmap.org/node/6905118401,man_made,lighthouse,mapped_node,no,2026-11-03
+Basiawan Beach,6.5165782,125.5255889,relation,3308736,https://www.openstreetmap.org/relation/3308736,natural,beach,nominatim_representative,no,2026-11-03
+Kisulad Beach,6.5273102,125.5389111,relation,3308738,https://www.openstreetmap.org/relation/3308738,natural,beach,nominatim_representative,no,2026-11-03
+Bagnusan Hill,6.5863107,125.4661919,node,332019753,https://www.openstreetmap.org/node/332019753,natural,peak,mapped_node,no,2026-11-03
+Caputian Hill,6.5515895,125.4548734,node,332020085,https://www.openstreetmap.org/node/332020085,natural,peak,mapped_node,no,2026-11-03
+Colagsing Hill,6.6274591,125.4268435,node,332020852,https://www.openstreetmap.org/node/332020852,natural,peak,mapped_node,no,2026-11-03
+Dangadang Hill,6.6152371,125.4367630,node,332020858,https://www.openstreetmap.org/node/332020858,natural,peak,mapped_node,no,2026-11-03
+Dulumoon Hill,6.5990338,125.4538723,node,332019074,https://www.openstreetmap.org/node/332019074,natural,peak,mapped_node,no,2026-11-03
+Kabakungan Hill,6.5282990,125.4174512,node,332019076,https://www.openstreetmap.org/node/332019076,natural,peak,mapped_node,no,2026-11-03
+Lone Tree Peak,6.0333330,125.5833330,node,332019783,https://www.openstreetmap.org/node/332019783,natural,peak,mapped_node,no,2026-11-03
+Magbato Hill,6.6176359,125.4317752,node,332019740,https://www.openstreetmap.org/node/332019740,natural,peak,mapped_node,no,2026-11-03
+Mount Agsam,6.1260784,125.6524609,node,332021679,https://www.openstreetmap.org/node/332021679,natural,peak,mapped_node,no,2026-11-03
+Mount Bagongos,6.0986110,125.6688890,node,332021098,https://www.openstreetmap.org/node/332021098,natural,peak,mapped_node,no,2026-11-03
+Mount Bagsak,5.8892865,125.5679676,node,332019822,https://www.openstreetmap.org/node/332019822,natural,peak,mapped_node,no,2026-11-03
+Mount Balocol,5.7277780,125.4547220,node,332021600,https://www.openstreetmap.org/node/332021600,natural,peak,mapped_node,no,2026-11-03
+Mount Balsinong,6.1072220,125.6783330,node,332021355,https://www.openstreetmap.org/node/332021355,natural,peak,mapped_node,no,2026-11-03
+Mount Balunao,5.9933330,125.6708330,node,332021658,https://www.openstreetmap.org/node/332021658,natural,peak,mapped_node,no,2026-11-03
+Mount Bandera,6.2177695,125.6875964,node,332019560,https://www.openstreetmap.org/node/332019560,natural,peak,mapped_node,no,2026-11-03
+Mount Bantala,6.2329718,125.6799628,node,332019810,https://www.openstreetmap.org/node/332019810,natural,peak,mapped_node,no,2026-11-03
+Mount Basiawan,6.5105956,125.5452677,node,332019562,https://www.openstreetmap.org/node/332019562,natural,peak,mapped_node,no,2026-11-03
+Mount Bayawa,5.8114967,125.5528383,node,332019824,https://www.openstreetmap.org/node/332019824,natural,peak,mapped_node,no,2026-11-03
+Mount Biao,5.9900000,125.6538890,node,332019843,https://www.openstreetmap.org/node/332019843,natural,peak,mapped_node,no,2026-11-03
+Mount Bitu,6.5076747,125.5533426,node,332021103,https://www.openstreetmap.org/node/332021103,natural,peak,mapped_node,no,2026-11-03
+Mount Bontod Bato,5.9168406,125.5847814,node,332019630,https://www.openstreetmap.org/node/332019630,natural,peak,mapped_node,no,2026-11-03
+Mount Botak,6.5161889,125.5734505,node,332019565,https://www.openstreetmap.org/node/332019565,natural,peak,mapped_node,no,2026-11-03
+Mount Busao,5.8673725,125.5898663,node,332021336,https://www.openstreetmap.org/node/332021336,natural,peak,mapped_node,no,2026-11-03
+Mount Cabituroan,5.8590270,125.5436672,node,332021059,https://www.openstreetmap.org/node/332021059,natural,peak,mapped_node,no,2026-11-03
+Mount Calugon,5.8849157,125.5952046,node,332020543,https://www.openstreetmap.org/node/332020543,natural,peak,mapped_node,no,2026-11-03
+Mount Daingan,5.7713890,125.4908330,node,332021614,https://www.openstreetmap.org/node/332021614,natural,peak,mapped_node,no,2026-11-03
+Mount Dinagat,6.0994440,125.6850000,node,332020525,https://www.openstreetmap.org/node/332020525,natural,peak,mapped_node,no,2026-11-03
+Mount Gayana,6.0847220,125.6666670,node,332020344,https://www.openstreetmap.org/node/332020344,natural,peak,mapped_node,no,2026-11-03
+Mount Inaburan,6.3814028,125.6050255,node,332021100,https://www.openstreetmap.org/node/332021100,natural,peak,mapped_node,no,2026-11-03
+Mount Kalapi,6.3117543,125.6508416,node,332021787,https://www.openstreetmap.org/node/332021787,natural,peak,mapped_node,no,2026-11-03
+Mount Kibongcal,5.9616670,125.6019440,node,332019410,https://www.openstreetmap.org/node/332019410,natural,peak,mapped_node,no,2026-11-03
+Mount Kibot,6.1779290,125.6803374,node,332021715,https://www.openstreetmap.org/node/332021715,natural,peak,mapped_node,no,2026-11-03
+Mount Kibusao,6.2641422,125.6132631,node,332021781,https://www.openstreetmap.org/node/332021781,natural,peak,mapped_node,no,2026-11-03
+Mount Kigangi,6.0566670,125.6336110,node,332019379,https://www.openstreetmap.org/node/332019379,natural,peak,mapped_node,no,2026-11-03
+Mount Kimpis,6.1416670,125.6955560,node,332021099,https://www.openstreetmap.org/node/332021099,natural,peak,mapped_node,no,2026-11-03
+Mount Kiyawa,6.5576677,125.4857139,node,332019125,https://www.openstreetmap.org/node/332019125,natural,peak,mapped_node,no,2026-11-03
+Mount Labo-o,6.3953469,125.5734971,node,332019532,https://www.openstreetmap.org/node/332019532,natural,peak,mapped_node,no,2026-11-03
+Mount Lagman,5.7500000,125.4936110,node,332019212,https://www.openstreetmap.org/node/332019212,natural,peak,mapped_node,no,2026-11-03
+Mount Laguli,6.2238474,125.6840771,node,332020527,https://www.openstreetmap.org/node/332020527,natural,peak,mapped_node,no,2026-11-03
+Mount Lambato,5.9366670,125.6158330,node,332021108,https://www.openstreetmap.org/node/332021108,natural,peak,mapped_node,no,2026-11-03
+Mount Lantalon,5.8271672,125.5534053,node,332019331,https://www.openstreetmap.org/node/332019331,natural,peak,mapped_node,no,2026-11-03
+Mount Lasubong,6.2872483,125.6234911,node,332019812,https://www.openstreetmap.org/node/332019812,natural,peak,mapped_node,no,2026-11-03
+Mount Latian,6.2078338,125.5092193,node,332019461,https://www.openstreetmap.org/node/332019461,natural,peak,mapped_node,no,2026-11-03
+Mount Limulan,6.1061110,125.6925000,node,332021784,https://www.openstreetmap.org/node/332021784,natural,peak,mapped_node,no,2026-11-03
+Mount Lumabat,6.4664572,125.4422575,node,332021330,https://www.openstreetmap.org/node/332021330,natural,peak,mapped_node,no,2026-11-03
+Mount Macaayao,5.8218814,125.4991112,node,332019687,https://www.openstreetmap.org/node/332019687,natural,peak,mapped_node,no,2026-11-03
+Mount Magaluwayon,6.0875000,125.6886110,node,332021619,https://www.openstreetmap.org/node/332021619,natural,peak,mapped_node,no,2026-11-03
+Mount Maylaw,5.8066692,125.5282847,node,332018859,https://www.openstreetmap.org/node/332018859,natural,peak,mapped_node,no,2026-11-03
+Mount Miglinog,6.4887451,125.4535767,node,332020759,https://www.openstreetmap.org/node/332020759,natural,peak,mapped_node,no,2026-11-03
+Mount Migtango,6.2488688,125.6628987,node,332021319,https://www.openstreetmap.org/node/332021319,natural,peak,mapped_node,no,2026-11-03
+Mount Nara,5.8899791,125.5432520,node,332019294,https://www.openstreetmap.org/node/332019294,natural,peak,mapped_node,no,2026-11-03
+Mount Palnabao,6.0011110,125.6552780,node,332021785,https://www.openstreetmap.org/node/332021785,natural,peak,mapped_node,no,2026-11-03
+Mount Patulangon,6.2810835,125.6356370,node,332019395,https://www.openstreetmap.org/node/332019395,natural,peak,mapped_node,no,2026-11-03
+Mount Pigbaluyan,5.9536110,125.6275000,node,332021047,https://www.openstreetmap.org/node/332021047,natural,peak,mapped_node,no,2026-11-03
+Mount Pispis,6.0872220,125.6958330,node,332021101,https://www.openstreetmap.org/node/332021101,natural,peak,mapped_node,no,2026-11-03
+Mount Salimbao,6.2682125,125.6474253,node,332019857,https://www.openstreetmap.org/node/332019857,natural,peak,mapped_node,no,2026-11-03
+Mount Salungcatan,6.1426076,125.6791825,node,332019150,https://www.openstreetmap.org/node/332019150,natural,peak,mapped_node,no,2026-11-03
+Mount Sibulan,5.7638890,125.4938890,node,332020780,https://www.openstreetmap.org/node/332020780,natural,peak,mapped_node,no,2026-11-03
+Mount Silangan,6.2922879,125.6207568,node,332021314,https://www.openstreetmap.org/node/332021314,natural,peak,mapped_node,no,2026-11-03
+Mount Tabacanon,6.3666706,125.5986116,node,332018926,https://www.openstreetmap.org/node/332018926,natural,peak,mapped_node,no,2026-11-03
+Mount Taco,5.9124686,125.6031232,node,332019819,https://www.openstreetmap.org/node/332019819,natural,peak,mapped_node,no,2026-11-03
+Mount Taginusa,6.3491692,125.6044643,node,332019148,https://www.openstreetmap.org/node/332019148,natural,peak,mapped_node,no,2026-11-03
+Mount Tala,6.3211130,125.6110884,node,332021328,https://www.openstreetmap.org/node/332021328,natural,peak,mapped_node,no,2026-11-03
+Mount Transmitter,6.3994359,125.5788046,node,332019611,https://www.openstreetmap.org/node/332019611,natural,peak,mapped_node,no,2026-11-03
+Mount Tubalan,6.4758330,125.5633330,node,332020774,https://www.openstreetmap.org/node/332020774,natural,peak,mapped_node,no,2026-11-03
+Mount Tungco,6.3288297,125.5802713,node,332019968,https://www.openstreetmap.org/node/332019968,natural,peak,mapped_node,no,2026-11-03
+Sulok Hill,6.6138685,125.4264553,node,332020090,https://www.openstreetmap.org/node/332020090,natural,peak,mapped_node,no,2026-11-03
+Tanglad Hill,6.6107371,125.4398019,node,332021311,https://www.openstreetmap.org/node/332021311,natural,peak,mapped_node,no,2026-11-03
+Ten Seventy Hill,5.3778849,125.4155412,node,332019575,https://www.openstreetmap.org/node/332019575,natural,peak,mapped_node,no,2026-11-03
+Mount Balut,5.3981517,125.3762840,node,332020872,https://www.openstreetmap.org/node/332020872,natural,volcano,mapped_node,no,2026-11-03
+Mount Langab,5.3863544,125.3694695,node,8754616612,https://www.openstreetmap.org/node/8754616612,natural,volcano,mapped_node,no,2026-11-03
+Mount Tangali,6.4752881,125.4099909,node,320129682,https://www.openstreetmap.org/node/320129682,natural,volcano,mapped_node,no,2026-11-03
+Balut Island,5.4017256,125.3852859,relation,7129791,https://www.openstreetmap.org/relation/7129791,place,island,nominatim_representative,no,2026-11-03
+Sarangani,5.4426532,125.4757564,relation,7129953,https://www.openstreetmap.org/relation/7129953,place,island,nominatim_representative,no,2026-11-03
+Maldives,6.4934643,125.5862367,way,946192878,https://www.openstreetmap.org/way/946192878,place,islet,polygon_interior,no,2026-11-03
+Manamil Island,5.3681763,125.3500716,way,54168797,https://www.openstreetmap.org/way/54168797,place,islet,polygon_interior,no,2026-11-03
+Marorong Island,5.4154747,125.4294047,way,54168796,https://www.openstreetmap.org/way/54168796,place,islet,polygon_interior,no,2026-11-03
+Olanivan Island,5.5130285,125.4889283,way,675954933,https://www.openstreetmap.org/way/675954933,place,islet,polygon_interior,no,2026-11-03
+Pulo,6.6160072,125.4205345,way,214665132,https://www.openstreetmap.org/way/214665132,place,islet,polygon_interior,no,2026-11-03
+Joyce Paradise,5.9622850,125.6777536,way,916520663,https://www.openstreetmap.org/way/916520663,tourism,viewpoint,polygon_interior,no,2026-11-03
+Pamongot Viewdeck,6.3091666,125.6554826,node,8765544835,https://www.openstreetmap.org/node/8765544835,tourism,viewpoint,mapped_node,no,2026-11-03

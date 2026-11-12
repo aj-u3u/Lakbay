@@ -1,0 +1,706 @@
+# Destinasyon
+
+All places in the Lakbay database as of 7 November 2026: 30 published destinations and 648 staged places.
+
+## Published destinations (30)
+
+The number is the destination ID.
+
+- 1 — People's Park (Davao City)
+- 2 — Philippine Eagle Center (Davao City)
+- 3 — Eden Nature Park (Davao City)
+- 4 — Samal Island Beach Area (Davao del Norte)
+- 5 — Mount Apo Trail Area (Davao del Sur)
+- 6 — Dahican Beach (Davao Oriental)
+- 7 — Panabo City Parks and Plaza (Davao del Norte)
+- 8 — Tagbibinta Falls (Davao de Oro)
+- 9 — Mainit Hot Springs (Davao de Oro)
+- 10 — Little Boracay Beach (Davao Occidental)
+- 11 — Balut Island (Davao Occidental)
+- 12 — Tudaya Falls (Davao del Sur)
+- 13 — Aliwagwag Falls (Davao Oriental)
+- 14 — Museo Dabawenyo (Davao City)
+- 15 — National Museum of the Philippines - Davao (Davao City)
+- 16 — Aqua Water Park (Davao del Norte)
+- 17 — Camp Sabros Mountain Resort (Davao del Sur)
+- 18 — Subangan Museum (Davao Oriental)
+- 19 — Panabo Mangrove Forest Park (Davao del Norte)
+- 20 — Christ the King Cathedral Parish (Davao del Norte)
+- 21 — Digos City Eco Park and Arboretum (Davao del Sur)
+- 22 — San Salvador del Mundo Church (Davao Oriental)
+- 23 — Rizal Park Digos (Davao del Sur)
+- 24 — Cape San Agustin (Davao Oriental)
+- 25 — New Barili Heights and Sights (Davao de Oro)
+- 26 — Pyalitan Falls (Davao de Oro)
+- 27 — Lake Leonard Eco-Tourism Park (Davao de Oro)
+- 28 — Christ the Redeemer, Jose Abad Santos (Davao Occidental)
+- 29 — DDG Beach Resort (Davao Occidental)
+- 30 — Meskeen Resort (Malita Dives) (Davao Occidental)
+
+## Staged places, not yet published (648)
+
+### Davao City (191)
+
+- Amador Inland Resort
+- Antag Falls
+- Apata Farm
+- Apo Pantok Falls
+- Bago Aplaya Esplanade
+- Bago Aplaya Esplanade
+- Banwa Kasili Falls
+- Baradi Falls
+- Bat-Te Antaon Falls
+- Bayna Falls
+- Bemwa Farm
+- Beth Haven
+- Bollad ta' Manama
+- Bong Perez Art Gallery
+- Bonguyan Beach Resort
+- Bukid Amara
+- Buluan Falls
+- Buntod ni Kap
+- Butterfly Domes
+- Calinan Park
+- Camp Bernadette
+- Camp Box
+- Camp CorSal Resort
+- Camp With Me
+- Campo Agua
+- Candelaria Park
+- Casa Julieta
+- Catigan View Deck
+- Cenro Nursery
+- Centennial Park
+- Cloud Eagle Beach Resort
+- Cloud Maru
+- D' Bone Collector Museum
+- D' Leonor Inland Resort and Adventure Park
+- Daragdag Falls
+- Datu Bago Gallery
+- Datu Bangabang Hills
+- Datu Sicao Falls
+- Davao Bamboo Sanctuary
+- Davao Beach Club
+- Davao Butterfly House
+- Davao City Botanical Garden
+- Davao Crocodile Park & Zoo
+- Davao Lighthouse
+- DCG Inland Resort
+- DGT Central Park
+- Discovery Samal Welcome Center
+- Doña Carmen Soriano Marfori Park
+- Doña Pacencia Botanic Garden
+- Doña Vicenta Park
+- Dumoy Garden Resort
+- Eagles Ridge Resort
+- Eareen Falls
+- Eden By The Sea
+- Eden Nature Park and Resort
+- El-Lot Falls
+- Emars Wavepool Resort
+- Emerald Market Garden
+- Epol Falls
+- Farm Ni Lolo
+- Forest Hill Resort
+- Freedom Park
+- Galerie Raphael
+- GAP Farming Resort
+- Garden Bay Resort & Restaurant
+- Garden Symphony
+- Gethsemane Prayer Garden
+- Gloryland
+- GQ Garden
+- Gulayan sa Barangay
+- Gumamela Caverock Farm Resort
+- Hacienda Torrentira Agri-Tourism Park
+- Handumanan Beach Resort
+- Hidden Gardens
+- Highway 81
+- Hoyohoy sa Bukid
+- In Thy Clouds
+- Jaca Farms
+- Jacinto Ponce Park
+- Jack's Ridge
+- Jardin Del Roca
+- Jive Highland Resort
+- Jocris Resort
+- Jones Beach Resort
+- Kalayaan Beach Resort
+- Kalbaryo
+- Kalikubak Falls
+- Kamp Saya Resort
+- Kwagsik Falls
+- Lahandang Falls
+- Lake Venado Campsite
+- Lanang Aplaya Resort
+- Lantaw Bukid Farm Resort
+- Lanzona Subdivision Park
+- Lingz Cold Spring Resort
+- Lola Mommy's Rainforest
+- Loleng's Mountain Spring Resort
+- Los Amigos Park
+- Macatabo Farm
+- Magayon Integrated Farm
+- Magsaysay Park
+- Mahogany Hills
+- Maison G
+- Malagos Bird Show
+- Malagos Chocolate Museum
+- Malagos Garden Resort
+- Malagos Petting Zoo
+- Malapangi Falls
+- Mantibag Falls
+- Marahan Nature Spring Resort
+- Masdec Spring Resort
+- Matina Linear Park
+- Mergrande Ocean Resort
+- Mervillas Beach Resort
+- Millenium Park
+- Mindanao Folk Arts Museum
+- Mini Asik-Asik Falls
+- Mintal Park
+- Misugpang Falls
+- Montenawin Eco-Resort & Restaurant
+- Mountaineer's View Inland Resort
+- Museo Dabawenyo
+- Namnam Falls
+- Nanay & Tatay's Farm
+- National Museum of the Philippines - Davao
+- Nograles Park
+- Noriega Beach Resort
+- Northtown Center
+- Ombes Sicao Falls
+- Osmeña Park
+- Our Lady Of The Forest
+- Palangag Falls
+- Panacan Lighthouse
+- Panday Falls
+- People's Park
+- Pet Club
+- Peter Lou Resort
+- Philippine Eagle
+- Philippine Eagle Center
+- Philippine-Japan Historical Museum
+- Pikot Falls
+- Ponce Gallery
+- Pulang Bato Falls
+- Queensland Park
+- Quezon Park
+- RCH Farm Resort
+- Redondo Beach Resort
+- Remy Areja Mountain Resort
+- Riverstone Farm Resort
+- Rizal Park
+- RLG Swimming Pool Resort
+- Roxas Grounds
+- Roxas Night Market
+- Rudys master key
+- Sak-Amer Falls
+- Samantha Beach Resort
+- San Josue Resort
+- Sasa Lighthouse
+- Seagull White Sand Beach & Spa
+- Seaside Promenade
+- Sisoy Beach
+- Skyline Garden Resort
+- Skyline Poolside
+- SLT Lantaw Bu-Gan
+- Sonnen Berg Mountain View
+- Sualon Falls
+- Sunridge
+- Tabak Falls
+- Tagoy Falls
+- Tagurano Highlands View
+- Tayupan Falls
+- The Hangout Family Resort
+- The Little PetHouse
+- The Red Barn
+- Tiki Tagu
+- Tikyo's Falls
+- Toril Kubo Beach
+- Toril Park
+- Tumari Falls
+- Vales Beach Resort
+- Verdeli Garden
+- Villa Christina Ordchid and Garden Resort
+- Villa Nilda Garden Resort
+- W-Autosports Museum
+- Waterworld
+- Wella mini mart
+- Whittington Creek
+- Whole World Inland Resort
+- Wynward Valley Organic Vegetable Garden
+- Zen Garden
+- Zenaida's Farm
+
+### Davao del Norte (184)
+
+- Agape 2 Beach Resort
+- Agriya
+- Alena Cave
+- Aloha Inland Resort
+- Aloro Beach Resort
+- Anamarina Beach Resort
+- Aqua Gen Resort
+- Aqua Water Park
+- Babu Santa Beach
+- Baga Cave 1
+- Baga Cave 2
+- Balaang Bukid
+- Bali-Bali Beach Resort
+- Battle of Ising Memorial Park
+- Blue Jaz Beach Resort & Water Park
+- Blue Waters Beach Resort
+- Bluebird Lookout
+- Bluebird Resort
+- Bongsit Cave
+- Borja Cave
+- Buenaventura Beach Resort
+- Bundok Casilac Bamboo Falls
+- Bundok Cave
+- Cabanico Il Mare Beach Resort
+- Caliclic Beach Resort
+- Camp Jovert Burlat
+- Camp Kawayan
+- Camp Puting Bato
+- Canibad Cove
+- Canibad Hillside Beach
+- Canibad Secret Paradise Resort
+- Canibad Sunrise Beach
+- Carmen Municipal Plaza
+- Casas Con Vistas Resort
+- Castillo Camp
+- Cavanico il Mare
+- Century Balete Tree
+- Chemas Beach Resort
+- Club Asiano Beach Resort
+- Coco Beach Resort
+- Cogon Long Beach
+- Costa Marina Beach Resort
+- Costafba Beach
+- Costafba Beach Resort
+- Cote D' Azur Beach Resort
+- Crusoe Cabins at Costa Azalea
+- Cruz Beach
+- Crystal Peak Retreat Haven
+- D' Golden Sanctuary
+- Dadatan Cave
+- Dayang Beach Resort
+- Discovery Samal
+- Dona Remedios Resort
+- Doña Margarita Magsanoc-Aala Park
+- Dujali Minicipal Plaza
+- Ebao Garden Resort
+- Ekran's Samal Casino Resort
+- El Magic Beach Resort
+- Energy Park
+- Faith Tabernacle Church Sto. Tomas
+- Fe Misa Ayala Seniors Park
+- Fedillaga Cave
+- Fernandez Beach Resort
+- Flores Beach Resort
+- Freedom Park
+- Giant Rosary Garden
+- Gold Ridge Inland Resort
+- Green Isle Beach Resort
+- Hagimit Falls
+- Hayahay Dive Resort
+- Heavenly Beach Resort
+- Holiday OceanView Samal Resort
+- Ilihan Beach Resort
+- Isla Beach Resort
+- Isla Reta Beach Resort
+- Island French Resort
+- Island Garden Resort
+- Island Hills Private Resort III
+- Island Hills Village Resort
+- Isula de Amor
+- J's Agritourism Park
+- Japanese Cave House
+- Jardin De Ysabelle
+- Jarona Beach Mountain Resort
+- Jerrienor Inland Resort
+- Jocelyn Private Resort
+- JTSL Agri Farm
+- Kapalong Municipal Plaza
+- Kaputian Beach
+- Kaputian Beach Club
+- Kaputian Beach Resort
+- Karen's Resort
+- Kayode's hut
+- L' Amora Beach Resort
+- La Familia Beach Resort
+- La Fortuna Inland Resort
+- La Luchi by the Sea Resort
+- La Vida Orchard Resort
+- Langoy Langoy Beach Resort
+- Lanot-Lanot Falls
+- Lantaw Dagat
+- Lantawan ni Bakoko
+- Linosutan Beach
+- Linow tu' Gabon
+- LYR Agro Inland Resort
+- Mabunao Agri-Tourism Farm Association Inland Resort
+- Mabunao Eco-Park
+- Madgao River Eco Tourism Park
+- Magongawon Falls
+- Mahan Garden Resort
+- Malipano Island Deluxe Resort
+- Maltag Cave
+- Marex Beach Resort
+- Matin-ao Inland Resort
+- Matol Falls
+- Maxima Water Park
+- Milagrosa Beach Resort
+- Monfort Bat Sanctuary
+- Montblanc Mountain Resort
+- Mr. Suave Cottages
+- Museo Panabo
+- Narra Eco Park
+- NCCC Beach
+- New Corella Public Plaza
+- Our Lady of Victory Training Center
+- Paet Lighthouse
+- Panabo City Hall Park
+- Panabo City Park
+- Panabo City Seawall and Park
+- Panabo Mangroves Forest Park
+- Panas Eco-Cultural Park
+- Panas Falls
+- Paradise Cave
+- Paradise Island Beach Resort
+- Peñaplata Freedom Park
+- Playa Azalea Beach Resort
+- Precious Beach Resort
+- Punta de Gloria Resort
+- Punta del Sol Beach Resort
+- Q8 Mountain View Resort
+- Rainbow Beach Resort
+- Rickson Cave
+- Riverwalk
+- Rizal Monument Park
+- Rizal Park
+- RMPC Resort and Training Center
+- Rocky Beach Resort
+- Roman Cave
+- Rotary Park
+- Sabang Cliffs
+- Salangat Mountain Resorts
+- San Agustin Botanical Garden
+- San Agustin Botanical Park
+- San Remigio Beach
+- Santa Cruz Resort
+- Santo Tomas Municipal Park
+- Santos Beach Resort
+- Science and Math Park
+- Science and Math Park
+- Sea Grass Beach Resort
+- Seascape Samal
+- Shelter
+- SixWorld Adventures
+- Sonrisa De V Park & Beach Resort
+- South Malipano Beach
+- Tagum City Municipal Plaza
+- Tagumpay Park
+- Talicud Lighthouse
+- Tatisay Beach Front
+- The Sunflower Garden
+- Thunderforest Mountain View
+- Tiki Beach
+- Tree Deck
+- Tropical Hi-5 Princess Tropical Inland Resort
+- U-Side
+- Ukang Falls
+- Uraya's Peak Adventure Park
+- Victory Beach Resort
+- Villa Aloncia Inland Resort
+- Villa Amparo Garden Beach Resort
+- Vista Roberta Beach Resort
+- VMJ Inland Resort
+- White Sand Cottages
+- Wildlife Rescue Center and Bird Park
+
+### Davao del Sur (77)
+
+- Angel's Camp
+- Apo Flower Garden Mountain Resort
+- Bacoco Falls
+- Balnunto Falls
+- Baroring Camp 1
+- Baroring Camp 2
+- Baroring Camp 3
+- Bolton Reef Lighthouse
+- Bugac Resort
+- Camp Gudi-gudi
+- Camp Sabros Mountain Resort
+- Cebulan Beach
+- Claire-John Swimming Pool and Beach Resort
+- Clearing
+- Colonsabak Pointy Rock
+- Digos City Eco Park and Arboretum
+- Frantina Inland Resort
+- Freedom Park
+- GSP Maatti
+- Heaven's Dew Resort
+- Jean Jean's Garden
+- Juban's Green Pool Resort
+- Kamandag Falls
+- Kamp Mainit
+- Kublai Art Garden
+- L'Circulio Sea Blue Garden Resort
+- Langan Falls
+- Lantaw Hagonoy
+- Lantawan
+- Lantawan Mountain Resort
+- Leling Beach Resort
+- Llavan Beach Resort
+- Lorenza-Amando Resort
+- Lynedion Beach Resort
+- Mailom Falls
+- Malipayon Park
+- Mangga Beach
+- Marawer Hot Spring
+- Midori Farm Resort
+- Monte Frio Garden Resort
+- Mount Apo Agri-Eco Tourism Park
+- Mount Apo Highland Resort Hillside
+- Mount Dinor Camp Site
+- Mount Peniel Campsite
+- Mulberry Village
+- NIA Dam Bansalan
+- Nild's Place
+- Oboza Beach
+- Pasig Point Lighthouse
+- Playa de Oboza Beach Resort
+- Rizal Park
+- Rizal Park
+- Rizal Park
+- Rizal Park
+- Rock Formation Colonsabak Matanao
+- Route 69 Camosie and Leisure Farm
+- Seagull Inland Resort
+- Seaside Beach Resort
+- Secret Island
+- Shusheinae's Resort
+- Sitio Paradise Campsite
+- Soledad Lantawan
+- Sunrise Hillscape Avenido Farm & Resort
+- Tacub Laya Falls
+- Tajos Beach Resort
+- The Farmacy by Helen
+- Tinikaran Camp 1
+- Tinikaran Camp 2
+- Tribu Bagobo Woodlands
+- Tudaya Falls
+- Upper Sabwag Campsite
+- Viacrucis Park
+- Virgin Falls
+- Vista Adriana
+- Wendy's Garden Resort
+- Wine Woods Apo
+- Zeny & Klaus Resort
+
+### Davao de Oro (53)
+
+- Aguakan Cold Spring Resort
+- Astoria Mountain Farm Resort
+- Awao Falls
+- Ayuste Nature Park Sea of Clouds
+- Bagsak Falls
+- Beach View Resort
+- Bilawa Falls
+- C&C Campo de Oro
+- Calamba Farm Sea of Clouds
+- Cleo Heights Sea of Clouds
+- D'Fortees Nature Park and Inland Resort
+- Dagat Ni Baste
+- Fabian's Peak Ocean of Clouds
+- Febrish Inland Resort
+- Gloria Beach Resort
+- Haven's Peak Highland Mountain Resort
+- Highland Breeze Farm & Resort
+- Highland Breeze Farm & Resort
+- Jarks Beach Resort
+- Jorge Town
+- Kanlawig Hot Spring Resort
+- Lake Leonard Eco-Tourism Park
+- Laki Pool & Resort
+- Lusaran Mountain Garden
+- Mabini Municipal Plaza
+- Magayon Beach Resort
+- Magnaga Water Beach Resort
+- Magsayap Lawis
+- Malumagpak Falls
+- Manaklay Beach Resort
+- Marangig Falls
+- Montevista Municipal Plaza
+- MYK Angelo Inland Resort
+- Nabunturan Municipal Park
+- New Barili Heights & Sights
+- Ocot Bora Bora
+- Odyson's Mountain Resort
+- Ohana
+- Pantukan Eco-Tourism Park
+- Pantukan Water World
+- PJRB Inland Resort
+- Pyalitan Falls
+- Salvosa Falls
+- Sea Eagle Beach Resort
+- Sunrise
+- Tagbibinta Falls
+- Tagmanakao Falls
+- Tandow
+- Toyozu Spring Resort
+- Tres Marias
+- Tuyawan Eco-Aqua Park
+- Via Veritas et Vitae Retreat House
+- Yam's Tambay
+
+### Davao Oriental (123)
+
+- 7Up Suksukan Rock Formation
+- Addam's Haven
+- Agawon Beach
+- Agawon Beach Resort
+- Aliwagwag Falls
+- Aliwagwag Falls Eco Park
+- Aliwagwag Protected Landscape
+- ALMASIGA ECO-PARK
+- Aman Sinaya
+- Amihan sa Dahican
+- Amye Beach
+- arners beach
+- Aroma Beach
+- Baculin Lighthouse
+- Bahia Resort
+- Bai Beach Resort
+- Bango Beach
+- Banzali Babak Beach Resort
+- Barabag Beach Resort
+- Basarte Mangrove Park
+- Baylan Beach Resort
+- Baywalk
+- Beach Resort
+- Black Mountain
+- Blue Beach Inn & Resort
+- Blue Bless Beach Resort
+- Bonhomie Leisure Resort
+- Botona Beach Resort
+- Busay Faklls
+- Camp 3
+- Camp 4
+- Campawan Curtain Falls
+- Campo ni Juan
+- Cape San Agustin Lighthouse
+- Caraga Park
+- Caraga Tourism Complex
+- Casa Blanca Mati
+- Cateel Botanical Garden
+- Cateel Centennial Park
+- Cinco Masao Resort
+- Coco Pearl Beach Resort
+- Cream Sand Long Beach
+- Culanag Beach Resort
+- Culian Botanical Garden and Nature Park
+- Dagat ni Edzz
+- Dahican Beach
+- Dahican Surf Resort
+- Davao Oriental Provincial Museum
+- Davao Oriental Welcome Park
+- Dawis Beach Resort
+- Dinagsaan Peak
+- Dumagook Falls
+- El Don Resort
+- Everjoy Resort
+- Govgen Beach Resort
+- Gregorio Beach Resort
+- Guang-Guang Mangrove Park
+- Heart Spring Inland Resort
+- Hidden Garden
+- Ila Deo Beach Resort
+- Jakka Beach Resort
+- Kanakbai
+- Kapuka Falls
+- Kasinihan
+- Kawa Kawa Cave
+- Kubo sa Dahican
+- La Cabaña Beachfront
+- La-ne's Kalapyahan
+- Lagare Hot Spring
+- Lantawan Dos
+- Lantawan Tres
+- Lantawan Uno
+- Lawigan Point Lighthouse
+- Libodon Beach Resort
+- Lupon People's Park
+- Magooz Beach Resort
+- Mati Baywalk
+- Mati Lighthouse
+- Mayo Bay Park
+- Menzi Beach Park & Campsite
+- Mount Hamiguitan Natural Science Museum
+- Mount Hamiguitan Range Wildlife Sanctuary
+- Mount Hamiguitan World Heritage Park
+- Nida Beach Resort
+- Niez Hot Spring and Falls
+- Nino's Beach House
+- Old Cape Agustin Lighthouse
+- Orchid Garden
+- Pacific Sands Beach Resort
+- Pangyan Falls
+- Papaies
+- People's Park
+- Pinanpanan Beach Resort
+- Pitcher Plant Cove
+- Prymm Beach Resort
+- Pujada Lighthouse
+- Pusan Point Lighthouse
+- Puting Bato
+- Pygmy Forest
+- RaRa Beach Resort
+- Resurreccion Beach Resort
+- Riomana Villas Resort
+- Sakura Beach Resort
+- San Antonio Beach
+- Sand Beach Resort
+- Sapalo Resort
+- Sigaboy Island
+- Sigaboy Lighthouse
+- Sleeping Dinosaur Jump-Off
+- Sleeping Dinosaur Viewpoint
+- Somewhere in Dahican
+- Subangan
+- Subangan Tides Resort
+- Tambo Beach
+- Tarragona Public Beach
+- Tavio's Dahican
+- Tugki Rio Vista
+- Tunlos Falls
+- Tuyor Family Beach Resort
+- Twin Falls
+- Ugwad Falls
+- Uwang-uwang Falls
+- White Sand
+
+### Davao Occidental (20)
+
+- Alcordo Farm Resort
+- ARPS Beach Resort
+- Basiawan Beach
+- Baños Point Lighthouse
+- Calian Lighthouse
+- Colagsing Heartland Beach Resort
+- Colapsin Point Lighthouse
+- DDG Beach Resort
+- El'Lemar Beach 38 Resort
+- Fort Marorong
+- Hill 450 Lighthouse
+- Joyce Paradise
+- Kisulad Beach
+- Little Boracay Beach Resort
+- Little Paradise
+- Malita Municipal Plaza
+- Manamil Lighthouse
+- Miskeen Beach Resort
+- Olanivan Lighthouse
+- Pamongot Viewdeck
