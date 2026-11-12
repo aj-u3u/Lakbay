@@ -39,8 +39,18 @@ class Settings(BaseSettings):
     groq_temperature: float = Field(default=0.3, ge=0, le=2)
     groq_max_tokens: int = Field(default=4096, ge=256, le=32768)
     groq_user_requests_per_minute: int = Field(default=20, ge=1, le=120)
-    groq_model_requests_per_minute: int = Field(default=2, ge=1, le=120)
-    groq_model_requests_per_day: int = Field(default=100, ge=1, le=14400)
+    groq_model_requests_per_minute: int = Field(default=20, ge=1, le=120)
+    groq_model_requests_per_day: int = Field(default=1000, ge=1, le=14400)
+    # Short rate-limit waits are slept through and retried instead of failing the request.
+    groq_rate_limit_max_wait_seconds: int = Field(default=3, ge=0, le=10)
+
+    # Optional second OpenAI-compatible provider (e.g. Gemini) used as the fallback
+    # when the primary Groq model is rate limited. Needs its own quota to be useful.
+    fallback_llm_api_key: str | None = None
+    fallback_llm_base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai"
+    fallback_llm_model: str | None = None
+    fallback_llm_requests_per_minute: int = Field(default=10, ge=1, le=120)
+    fallback_llm_requests_per_day: int = Field(default=200, ge=1, le=14400)
 
     ai_itinerary_option_count: int = Field(default=5, ge=1, le=10)
     ai_model_comparison_enabled: bool = False

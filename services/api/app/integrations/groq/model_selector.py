@@ -8,6 +8,7 @@ class ModelSelection:
     model_role: str
     model_id: str
     fallback_used: bool = False
+    provider: str = "groq"
 
 
 def select_primary_model(*, settings: Settings, model_role: str) -> ModelSelection | None:
@@ -27,6 +28,15 @@ def select_fallback_model(
     settings: Settings,
     primary_model_id: str,
 ) -> ModelSelection | None:
+    # A separate provider has its own quota, so prefer it over a second Groq model.
+    if settings.fallback_llm_api_key and settings.fallback_llm_model:
+        return ModelSelection(
+            model_role="fallback",
+            model_id=settings.fallback_llm_model,
+            fallback_used=True,
+            provider="fallback_llm",
+        )
+
     if not settings.groq_model_fallback:
         return None
 

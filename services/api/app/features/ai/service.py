@@ -205,18 +205,31 @@ class AIItineraryService:
         model_runs: list[AIModelRunResult] = []
         primary_options = []
 
+        rate_limit_error: LakbayAPIError | None = None
+
         for selection in selections:
-            run_result = await self._run_model_generation(
-                user=user,
-                data=data,
-                selection=selection,
-                messages=messages,
-                catalog=validator_catalog,
-                option_count=settings.ai_itinerary_option_count,
-                planning_preview=planning_preview,
-                geo_analytics_context=geo_analytics_context,
-                quality_warnings=quality_warnings,
-            )
+            try:
+                run_result = await self._run_model_generation(
+                    user=user,
+                    data=data,
+                    selection=selection,
+                    messages=messages,
+                    catalog=validator_catalog,
+                    option_count=settings.ai_itinerary_option_count,
+                    planning_preview=planning_preview,
+                    geo_analytics_context=geo_analytics_context,
+                    quality_warnings=quality_warnings,
+                )
+            except LakbayAPIError as exc:
+                # On a rate limit, try the next (fallback) selection if there is one.
+                if (
+                    exc.code != "groq_rate_limit_exceeded"
+                    or data.compare_models
+                    or selection is selections[-1]
+                ):
+                    raise
+                rate_limit_error = exc
+                continue
             model_runs.append(run_result)
 
             if run_result.status == "succeeded" and not primary_options:
@@ -224,6 +237,9 @@ class AIItineraryService:
 
             if run_result.status == "succeeded" and not data.compare_models:
                 break
+
+        if not primary_options and rate_limit_error is not None and not model_runs:
+            raise rate_limit_error
 
         if not primary_options:
             raise LakbayAPIError(
@@ -278,6 +294,7 @@ class AIItineraryService:
             retrieval_coverage=retrieval_coverage,
         )
         failed_runs: list[dict] = []
+        rate_limit_error: GroqRateLimitError | None = None
 
         for selection in selections:
             _reserve_user_ai_call(user.user_id, settings)
@@ -299,6 +316,7 @@ class AIItineraryService:
                 completion = await self.groq_client.create_chat_completion(
                     model=selection.model_id,
                     messages=messages,
+                    provider=selection.provider,
                 )
                 response_time_ms = _elapsed_ms(started_at)
                 planning_result = None
@@ -372,7 +390,8 @@ class AIItineraryService:
                 await self.session.commit()
                 await self.session.refresh(updated_run)
                 if isinstance(exc, GroqRateLimitError):
-                    raise _groq_rate_limit_response(exc) from exc
+                    # Try the fallback provider/model before giving up.
+                    rate_limit_error = exc
                 failed_runs.append(
                     {
                         "ai_generation_run_id": updated_run.ai_generation_run_id,
@@ -381,6 +400,9 @@ class AIItineraryService:
                         "error_message": updated_run.error_message,
                     }
                 )
+
+        if rate_limit_error is not None:
+            raise _groq_rate_limit_response(rate_limit_error) from rate_limit_error
 
         raise LakbayAPIError(
             "AI chat failed.",
@@ -500,6 +522,7 @@ class AIItineraryService:
                 model=selection.model_id,
                 messages=messages,
                 response_format=ITINERARY_RESPONSE_FORMAT,
+                provider=selection.provider,
             )
             response_time_ms = _elapsed_ms(started_at)
             options = parse_and_validate_itinerary_output(

@@ -44,11 +44,13 @@ class FakeGroqClient:
         model: str,
         messages: list[dict[str, str]],
         response_format: dict | None = None,
+        provider: str = "groq",
     ) -> GroqChatCompletion:
         self.calls.append({
             "model": model,
             "messages": messages,
             "response_format": response_format,
+            "provider": provider,
         })
         content = self.responses.pop(0)
 

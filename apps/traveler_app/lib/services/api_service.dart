@@ -124,6 +124,18 @@ class ApiService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
+  int _retryAfterSeconds(http.Response response) {
+    var seconds = int.tryParse(response.headers['retry-after'] ?? '');
+    try {
+      final body = json.decode(response.body);
+      final error = body is Map ? body['error'] : null;
+      final details = error is Map ? error['details'] : null;
+      final fromBody = details is Map ? details['retry_after_seconds'] : null;
+      if (fromBody is num) seconds = fromBody.toInt();
+    } catch (_) {}
+    return (seconds ?? 30).clamp(1, 120);
+  }
+
   String _errorFromResponse(http.Response response, String fallback) {
     try {
       final body = json.decode(response.body);
@@ -785,6 +797,7 @@ class ApiService {
     List<Map<String, String>>? history,
     Map<String, dynamic>? planningState,
     int inputRevision = 0,
+    bool rateLimitRetried = false,
   }) async {
     if (token == null) {
       lastError = 'Please sign in to use Lakbay AI.';
@@ -847,6 +860,24 @@ class ApiService {
           planningState: planningState,
           inputRevision: inputRevision,
         );
+      }
+
+      if (response.statusCode == 429) {
+        final retryAfter = _retryAfterSeconds(response);
+        if (!rateLimitRetried && retryAfter <= 5) {
+          await Future<void>.delayed(Duration(seconds: retryAfter));
+          return chatWithAI(
+            prompt,
+            history: history,
+            planningState: planningState,
+            inputRevision: inputRevision,
+            rateLimitRetried: true,
+          );
+        }
+        lastError =
+            'The AI planner is busy right now. Please try again in about '
+            '$retryAfter seconds.';
+        return null;
       }
 
       lastError = _errorFromResponse(
