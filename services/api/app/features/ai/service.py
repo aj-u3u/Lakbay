@@ -13,6 +13,10 @@ from app.core.exceptions import LakbayAPIError
 from app.core.provider_usage import ProviderLimiter
 from app.features.accommodations.models import Accommodation
 from app.features.ai.models import AIGenerationRun
+from app.features.ai.destination_resolver import (
+    match_destinations,
+    pick_single_destination,
+)
 from app.features.ai.geo_context import selected_geo_inputs
 from app.features.ai.repository import AIItineraryRepository
 from app.features.ai.rag import VectorRAGRetriever
@@ -359,12 +363,18 @@ class AIItineraryService:
                 planning_result = None
                 validation_status = "not_run"
                 if data.planning_state is None:
-                    chat_response = completion.content.strip() or (
+                    chat_response = _restore_line_breaks(completion.content.strip()) or (
                         "I could not generate a helpful answer just now. "
                         "Please try asking in another way."
                     )
                 else:
                     planning_started = perf_counter()
+                    # Recognize a place the traveler named even if the model does not.
+                    catalog = (
+                        []
+                        if data.planning_state.destination_ids
+                        else await self.ai.list_active_destination_names()
+                    )
                     (
                         chat_response,
                         planning_result,
@@ -390,6 +400,7 @@ class AIItineraryService:
                             retrieval_coverage.get("requested_locations") or []
                         ),
                         retrieval_interest=retrieval_coverage.get("interest"),
+                        catalog=catalog,
                     )
                     _log_timing("planning_total", planning_started)
                 updated_run = await self.ai.update_generation_run(
@@ -831,6 +842,7 @@ async def _build_planning_chat_result(
     named_destination_ids: list[int] | None = None,
     requested_locations: list[str] | None = None,
     retrieval_interest: str | None = None,
+    catalog: list[tuple[int, str]] | None = None,
 ) -> tuple[str, AIPlanningChatResult, str]:
     assert data.planning_state is not None
     current_state = data.planning_state
@@ -854,7 +866,7 @@ async def _build_planning_chat_result(
         validation_status = "valid"
         chat_response = (
             _partial_planning_reply(rejected_fields)
-            if rejected_fields else output.chat_response.strip()
+            if rejected_fields else _restore_line_breaks(output.chat_response.strip())
         )
         changes = output.state_updates.model_dump(exclude_unset=True, mode="python")
         changes_json = output.state_updates.model_dump(exclude_unset=True, mode="json")
@@ -933,6 +945,32 @@ async def _build_planning_chat_result(
             validation_status = "invalid"
             chat_response = fallback_response
 
+    # If the traveler clearly named one catalog destination and the model did not select
+    # it (cautious models often just ask questions), add it here so the plan moves on.
+    resolver_matches = (
+        match_destinations(data.message, catalog)
+        if catalog and not next_state.destination_ids
+        else []
+    )
+    auto_added = (
+        pick_single_destination(data.message, catalog)
+        if resolver_matches and not current_state.destination_ids
+        else None
+    )
+    if auto_added is not None:
+        try:
+            next_state = PlanningState.model_validate(
+                {**next_state.model_dump(), "destination_ids": [auto_added.destination_id]},
+            )
+            changes_json["destination_ids"] = [auto_added.destination_id]
+            update_status = "applied"
+            chat_response = (
+                f"{chat_response}\n\nI added {auto_added.name} to your plan."
+            )
+            resolver_matches = []
+        except ValidationError:
+            auto_added = None
+
     preview_started = perf_counter()
     preview = await PlanningService(session, route_service).preview(
         PlanningPreviewRequest(
@@ -953,9 +991,12 @@ async def _build_planning_chat_result(
         # Without interests there is nothing to rank. If the traveler named a place the
         # catalog matched, offer those places as selectable cards instead of leaving the
         # plan with no way to choose a destination.
-        if requested_locations and named_destination_ids:
+        card_ids = [match.destination_id for match in resolver_matches] or (
+            list(named_destination_ids or []) if requested_locations else []
+        )
+        if card_ids:
             named = await AIItineraryRepository(session).list_active_destinations_by_ids(
-                list(dict.fromkeys(named_destination_ids))[:5],
+                list(dict.fromkeys(card_ids))[:5],
             )
             by_id = {item.destination_id: item for item in named}
             recommendations = [
@@ -967,10 +1008,14 @@ async def _build_planning_chat_result(
                     estimated_cost=by_id[destination_id].estimated_cost,
                     score=0.0,
                     matched_fields=["location"],
-                    reasons=[f"Matches the place you named: {', '.join(requested_locations)}"],
+                    reasons=[
+                        f"Matches the place you named: {', '.join(requested_locations)}"
+                        if requested_locations
+                        else "Matches the place you named."
+                    ],
                     travel_mode="driving",
                 )
-                for destination_id in dict.fromkeys(named_destination_ids)
+                for destination_id in dict.fromkeys(card_ids)
                 if destination_id in by_id
             ]
             recommendation_total_candidates = len(recommendations)
@@ -1032,6 +1077,11 @@ async def _build_planning_chat_result(
         ),
         validation_status,
     )
+
+
+def _restore_line_breaks(text: str) -> str:
+    """Some models double-escape line breaks, so travelers would see a literal "\n"."""
+    return text.replace("\\n", "\n")
 
 
 def _strip_json_fence(content: str) -> str:

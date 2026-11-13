@@ -856,6 +856,10 @@ def _named_place_chat(client, message, reply):
         client, headers=admin, name="Samal Island Beach", location="Samal Island",
         district="Davao del Norte", **verified_arrival(0),
     )
+    samal_two = create_destination(
+        client, headers=admin, name="Samal Pearl Farm", location="Samal Island",
+        district="Davao del Norte", **verified_arrival(2),
+    )
     create_destination(
         client, headers=admin, name="Mati Rock Beach", location="Mati City",
         district="Davao Oriental", **verified_arrival(1),
@@ -873,23 +877,22 @@ def _named_place_chat(client, message, reply):
         },
     )
     assert response.status_code == 200
-    return samal, response.json()
+    return (samal, samal_two), response.json()
 
 
 def test_named_place_without_interests_offers_selectable_cards(client, monkeypatch) -> None:
     configure_ai(monkeypatch)
-    samal, body = _named_place_chat(
+    (samal, samal_two), body = _named_place_chat(
         client, "I want to go to Samal Island", "Samal has a few spots.",
     )
 
     planning = body["planning"]
-    # The model did not select a destination, so the traveler needs cards to choose from.
+    # Two Samal places match equally, so nothing is guessed: the traveler gets cards.
     assert planning["state_updates"] == {}
-    assert [item["destination_id"] for item in planning["recommendations"]] == [
-        samal["destination_id"],
-    ]
-    assert planning["recommendations"][0]["name"] == "Samal Island Beach"
-    assert planning["recommendation_total_candidates"] == 1
+    assert {item["destination_id"] for item in planning["recommendations"]} == {
+        samal["destination_id"], samal_two["destination_id"],
+    }
+    assert planning["recommendation_total_candidates"] == 2
     assert planning["recommendation_shortfall_reason"] is None
     # The model's own reply is kept, not replaced by a ranking message.
     assert body["chat_response"] == "Samal has a few spots."
@@ -933,9 +936,146 @@ def test_interest_detected_in_the_message_ranks_when_model_omits_it(client, monk
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     planning = response.json()["planning"]
     assert [item["destination_id"] for item in planning["recommendations"]] == [
         beach["destination_id"],
     ]
     assert planning["state_updates"] == {}  # the saved plan is not changed by the fallback
+
+
+def _named_chat(client, message, *, destinations, model_reply, planning_state=None):
+    admin = admin_headers(client)
+    created = {
+        name: create_destination(client, headers=admin, name=name, **verified_arrival(i))
+        for i, name in enumerate(destinations)
+    }
+    client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([model_reply])
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": message,
+            "use_rag": True,
+            "planning_state": planning_state or {"origin": {"label": "Davao City"}},
+        },
+    )
+    assert response.status_code == 200, response.text
+    return created, response.json()
+
+
+CAUTIOUS_REPLY = json.dumps({
+    "chat_response": "Great choice! Where will you start, and how many travelers?",
+    "state_updates": {},
+})
+
+
+def test_a_named_destination_is_added_even_when_the_model_only_asks_questions(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    created, body = _named_chat(
+        client, "I like to go to bemwa",
+        destinations=["Bemwa Farm", "Mati Rock Beach"], model_reply=CAUTIOUS_REPLY,
+    )
+
+    farm_id = created["Bemwa Farm"]["destination_id"]
+    planning = body["planning"]
+    assert planning["state_updates"] == {"destination_ids": [farm_id]}
+    assert planning["update_status"] == "applied"
+    assert [d["name"] for d in planning["preview"]["destinations"]] == ["Bemwa Farm"]
+    assert body["chat_response"].startswith("Great choice! Where will you start")
+    assert body["chat_response"].endswith("I added Bemwa Farm to your plan.")
+    assert planning["recommendations"] == []  # nothing left to choose
+
+
+def test_a_named_destination_is_added_even_when_the_model_output_is_unusable(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    created, body = _named_chat(
+        client, "I like to go to bemwa",
+        destinations=["Bemwa Farm"], model_reply="Sorry, this is not JSON at all.",
+    )
+
+    planning = body["planning"]
+    assert planning["state_updates"] == {
+        "destination_ids": [created["Bemwa Farm"]["destination_id"]],
+    }
+    assert planning["update_status"] == "applied"
+    assert "I added Bemwa Farm to your plan." in body["chat_response"]
+
+
+def test_equally_good_matches_become_cards_instead_of_a_guess(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    created, body = _named_chat(
+        client, "I want to see Uraya",
+        destinations=["Uraya's Peak Adventure Park", "Uraya Falls", "Mati Rock Beach"],
+        model_reply=CAUTIOUS_REPLY,
+    )
+
+    planning = body["planning"]
+    assert planning["state_updates"] == {}
+    assert {item["destination_id"] for item in planning["recommendations"]} == {
+        created["Uraya's Peak Adventure Park"]["destination_id"],
+        created["Uraya Falls"]["destination_id"],
+    }
+    assert "I added" not in body["chat_response"]
+
+
+def test_a_negated_request_neither_adds_nor_offers_the_place(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    _, body = _named_chat(
+        client, "I don't want to go to bemwa",
+        destinations=["Bemwa Farm"], model_reply=CAUTIOUS_REPLY,
+    )
+
+    planning = body["planning"]
+    assert planning["state_updates"] == {}
+    assert planning["recommendations"] == []
+    assert "I added" not in body["chat_response"]
+
+
+def test_an_already_chosen_destination_is_not_replaced_by_a_mention(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    chosen = create_destination(client, headers=admin, name="Eden Nature Park", **verified_arrival(0))
+    create_destination(client, headers=admin, name="Bemwa Farm", **verified_arrival(1))
+    client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([CAUTIOUS_REPLY])
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": "What about bemwa?",
+            "use_rag": True,
+            "planning_state": {
+                "origin": {"label": "Davao City"},
+                "destination_ids": [chosen["destination_id"]],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    planning = response.json()["planning"]
+    assert planning["state_updates"] == {}
+    assert [d["name"] for d in planning["preview"]["destinations"]] == ["Eden Nature Park"]
+
+
+def test_double_escaped_line_breaks_in_the_reply_become_real_line_breaks(
+    client, monkeypatch,
+) -> None:
+    configure_ai(monkeypatch)
+    _, body = _named_chat(
+        client, "hello there", destinations=["Bemwa Farm"],
+        model_reply=json.dumps({
+            # A literal backslash followed by "n", as some models emit it.
+            "chat_response": "Great!\\n- Where from?\\n- How many travelers?",
+            "state_updates": {},
+        }),
+    )
+
+    assert body["chat_response"] == "Great!\n- Where from?\n- How many travelers?"
+    assert "\\n" not in body["chat_response"]

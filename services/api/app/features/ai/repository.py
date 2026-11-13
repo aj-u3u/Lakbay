@@ -1,12 +1,23 @@
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.ai.models import AIGenerationRun
 from app.features.destinations.catalog_selection import CatalogSelectionQueries
+from app.features.destinations.models import Destination
 
 
 class AIItineraryRepository(CatalogSelectionQueries):
     def __init__(self, session: AsyncSession) -> None:
         self.session = session
+
+    async def list_active_destination_names(self) -> list[tuple[int, str]]:
+        """(id, name) of every active destination, for recognizing a named place."""
+        result = await self.session.execute(
+            select(Destination.destination_id, Destination.name)
+            .where(Destination.is_active.is_(True))
+            .order_by(Destination.destination_id)
+        )
+        return [(row.destination_id, row.name) for row in result.all()]
 
     async def create_generation_run(
         self,

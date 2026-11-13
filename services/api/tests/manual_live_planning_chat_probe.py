@@ -40,6 +40,7 @@ FALLBACK_MODELS = [
 TARGETS = [("groq", m) for m in GROQ_MODELS] + [("fallback_llm", m) for m in FALLBACK_MODELS]
 
 MESSAGES = [
+    "I like to go to bemwa",
     "I want to go to Samal Island",
     "I want a beach trip in Samal for 2 days with a 10000 budget",
     "Suggest nature places to visit in Davao",
@@ -52,6 +53,8 @@ def _seed(client, admin_auth):
     for seed in samal + others:
         place = DestinationCreate.model_validate(seed).model_dump(mode="json")
         create_destination(client, headers=admin_auth, **place)
+    # A destination an admin added that is not in the seed data.
+    create_destination(client, headers=admin_auth, name="Bemwa Farm")
 
 
 @pytest.mark.parametrize("provider,model_id", TARGETS, ids=[t[1] for t in TARGETS])
