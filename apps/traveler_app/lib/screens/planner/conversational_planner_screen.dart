@@ -5,6 +5,7 @@ import '../../core/constants/app_constants.dart';
 import '../../models/chat_destination_suggestion.dart';
 import '../../providers/nav_provider.dart';
 import '../../providers/trip_provider.dart';
+import '../../widgets/cards/itinerary_option_card.dart';
 import 'conversational_review_sheet.dart';
 import 'planner_screen.dart';
 import 'planning_feedback_dialog.dart';
@@ -492,62 +493,35 @@ class _ConversationalPlannerScreenState
   Widget _buildOptions(ColorScheme colors) {
     return Consumer<TripProvider>(
       builder: (context, provider, _) {
-        if (provider.chatAIOptions.isEmpty) return const SizedBox.shrink();
+        final options = provider.chatAIOptions;
+        if (options.isEmpty) return const SizedBox.shrink();
+        final preview = provider.chatPlanningPreview;
+        final imagesById = {
+          for (final destination in provider.destinations)
+            destination.id: destination.imageUrl,
+        };
+        final cardDestinations = [
+          for (final item
+              in (preview?['destinations'] as List? ?? const []).whereType<Map>())
+            ItineraryCardDestination(
+              name: item['name']?.toString() ?? '',
+              imageUrl: imagesById[item['destination_id']],
+            ),
+        ];
+        final budget = double.tryParse('${preview?['whole_trip_budget']}');
+        final badges = ItineraryOptionCard.badgesFor(options);
         return Column(
           children: [
-            for (final option in provider.chatAIOptions)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppConstants.spaceM),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        option['title']?.toString() ?? 'Itinerary',
-                        style: Theme.of(context).textTheme.titleSmall,
-                      ),
-                      Text(option['summary']?.toString() ?? ''),
-                      const SizedBox(height: AppConstants.spaceS),
-                      Text(
-                        'AI draft estimate: ₱${option['estimated_total_cost']}',
-                      ),
-                      if (option['is_over_budget'] == true)
-                        Text(
-                          'Over budget',
-                          style: TextStyle(color: colors.error),
-                        ),
-                      const SizedBox(height: AppConstants.spaceS),
-                      for (final day
-                          in (option['days'] as List? ?? const [])
-                              .whereType<Map>()) ...[
-                        Text(
-                          'Day ${day['day']}: ${day['title'] ?? ''}',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        if (day['summary'] != null)
-                          Text(day['summary'].toString()),
-                        for (final activity
-                            in (day['activities'] as List? ?? const [])
-                                .whereType<Map>())
-                          Padding(
-                            padding: const EdgeInsets.only(
-                              left: AppConstants.spaceS,
-                              top: AppConstants.spaceS,
-                            ),
-                            child: Text(
-                              '${activity['time'] ?? ''}  ${activity['title'] ?? ''}\n${activity['description'] ?? ''}',
-                            ),
-                          ),
-                      ],
-                      TextButton(
-                        onPressed: _pending
-                            ? null
-                            : () => _saveOption(option['option_number'] as int),
-                        child: const Text('Save this option'),
-                      ),
-                    ],
-                  ),
-                ),
+            for (final option in options)
+              ItineraryOptionCard(
+                option: option,
+                destinations: cardDestinations,
+                wholeTripBudget: budget,
+                badges:
+                    badges[(option['option_number'] as num?)?.toInt()] ??
+                    const [],
+                busy: _pending,
+                onSelect: () => _saveOption(option['option_number'] as int),
               ),
           ],
         );
