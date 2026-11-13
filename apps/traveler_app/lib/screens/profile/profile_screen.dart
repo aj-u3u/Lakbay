@@ -1334,7 +1334,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               Navigator.pop(dialogCtx);
               await context.read<AuthProvider>().logout();
               if (!context.mounted) return;
-              Navigator.pushReplacementNamed(context, AppRoutes.login);
+              Navigator.pushNamedAndRemoveUntil(
+                context,
+                AppRoutes.login,
+                (route) => false,
+              );
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(
                   content: Text('Successfully signed out.'),

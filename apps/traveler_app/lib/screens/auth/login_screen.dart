@@ -69,7 +69,14 @@ class _LoginScreenState extends State<LoginScreen> {
       try {
         context.read<NavProvider>().reset();
       } catch (_) {}
-      Navigator.pushReplacementNamed(context, AppRoutes.navShell);
+      // Start the app's navigation fresh. Replacing only this page left the signed-out
+      // landing pages underneath, so Back from the app revealed them and looked like a
+      // sign-out.
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        AppRoutes.navShell,
+        (route) => false,
+      );
     }
   }
 

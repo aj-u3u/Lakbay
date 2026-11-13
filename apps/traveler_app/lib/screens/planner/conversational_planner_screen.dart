@@ -327,6 +327,8 @@ class _ConversationalPlannerScreenState
     final colors = Theme.of(context).colorScheme;
     return Scaffold(
       appBar: AppBar(
+        // A tab of the main navigation, so there is nothing to go back to.
+        automaticallyImplyLeading: false,
         title: const Text('Lakbay Planner'),
         actions: [
           IconButton(
