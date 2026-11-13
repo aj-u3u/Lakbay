@@ -164,6 +164,67 @@ void main() {
     expect(_errorText(tester), contains('nights (cannot be more than days)'));
   });
 
+  testWidgets('over-budget plan shows a warning with the amounts', (tester) async {
+    final provider = _Provider(
+      state: {
+        'destination_ids': <int>[7],
+        'origin': {'label': 'Davao City'},
+        'day_count': 2,
+        'night_count': 1,
+        'traveler_count': 1,
+        'adult_count': 1,
+        'total_budget': '10000.00',
+      },
+      preview: {
+        'destinations': [
+          {'destination_id': 7, 'name': 'Beach 7'},
+        ],
+        'transport_options': [],
+        'activity_options': [],
+        'budget': {
+          'fit': 'over_budget',
+          'total_estimate': '50000.00',
+          'over_budget_amount': '40000.00',
+          'missing_costs': [],
+        },
+      },
+    );
+    await _open(tester, provider);
+
+    expect(
+      find.textContaining(
+        'Your confirmed amounts total ₱50000.00, which is ₱40000.00 over your '
+        'whole-trip budget of ₱10000.00. Lower an amount or raise the budget.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a plan within budget shows no over-budget warning', (tester) async {
+    final provider = _Provider(
+      state: {
+        'destination_ids': <int>[7],
+        'origin': {'label': 'Davao City'},
+        'total_budget': '10000.00',
+      },
+      preview: {
+        'destinations': [
+          {'destination_id': 7, 'name': 'Beach 7'},
+        ],
+        'transport_options': [],
+        'activity_options': [],
+        'budget': {
+          'fit': 'fits_estimate',
+          'total_estimate': '8000.00',
+          'missing_costs': [],
+        },
+      },
+    );
+    await _open(tester, provider);
+
+    expect(find.textContaining('over your whole-trip budget'), findsNothing);
+  });
+
   testWidgets('shows a loading note, not "choose a destination", while the preview loads', (
     tester,
   ) async {

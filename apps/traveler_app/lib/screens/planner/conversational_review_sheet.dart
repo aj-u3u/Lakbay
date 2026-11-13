@@ -285,6 +285,12 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
             ? preview!['budget'] as Map
             : const <String, dynamic>{};
         final warnings = [
+          // The plan cannot be generated while it is over budget, so say so.
+          if (budget['fit'] == 'over_budget')
+            'Your confirmed amounts total ₱${budget['total_estimate']}'
+                '${budget['over_budget_amount'] == null ? '' : ', which is ₱${budget['over_budget_amount']} over'}'
+                ' your whole-trip budget of ₱${widget.provider.chatPlanningState['total_budget'] ?? _budget.text}.'
+                ' Lower an amount or raise the budget.',
           for (final item
               in (budget['missing_costs'] as List? ?? const [])
                   .whereType<Map>())
