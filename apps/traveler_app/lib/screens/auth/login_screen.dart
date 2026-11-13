@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_fonts/google_fonts.dart';
@@ -23,9 +25,13 @@ class _LoginScreenState extends State<LoginScreen> {
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
   bool _obscurePass = true;
+  // The free server sleeps when idle; explain a slow first sign-in.
+  bool _showWakeNote = false;
+  Timer? _wakeTimer;
 
   @override
   void dispose() {
+    _wakeTimer?.cancel();
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
@@ -34,7 +40,17 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (!_formKey.currentState!.validate()) return;
     final auth = context.read<AuthProvider>();
-    final success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
+    _wakeTimer?.cancel();
+    _wakeTimer = Timer(const Duration(seconds: 6), () {
+      if (mounted) setState(() => _showWakeNote = true);
+    });
+    final bool success;
+    try {
+      success = await auth.login(_emailCtrl.text.trim(), _passCtrl.text);
+    } finally {
+      _wakeTimer?.cancel();
+      if (mounted && _showWakeNote) setState(() => _showWakeNote = false);
+    }
     if (success && mounted) {
       // Trigger background location permission request to prime GPS caches early (mobile-only)
       if (!kIsWeb) {
@@ -233,6 +249,22 @@ class _LoginScreenState extends State<LoginScreen> {
                               width: double.infinity,
                             ),
                           ),
+                          if (_showWakeNote) ...[
+                            const SizedBox(height: AppConstants.spaceS),
+                            const Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(Icons.hourglass_top, size: 16, color: AppTheme.textSecondaryLight),
+                                SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Waking up the server. The first sign-in after a quiet period can take up to a minute.',
+                                    style: TextStyle(fontSize: 12, color: AppTheme.textSecondaryLight),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: AppConstants.spaceL),
 
                           Wrap(
