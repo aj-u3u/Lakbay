@@ -17,8 +17,12 @@ class CandidateService:
         self.session = session
         self.candidates = CandidateRepository(session)
 
-    async def list(self, *, review_status: str | None, limit: int, offset: int) -> list[CandidateResponse]:
-        candidates = await self.candidates.list(status=review_status, limit=limit, offset=offset)
+    async def list(
+        self, *, review_status: str | None, limit: int, offset: int, search: str | None = None
+    ) -> list[CandidateResponse]:
+        candidates = await self.candidates.list(
+            status=review_status, limit=limit, offset=offset, search=search
+        )
         return [CandidateResponse.model_validate(item) for item in candidates]
 
     async def get(self, candidate_id: int) -> CandidateResponse:

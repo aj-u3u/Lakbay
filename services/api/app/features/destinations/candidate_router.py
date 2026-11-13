@@ -92,9 +92,17 @@ async def list_candidates(
     review_status: CandidateStatus | None = None,
     limit: int = Query(default=50, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    q: str | None = Query(
+        default=None,
+        max_length=100,
+        description=(
+            "Search words. Each word must appear (any case) in the name, district, "
+            "location, area, tag, category, review notes, or OSM id."
+        ),
+    ),
 ) -> list[CandidateResponse]:
     return await CandidateService(session).list(
-        review_status=review_status, limit=limit, offset=offset
+        review_status=review_status, limit=limit, offset=offset, search=q
     )
 
 

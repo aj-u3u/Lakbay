@@ -2,10 +2,40 @@ from __future__ import annotations
 
 from math import asin, cos, radians, sin, sqrt
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.features.destinations.models import Destination, DestinationCandidate
+
+
+# Fields an administrator can search in the review queue.
+_SEARCH_COLUMNS = (
+    DestinationCandidate.name,
+    DestinationCandidate.district,
+    DestinationCandidate.location,
+    DestinationCandidate.source_area,
+    DestinationCandidate.source_tag,
+    DestinationCandidate.suggested_category,
+    DestinationCandidate.category,
+    DestinationCandidate.review_notes,
+)
+_MAX_SEARCH_TERMS = 5
+
+
+def search_filter(text: str | None):
+    """Match every word of the search against any searchable field, ignoring case.
+
+    LIKE wildcards in the text are matched literally. Returns None for an empty search.
+    """
+    terms = (text or "").split()[:_MAX_SEARCH_TERMS]
+    if not terms:
+        return None
+    clauses = []
+    for term in terms:
+        fields = [column.icontains(term, autoescape=True) for column in _SEARCH_COLUMNS]
+        fields.append(cast(DestinationCandidate.osm_id, String).icontains(term, autoescape=True))
+        clauses.append(or_(*fields))
+    return clauses
 
 
 class CandidateRepository:
@@ -13,11 +43,13 @@ class CandidateRepository:
         self.session = session
 
     async def list(
-        self, *, status: str | None, limit: int, offset: int
+        self, *, status: str | None, limit: int, offset: int, search: str | None = None
     ) -> list[DestinationCandidate]:
         query = select(DestinationCandidate)
         if status is not None:
             query = query.where(DestinationCandidate.review_status == status)
+        for clause in search_filter(search) or []:
+            query = query.where(clause)
         query = query.order_by(DestinationCandidate.candidate_id).offset(offset).limit(limit)
         result = await self.session.execute(query)
         return list(result.scalars().all())
