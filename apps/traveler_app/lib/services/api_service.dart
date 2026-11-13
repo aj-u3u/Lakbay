@@ -124,6 +124,17 @@ class ApiService {
     return decoded.cast<Map<String, dynamic>>();
   }
 
+  String? _errorCode(http.Response response) {
+    try {
+      final body = json.decode(response.body);
+      final error = body is Map ? body['error'] : null;
+      final code = error is Map ? error['code'] : null;
+      return code?.toString();
+    } catch (_) {
+      return null;
+    }
+  }
+
   int _retryAfterSeconds(http.Response response) {
     var seconds = int.tryParse(response.headers['retry-after'] ?? '');
     try {
@@ -863,6 +874,14 @@ class ApiService {
       }
 
       if (response.statusCode == 429) {
+        if (_errorCode(response) == 'ai_user_daily_limit_exceeded') {
+          // Waiting a few seconds will not help; show the server's message.
+          lastError = _errorFromResponse(
+            response,
+            "You have reached today's AI limit. Please try again tomorrow.",
+          );
+          return null;
+        }
         final retryAfter = _retryAfterSeconds(response);
         if (!rateLimitRetried && retryAfter <= 5) {
           await Future<void>.delayed(Duration(seconds: retryAfter));

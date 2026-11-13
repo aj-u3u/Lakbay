@@ -39,6 +39,8 @@ class Settings(BaseSettings):
     groq_temperature: float = Field(default=0.3, ge=0, le=2)
     groq_max_tokens: int = Field(default=4096, ge=256, le=32768)
     groq_user_requests_per_minute: int = Field(default=20, ge=1, le=120)
+    # Daily AI requests per user, so one account cannot use up the shared free quotas.
+    groq_user_requests_per_day: int = Field(default=60, ge=1, le=10000)
     groq_model_requests_per_minute: int = Field(default=20, ge=1, le=120)
     groq_model_requests_per_day: int = Field(default=1000, ge=1, le=14400)
     # Short rate-limit waits are slept through and retried instead of failing the request.

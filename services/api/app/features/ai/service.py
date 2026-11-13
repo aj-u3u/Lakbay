@@ -54,7 +54,7 @@ from app.integrations.groq.itinerary_schema import ITINERARY_RESPONSE_FORMAT
 from app.integrations.groq.model_selector import (
     ModelSelection,
     select_comparison_models,
-    select_fallback_model,
+    select_fallback_models,
     select_primary_model,
 )
 from app.integrations.groq.prompts import (
@@ -71,13 +71,27 @@ CHAT_REQUEST_PURPOSE = "travel_chat"
 _ai_user_limiter = ProviderLimiter()
 
 
-def _reserve_user_ai_call(user_id: int, settings: Settings) -> None:
+def _reserve_user_ai_call(
+    user_id: int,
+    settings: Settings,
+    *,
+    count_daily: bool = True,
+) -> None:
     _ai_user_limiter.reserve(
         f"groq:user:{user_id}",
         limit=settings.groq_user_requests_per_minute,
         code="ai_user_rate_limit_exceeded",
         message="Too many AI requests. Please try again shortly.",
     )
+    # Fallback attempts for the same request must not use up the daily allowance.
+    if count_daily:
+        _ai_user_limiter.reserve(
+            f"groq:user:{user_id}:day",
+            limit=settings.groq_user_requests_per_day,
+            window_seconds=86400,
+            code="ai_user_daily_limit_exceeded",
+            message="You have reached today's AI limit. Please try again tomorrow.",
+        )
 
 
 def _groq_rate_limit_response(exc: GroqRateLimitError) -> LakbayAPIError:
@@ -297,7 +311,9 @@ class AIItineraryService:
         rate_limit_error: GroqRateLimitError | None = None
 
         for selection in selections:
-            _reserve_user_ai_call(user.user_id, settings)
+            _reserve_user_ai_call(
+                user.user_id, settings, count_daily=not selection.fallback_used
+            )
             run = await self.ai.create_generation_run(
                 user_id=user.user_id,
                 request_purpose=CHAT_REQUEST_PURPOSE,
@@ -448,13 +464,12 @@ class AIItineraryService:
         selections = [primary]
 
         if data.allow_fallback:
-            fallback = select_fallback_model(
-                settings=settings,
-                primary_model_id=primary.model_id,
+            selections.extend(
+                select_fallback_models(
+                    settings=settings,
+                    primary_model_id=primary.model_id,
+                )
             )
-
-            if fallback is not None:
-                selections.append(fallback)
 
         return selections
 
@@ -477,13 +492,12 @@ class AIItineraryService:
         selections = [primary]
 
         if allow_fallback:
-            fallback = select_fallback_model(
-                settings=settings,
-                primary_model_id=primary.model_id,
+            selections.extend(
+                select_fallback_models(
+                    settings=settings,
+                    primary_model_id=primary.model_id,
+                )
             )
-
-            if fallback is not None:
-                selections.append(fallback)
 
         return selections
 
@@ -500,7 +514,9 @@ class AIItineraryService:
         geo_analytics_context: dict | None = None,
         quality_warnings: list[str] | None = None,
     ) -> AIModelRunResult:
-        _reserve_user_ai_call(user.user_id, get_settings())
+        _reserve_user_ai_call(
+            user.user_id, get_settings(), count_daily=not selection.fallback_used
+        )
         run = await self.ai.create_generation_run(
             user_id=user.user_id,
             request_purpose=REQUEST_PURPOSE,

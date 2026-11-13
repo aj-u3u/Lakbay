@@ -6,7 +6,7 @@ import pytest
 from app.core.config import Settings, get_settings
 from app.integrations.groq.client import GroqClient, _groq_model_limiter
 from app.integrations.groq.errors import GroqRateLimitError
-from app.integrations.groq.model_selector import select_fallback_model
+from app.integrations.groq.model_selector import select_fallback_model, select_fallback_models
 from app.integrations.groq.client import get_groq_client
 from app.integrations.groq.schemas import GroqChatCompletion
 from tests.test_phase5_ai_itineraries import configure_ai, user_headers
@@ -36,23 +36,31 @@ class RateLimitedThenOkClient:
         )
 
 
-def test_fallback_selection_prefers_separate_provider():
+def test_fallback_chain_order_is_groq_second_model_then_each_gemini_model():
     settings = Settings(
         _env_file=None,
-        groq_model_fallback="other-groq-model",
+        groq_model_fallback="qwen-model",
         fallback_llm_api_key="key",
-        fallback_llm_model="gemini-flash",
+        fallback_llm_model="gemini-a, gemini-b , gemini-a",
     )
-    selection = select_fallback_model(settings=settings, primary_model_id="primary")
-    assert selection.provider == "fallback_llm"
-    assert selection.model_id == "gemini-flash"
-    assert selection.fallback_used is True
+    chain = select_fallback_models(settings=settings, primary_model_id="primary")
+    assert [(item.provider, item.model_id) for item in chain] == [
+        ("groq", "qwen-model"),
+        ("fallback_llm", "gemini-a"),
+        ("fallback_llm", "gemini-b"),
+    ]
+    assert all(item.fallback_used for item in chain)
 
 
-def test_fallback_selection_stays_on_groq_without_second_provider():
-    settings = Settings(_env_file=None, groq_model_fallback="other-groq-model")
-    selection = select_fallback_model(settings=settings, primary_model_id="primary")
-    assert selection.provider == "groq"
+def test_fallback_chain_skips_groq_model_equal_to_primary():
+    settings = Settings(_env_file=None, groq_model_fallback="primary")
+    assert select_fallback_models(settings=settings, primary_model_id="primary") == []
+    assert select_fallback_model(settings=settings, primary_model_id="primary") is None
+
+
+def test_fallback_chain_needs_both_key_and_model_for_second_provider():
+    settings = Settings(_env_file=None, fallback_llm_model="gemini-a")
+    assert select_fallback_models(settings=settings, primary_model_id="primary") == []
 
 
 def test_chat_uses_fallback_provider_when_primary_is_rate_limited(client, monkeypatch):
@@ -69,7 +77,7 @@ def test_chat_uses_fallback_provider_when_primary_is_rate_limited(client, monkey
 
     assert response.status_code == 200
     assert response.json()["chat_response"] == "Fallback answer."
-    assert [call["provider"] for call in fake.calls] == ["groq", "fallback_llm"]
+    assert [call["provider"] for call in fake.calls] == ["groq", "groq", "fallback_llm"]
 
 
 def test_chat_returns_429_when_every_provider_is_rate_limited(client, monkeypatch):
@@ -86,7 +94,7 @@ def test_chat_returns_429_when_every_provider_is_rate_limited(client, monkeypatc
 
     assert response.status_code == 429
     assert response.json()["error"]["code"] == "groq_rate_limit_exceeded"
-    assert len(fake.calls) == 2
+    assert len(fake.calls) == 3
 
 
 def _mock_transport(monkeypatch, handler):
@@ -143,3 +151,47 @@ def test_short_rate_limit_wait_is_retried(monkeypatch):
 
     assert result.content == "OK"
     assert slept == [1]
+
+
+def test_daily_user_cap_counts_requests_not_fallback_attempts():
+    from app.core.exceptions import LakbayAPIError
+    from app.features.ai.service import _ai_user_limiter, _reserve_user_ai_call
+
+    _ai_user_limiter.clear()
+    settings = Settings(_env_file=None, groq_user_requests_per_day=2)
+    _reserve_user_ai_call(7, settings)
+    # A fallback attempt for the same request must not use the daily allowance.
+    _reserve_user_ai_call(7, settings, count_daily=False)
+    _reserve_user_ai_call(7, settings)
+    with pytest.raises(LakbayAPIError) as error:
+        _reserve_user_ai_call(7, settings)
+    assert error.value.code == "ai_user_daily_limit_exceeded"
+    assert error.value.status_code == 429
+    _ai_user_limiter.clear()
+
+
+def test_chat_prompt_keeps_recent_history_and_compact_json():
+    import json as jsonlib
+
+    from app.features.ai.schemas import AIChatMessage, AIChatRequest
+    from app.integrations.groq.prompts import (
+        CHAT_HISTORY_MESSAGE_CHARS,
+        CHAT_HISTORY_MESSAGES,
+        build_chat_messages,
+    )
+
+    history = [
+        AIChatMessage(role="user" if i % 2 == 0 else "assistant", content=f"m{i}" + "x" * 1900)
+        for i in range(12)
+    ]
+    messages = build_chat_messages(
+        request=AIChatRequest(message="hello", history=history),
+    )
+
+    history_messages = messages[1:-1]
+    assert len(history_messages) == CHAT_HISTORY_MESSAGES
+    assert history_messages[0]["content"].startswith("m4")  # oldest 4 dropped
+    assert all(len(m["content"]) <= CHAT_HISTORY_MESSAGE_CHARS for m in history_messages)
+    last = messages[-1]["content"]
+    assert ", " not in last and ": " not in last  # compact separators
+    assert jsonlib.loads(last)["message"] == "hello"

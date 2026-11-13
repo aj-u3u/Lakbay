@@ -195,6 +195,10 @@ def build_geo_analytics_context(
     }
 
 
+CHAT_HISTORY_MESSAGES = 8
+CHAT_HISTORY_MESSAGE_CHARS = 800
+
+
 def build_chat_messages(
     *,
     request: AIChatRequest,
@@ -269,8 +273,12 @@ def build_chat_messages(
 
     messages = [{"role": "system", "content": system_prompt}]
 
-    for item in request.history[-12:]:
-        messages.append({"role": item.role, "content": item.content})
+    # Only the recent turns matter for the reply; fewer tokens also stretch the
+    # provider's per-minute and per-day token quotas.
+    for item in request.history[-CHAT_HISTORY_MESSAGES:]:
+        messages.append(
+            {"role": item.role, "content": item.content[:CHAT_HISTORY_MESSAGE_CHARS]}
+        )
 
     context_payload = {
         "message": request.message,
@@ -284,7 +292,9 @@ def build_chat_messages(
     messages.append(
         {
             "role": "user",
-            "content": json.dumps(context_payload, default=_json_default),
+            "content": json.dumps(
+                context_payload, default=_json_default, separators=(",", ":")
+            ),
         },
     )
 
