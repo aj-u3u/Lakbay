@@ -390,7 +390,20 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                     key: ValueKey(selectedTransport),
                     initialValue: selectedTransport,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Travel mode'),
+                    decoration: InputDecoration(
+                      labelText: 'Travel mode',
+                      // The list is empty (and the field disabled) until a destination
+                      // exists, so say why instead of leaving a dead control.
+                      helperText: transport.isNotEmpty
+                          ? null
+                          : destinations.isEmpty &&
+                                (widget.provider.chatPlanningState['destination_ids']
+                                            as List? ??
+                                        const [])
+                                    .isEmpty
+                          ? 'Choose a destination in the chat first to see travel modes.'
+                          : 'Loading travel modes for your destination...',
+                    ),
                     items: [
                       for (final option in transport)
                         if (option['option_id'] != null)

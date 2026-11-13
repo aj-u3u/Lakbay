@@ -164,6 +164,51 @@ void main() {
     expect(_errorText(tester), contains('nights (cannot be more than days)'));
   });
 
+  testWidgets('explains why travel mode is disabled before a destination is chosen', (
+    tester,
+  ) async {
+    final provider = _Provider(
+      state: {'destination_ids': <int>[], 'origin': {'label': 'Davao City'}},
+      preview: {
+        'destinations': [],
+        'transport_options': [],
+        'activity_options': [],
+        'budget': {'missing_costs': []},
+      },
+    );
+    await _open(tester, provider);
+
+    expect(
+      find.text('Choose a destination in the chat first to see travel modes.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('travel mode has no helper text once options are available', (
+    tester,
+  ) async {
+    final provider = _Provider(
+      state: {
+        'destination_ids': <int>[7],
+        'origin': {'label': 'Davao City'},
+      },
+      preview: {
+        'destinations': [
+          {'destination_id': 7, 'name': 'Beach 7'},
+        ],
+        'transport_options': [
+          {'option_id': 'mode:personal_vehicle', 'label': 'Personal vehicle'},
+        ],
+        'activity_options': [],
+        'budget': {'missing_costs': []},
+      },
+    );
+    await _open(tester, provider);
+
+    expect(find.textContaining('see travel modes'), findsNothing);
+    expect(find.textContaining('Loading travel modes'), findsNothing);
+  });
+
   testWidgets('over-budget plan shows a warning with the amounts', (tester) async {
     final provider = _Provider(
       state: {
