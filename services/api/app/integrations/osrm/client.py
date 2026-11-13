@@ -23,7 +23,7 @@ from app.integrations.osrm.schemas import (
 MAX_PREVIEW_WAYPOINT_SNAP_METERS = 250.0
 # Shared community OSRM servers, such as the FOSSGIS foot service, ask clients
 # to identify the application instead of sending a library default.
-USER_AGENT = "Lakbay-API (Davao Region trip planner; https://lakbay-backend-final.onrender.com)"
+USER_AGENT = "Lakbay-API (Davao Region trip planner; https://lakbay-api-sg.onrender.com)"
 
 
 class OSRMClient:
