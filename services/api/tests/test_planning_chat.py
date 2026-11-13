@@ -848,3 +848,94 @@ def test_planning_chat_rejects_model_changes_to_preview_selections(
         "mode:personal_vehicle",
     ]
     assert planning["preview"]["state"]["total_budget"] == "5000.00"
+
+
+def _named_place_chat(client, message, reply):
+    admin = admin_headers(client)
+    samal = create_destination(
+        client, headers=admin, name="Samal Island Beach", location="Samal Island",
+        district="Davao del Norte", **verified_arrival(0),
+    )
+    create_destination(
+        client, headers=admin, name="Mati Rock Beach", location="Mati City",
+        district="Davao Oriental", **verified_arrival(1),
+    )
+    client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([
+        json.dumps({"chat_response": reply, "state_updates": {}}),
+    ])
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": message,
+            "use_rag": True,
+            "planning_state": {"origin": {"label": "Davao City"}},
+        },
+    )
+    assert response.status_code == 200
+    return samal, response.json()
+
+
+def test_named_place_without_interests_offers_selectable_cards(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    samal, body = _named_place_chat(
+        client, "I want to go to Samal Island", "Samal has a few spots.",
+    )
+
+    planning = body["planning"]
+    # The model did not select a destination, so the traveler needs cards to choose from.
+    assert planning["state_updates"] == {}
+    assert [item["destination_id"] for item in planning["recommendations"]] == [
+        samal["destination_id"],
+    ]
+    assert planning["recommendations"][0]["name"] == "Samal Island Beach"
+    assert planning["recommendation_total_candidates"] == 1
+    assert planning["recommendation_shortfall_reason"] is None
+    # The model's own reply is kept, not replaced by a ranking message.
+    assert body["chat_response"] == "Samal has a few spots."
+
+
+def test_greeting_without_a_named_place_offers_no_cards(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    _, body = _named_place_chat(client, "hello there", "Hi! Where would you like to go?")
+
+    planning = body["planning"]
+    assert planning["recommendations"] == []
+    assert planning["recommendation_shortfall_reason"] == (
+        "No travel interests were supplied, so there is no preference match to rank."
+    )
+
+
+def test_interest_detected_in_the_message_ranks_when_model_omits_it(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    beach = create_destination(client, headers=admin, name="Beach One", **verified_arrival(0))
+    create_destination(
+        client, headers=admin, name="Mountain", category="mountain",
+        vibes="adventure", activities="hiking", **verified_arrival(1),
+    )
+    monkeypatch.setattr(ai_router_module, "get_osrm_client", lambda: CandidateOSRM())
+    client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([
+        # The model forgot to record the interest the traveler stated.
+        json.dumps({"chat_response": "Here are some ideas.", "state_updates": {}}),
+    ])
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": "Find me beaches in Davao",
+            "use_rag": True,
+            "planning_state": {
+                "origin": {"label": "Davao City", "lat": 7.0731, "lng": 125.6128},
+                "selected_transport_option_ids": ["mode:personal_vehicle"],
+            },
+        },
+    )
+
+    assert response.status_code == 200
+    planning = response.json()["planning"]
+    assert [item["destination_id"] for item in planning["recommendations"]] == [
+        beach["destination_id"],
+    ]
+    assert planning["state_updates"] == {}  # the saved plan is not changed by the fallback

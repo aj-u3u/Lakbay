@@ -40,7 +40,10 @@ from app.features.destinations.catalog_selection import (
 from app.features.destinations.models import Destination
 from app.features.planning.schemas import PlanningOrigin, PlanningPreviewRequest, PlanningPreviewResponse, PlanningState
 from app.features.planning.service import PlanningService
-from app.features.recommendations.schemas import TopPlacesRequest
+from app.features.recommendations.schemas import (
+    PlanningRecommendationItem,
+    TopPlacesRequest,
+)
 from app.features.recommendations.service import (
     RecommendationService,
     planning_recommendation_from_top_place,
@@ -376,6 +379,17 @@ class AIItineraryService:
                             for match in rag_matches
                             if match.source == "destination"
                         },
+                        # Ordered by relevance, for suggestion cards when the traveler
+                        # names a place but no destination is selected yet.
+                        named_destination_ids=[
+                            match.source_id
+                            for match in rag_matches
+                            if match.source == "destination"
+                        ],
+                        requested_locations=list(
+                            retrieval_coverage.get("requested_locations") or []
+                        ),
+                        retrieval_interest=retrieval_coverage.get("interest"),
                     )
                     _log_timing("planning_total", planning_started)
                 updated_run = await self.ai.update_generation_run(
@@ -814,6 +828,9 @@ async def _build_planning_chat_result(
     session: AsyncSession,
     route_service: RouteService | None,
     retrieved_destination_ids: set[int],
+    named_destination_ids: list[int] | None = None,
+    requested_locations: list[str] | None = None,
+    retrieval_interest: str | None = None,
 ) -> tuple[str, AIPlanningChatResult, str]:
     assert data.planning_state is not None
     current_state = data.planning_state
@@ -927,16 +944,46 @@ async def _build_planning_chat_result(
     recommendations = []
     recommendation_total_candidates = 0
     recommendation_shortfall_reason = None
-    if not next_state.destination_ids and not next_state.interests:
-        recommendation_shortfall_reason = (
-            "No travel interests were supplied, so there is no preference match to rank."
-        )
+    # If the model did not record an interest the traveler stated, use the one the
+    # catalog retrieval detected in the message so the Top 5 cards still appear.
+    ranking_interests = list(next_state.interests) or (
+        [retrieval_interest] if retrieval_interest else []
+    )
+    if not next_state.destination_ids and not ranking_interests:
+        # Without interests there is nothing to rank. If the traveler named a place the
+        # catalog matched, offer those places as selectable cards instead of leaving the
+        # plan with no way to choose a destination.
+        if requested_locations and named_destination_ids:
+            named = await AIItineraryRepository(session).list_active_destinations_by_ids(
+                list(dict.fromkeys(named_destination_ids))[:5],
+            )
+            by_id = {item.destination_id: item for item in named}
+            recommendations = [
+                PlanningRecommendationItem(
+                    destination_id=by_id[destination_id].destination_id,
+                    name=by_id[destination_id].name,
+                    district=by_id[destination_id].district,
+                    category=by_id[destination_id].category,
+                    estimated_cost=by_id[destination_id].estimated_cost,
+                    score=0.0,
+                    matched_fields=["location"],
+                    reasons=[f"Matches the place you named: {', '.join(requested_locations)}"],
+                    travel_mode="driving",
+                )
+                for destination_id in dict.fromkeys(named_destination_ids)
+                if destination_id in by_id
+            ]
+            recommendation_total_candidates = len(recommendations)
+        if not recommendations:
+            recommendation_shortfall_reason = (
+                "No travel interests were supplied, so there is no preference match to rank."
+            )
     elif not next_state.destination_ids:
         selected_modes = tuple(next_state.selected_transport_option_ids)
         ranking_started = perf_counter()
         top_places = await RecommendationService(session).rank_top_places(
             data=TopPlacesRequest(
-                interests=next_state.interests,
+                interests=ranking_interests,
                 origin=(
                     RouteCoordinate(
                         label=next_state.origin.label,
