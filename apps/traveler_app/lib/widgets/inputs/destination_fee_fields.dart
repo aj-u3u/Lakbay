@@ -109,7 +109,9 @@ class DestinationFeeFieldsState extends State<DestinationFeeFields>
     final ages = widget.childAges.toSet().toList()..sort();
     String? error;
     if (ages.isEmpty) {
-      error = 'Enter child ages before using age-based fees.';
+      error =
+          'Age-based fees need at least one child. Add child ages in Party details, '
+          'or switch to Whole-trip allowance.';
     } else if (adultFee == null) {
       error = 'Enter the adult fee for this destination.';
     } else if (ages.any((age) => !_childRates.containsKey(age))) {
@@ -182,7 +184,10 @@ class DestinationFeeFieldsState extends State<DestinationFeeFields>
           ),
           const SizedBox(height: 8),
           if (ages.isEmpty)
-            const Text('Enter child ages in Party details first.'),
+            const Text(
+              'Age-based fees apply only when children are in the party. Add them in '
+              'Party details, or switch to Whole-trip allowance.',
+            ),
           for (final age in ages)
             Padding(
               padding: const EdgeInsets.only(top: 8),

@@ -164,6 +164,120 @@ void main() {
     expect(_errorText(tester), contains('nights (cannot be more than days)'));
   });
 
+  Map<String, dynamic> soloTripState() => {
+    'destination_ids': <int>[7],
+    'origin': {'label': 'Davao City'},
+    'day_count': 2,
+    'night_count': 1,
+    'traveler_count': 1,
+    'adult_count': 1,
+    'child_ages': <int>[],
+    'total_budget': '10000.00',
+    'selected_transport_option_ids': <String>['car'],
+    'cost_allowances': [
+      {'category': 'transportation', 'amount': '1500.00'},
+      {'category': 'food', 'amount': '1000.00'},
+      {'category': 'accommodation', 'amount': '1000.00'},
+    ],
+  };
+
+  Map<String, dynamic> uPreview() => {
+    'destinations': [
+      {'destination_id': 7, 'name': "Uraya's Peak Adventure Park"},
+    ],
+    'transport_options': [
+      {'option_id': 'car', 'label': 'Car'},
+    ],
+    'activity_options': [],
+    'budget': {'missing_costs': []},
+  };
+
+  Future<void> chooseAgeBasedFees(WidgetTester tester) async {
+    final scrollable = find
+        .descendant(
+          of: find.byType(ConversationalReviewSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('destination-fee-mode-7-allowance')),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('destination-fee-mode-7-allowance')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Adult and child fees').last);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('age-based fees with no children explain the way out (screenshot 1)', (
+    tester,
+  ) async {
+    final provider = _Provider(state: soloTripState(), preview: uPreview());
+    await _open(tester, provider);
+
+    await chooseAgeBasedFees(tester);
+    // The helper already says this method is for parties with children.
+    expect(
+      find.textContaining('Age-based fees apply only when children are in the party'),
+      findsOneWidget,
+    );
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Adult fee per person (₱)'),
+      '1000',
+    );
+    await _tapConfirm(tester);
+
+    // Not the old "Enter child ages", which told a solo adult to do the impossible.
+    expect(find.textContaining('Enter child ages before'), findsNothing);
+    expect(
+      find.textContaining(
+        'Age-based fees need at least one child. Add child ages in Party details, '
+        'or switch to Whole-trip allowance.',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      _errorText(tester),
+      contains("fee choice for Uraya's Peak Adventure Park"),
+    );
+    expect(provider.submitted, isNull);
+  });
+
+  testWidgets('a solo adult can proceed by using the whole-trip allowance instead', (
+    tester,
+  ) async {
+    final provider = _Provider(state: soloTripState(), preview: uPreview());
+    await _open(tester, provider);
+
+    final field = find.widgetWithText(
+      TextField,
+      'Whole-trip destination allowance (₱)',
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ConversationalReviewSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    await tester.scrollUntilVisible(field, 300, scrollable: scrollable);
+    await tester.enterText(field, '1000');
+    await _tapConfirm(tester);
+
+    expect(find.textContaining('Please complete:'), findsNothing);
+    expect(provider.submitted, isNotNull);
+    final allowances = provider.submitted!['cost_allowances'] as List;
+    expect(
+      allowances.any(
+        (item) =>
+            item['category'] == 'destination' && item['amount'] == '1000.00',
+      ),
+      isTrue,
+    );
+  });
+
   testWidgets('explains why travel mode is disabled before a destination is chosen', (
     tester,
   ) async {
