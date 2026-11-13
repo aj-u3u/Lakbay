@@ -154,9 +154,42 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
         (nights > 0 && accommodationCost == null) ||
         destinationFees.values.any((value) => value == null) ||
         activitySelection == null) {
+      final destinationNames = {
+        for (final item
+            in (widget.provider.chatPlanningPreview?['destinations'] as List? ??
+                    const [])
+                .whereType<Map>())
+          if (item['destination_id'] is int)
+            item['destination_id'] as int:
+                item['name']?.toString() ?? 'a destination',
+      };
+      final missing = <String>[
+        if (ids.isEmpty) 'a destination (choose one in the chat first)',
+        if (_origin.text.trim().isEmpty) 'your starting place',
+        if (days == null || days < 1 || days > 30) 'days (1 to 30)',
+        if (nights == null || nights < 0)
+          'nights (0 or more)'
+        else if (days != null && nights > days)
+          'nights (cannot be more than days)',
+        if (travelers == null || travelers < 1 || travelers > 100)
+          'travelers (1 to 100)',
+        if (partyDetails == null) 'party details (adults and child ages)',
+        if (budget == null || double.parse(budget) <= 0)
+          'whole-trip budget (more than 0)',
+        if (_transportOptionId == null) 'a travel mode',
+        if (transportCost == null) 'transport allowance (enter 0 if none)',
+        if (foodCost == null) 'food amount (enter 0 if none)',
+        if ((nights ?? 0) > 0 && accommodationCost == null)
+          'lodging amount (enter 0 if none)',
+        for (final entry in destinationFees.entries)
+          if (entry.value == null)
+            'fee choice for ${destinationNames[entry.key] ?? 'a destination'}',
+        if (activitySelection == null) 'your activities choice',
+      ];
       setState(
-        () => _error =
-            'Confirm the destination fees, trip details, travel mode, and whole-trip allowances.',
+        () => _error = missing.isEmpty
+            ? 'Confirm the destination fees, trip details, travel mode, and whole-trip allowances.'
+            : 'Please complete: ${missing.join(', ')}.',
       );
       return;
     }
@@ -284,8 +317,15 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                   ),
                   const SizedBox(height: AppConstants.spaceM),
                   if (destinations.isEmpty)
-                    const Text(
-                      'Choose a catalog destination in the conversation first.',
+                    Text(
+                      (widget.provider.chatPlanningState['destination_ids']
+                                      as List? ??
+                                  const [])
+                              .isEmpty
+                          ? 'Choose a catalog destination in the conversation first.'
+                          : preview == null
+                          ? 'Loading your selected destinations...'
+                          : 'Your selected destinations are not available in the catalog. Choose another in the conversation.',
                     ),
                   Text(
                     'Catalog references',
