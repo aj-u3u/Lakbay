@@ -1,4 +1,5 @@
 import json
+import logging
 import re
 from decimal import Decimal
 from time import perf_counter
@@ -69,6 +70,15 @@ from app.integrations.groq.prompts import (
 REQUEST_PURPOSE = "itinerary_generation"
 CHAT_REQUEST_PURPOSE = "travel_chat"
 _ai_user_limiter = ProviderLimiter()
+_timing_log = logging.getLogger("app.ai.timing")
+
+
+def _log_timing(stage: str, started_at: float, **extra: object) -> None:
+    """Log how long a stage of an AI request took; never logs user content."""
+    details = " ".join(f"{key}={value}" for key, value in extra.items())
+    _timing_log.info(
+        "ai_timing stage=%s ms=%d %s", stage, _elapsed_ms(started_at), details
+    )
 
 
 def _reserve_user_ai_call(
@@ -283,6 +293,7 @@ class AIItineraryService:
         user: User,
         data: AIChatRequest,
     ) -> AIChatResponse:
+        chat_started = perf_counter()
         settings = get_settings()
         selections = self._select_chat_models(
             settings=settings,
@@ -300,6 +311,7 @@ class AIItineraryService:
                 context=data.context,
             )
             retrieval_coverage = retriever.coverage
+            _log_timing("retrieval", chat_started, matches=len(rag_matches))
 
         retrieved_context = [match.to_prompt_dict() for match in rag_matches]
         messages = build_chat_messages(
@@ -335,6 +347,12 @@ class AIItineraryService:
                     provider=selection.provider,
                 )
                 response_time_ms = _elapsed_ms(started_at)
+                _log_timing(
+                    "model", started_at,
+                    model=selection.model_id, provider=selection.provider,
+                    prompt_tokens=completion.prompt_tokens,
+                    completion_tokens=completion.completion_tokens,
+                )
                 planning_result = None
                 validation_status = "not_run"
                 if data.planning_state is None:
@@ -343,6 +361,7 @@ class AIItineraryService:
                         "Please try asking in another way."
                     )
                 else:
+                    planning_started = perf_counter()
                     (
                         chat_response,
                         planning_result,
@@ -358,6 +377,7 @@ class AIItineraryService:
                             if match.source == "destination"
                         },
                     )
+                    _log_timing("planning_total", planning_started)
                 updated_run = await self.ai.update_generation_run(
                     run,
                     status="succeeded",
@@ -380,6 +400,7 @@ class AIItineraryService:
                 await self.session.commit()
                 await self.session.refresh(updated_run)
 
+                _log_timing("chat_total", chat_started)
                 return AIChatResponse(
                     chat_response=chat_response,
                     mode="rag_chat" if retrieved_context else "chat",
@@ -894,12 +915,14 @@ async def _build_planning_chat_result(
             validation_status = "invalid"
             chat_response = fallback_response
 
+    preview_started = perf_counter()
     preview = await PlanningService(session, route_service).preview(
         PlanningPreviewRequest(
             input_revision=data.input_revision,
             state=next_state,
         ),
     )
+    _log_timing("planning_preview", preview_started)
     recommendations = []
     recommendation_total_candidates = 0
     recommendation_shortfall_reason = None
@@ -909,6 +932,7 @@ async def _build_planning_chat_result(
         )
     elif not next_state.destination_ids:
         selected_modes = tuple(next_state.selected_transport_option_ids)
+        ranking_started = perf_counter()
         top_places = await RecommendationService(session).rank_top_places(
             data=TopPlacesRequest(
                 interests=next_state.interests,
@@ -938,6 +962,7 @@ async def _build_planning_chat_result(
             ),
             osrm_client=route_service.osrm_client if route_service is not None else None,
         )
+        _log_timing("recommendation_ranking", ranking_started)
         recommendations = [
             planning_recommendation_from_top_place(item) for item in top_places.items
         ]

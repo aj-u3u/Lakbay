@@ -195,3 +195,27 @@ def test_chat_prompt_keeps_recent_history_and_compact_json():
     last = messages[-1]["content"]
     assert ", " not in last and ": " not in last  # compact separators
     assert jsonlib.loads(last)["message"] == "hello"
+
+
+def test_chat_logs_stage_timings_without_user_content(client, monkeypatch, caplog):
+    import logging
+
+    from tests.test_phase5_ai_itineraries import FakeGroqClient
+
+    configure_ai(monkeypatch)
+    fake = FakeGroqClient(["Hello there."])
+    client.app.dependency_overrides[get_groq_client] = lambda: fake
+
+    with caplog.at_level(logging.INFO, logger="app.ai.timing"):
+        response = client.post(
+            "/api/v1/ai/chat",
+            headers=user_headers(client),
+            json={"message": "secret-trip-message"},
+        )
+
+    assert response.status_code == 200
+    lines = [r.getMessage() for r in caplog.records if r.name == "app.ai.timing"]
+    stages = {line.split("stage=")[1].split()[0] for line in lines}
+    assert {"retrieval", "model", "chat_total"} <= stages
+    assert all("ms=" in line for line in lines)
+    assert not any("secret-trip-message" in line for line in lines)
