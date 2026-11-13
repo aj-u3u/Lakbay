@@ -9,7 +9,7 @@ from app.features.recommendations.schemas import RecommendationItem
 
 PROMPT_VERSION = "phase5_itinerary_catalog_facts_v3"
 PLANNING_PROMPT_VERSION = "phase15e_calculated_route_order_v5"
-CHAT_PROMPT_VERSION = "phase5_chat_v5_explicit_trip_details"
+CHAT_PROMPT_VERSION = "phase5_chat_v6_no_itinerary_in_chat"
 
 
 def build_itinerary_messages(
@@ -232,7 +232,20 @@ def build_chat_messages(
     )
 
     if request.planning_state is not None:
+        # Itineraries come from the validated Generate itinerary step, not from chat.
+        system_prompt = system_prompt.replace(
+            "suggest destinations, itinerary ideas, budget tips",
+            "suggest destinations, budget tips",
+        )
         system_prompt += (
+            " Never write a day-by-day, hour-by-hour, or multi-day itinerary, "
+            "schedule, or route in `chat_response`, even when the traveler asks you "
+            "to suggest or plan a trip: a separate Generate itinerary step builds "
+            "validated itineraries once a destination and the trip details are "
+            "confirmed. Instead recommend one to three destinations from "
+            "retrieved_lakbay_context in a sentence or two each, say which detail is "
+            "still needed, and mention Generate itinerary for when the plan is ready. "
+            "Keep `chat_response` under about 120 words."
             " This is a stateful planning conversation. Return exactly one JSON "
             "object with `chat_response` and `state_updates`; do not use markdown "
             "or code fences. `state_updates` is a partial patch: omit fields the "

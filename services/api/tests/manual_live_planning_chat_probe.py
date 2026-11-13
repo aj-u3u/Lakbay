@@ -11,6 +11,7 @@ Run with: python -m pytest -q -s tests/manual_live_planning_chat_probe.py
 
 import json
 import os
+import re
 
 import pytest
 
@@ -40,6 +41,7 @@ FALLBACK_MODELS = [
 TARGETS = [("groq", m) for m in GROQ_MODELS] + [("fallback_llm", m) for m in FALLBACK_MODELS]
 
 MESSAGES = [
+    "Suggest an adventure trip in Davao Region.",
     "I like to go to bemwa",
     "I want to go to Samal Island",
     "I want a beach trip in Samal for 2 days with a 10000 budget",
@@ -113,10 +115,13 @@ def test_planning_chat_on_single_model(client, monkeypatch, provider, model_id):
         cards = len(planning.get("recommendations") or [])
         status = planning.get("update_status")
         invalid += status == "invalid_output"
+        # A day-by-day plan in chat is not the validated Generate itinerary result.
+        day_by_day = bool(re.search(r"day\s*1", body["chat_response"], re.IGNORECASE))
+        invalid += day_by_day
         print(
             f"  [{message[:38]}] update={status} "
             f"destination_ids={updates.get('destination_ids')} "
-            f"interests={updates.get('interests')} cards={cards} "
+            f"interests={updates.get('interests')} cards={cards} day_by_day={day_by_day} "
             f"reply={body['chat_response'][:90].encode('ascii', 'replace').decode()!r}"
         )
     assert invalid == 0, f"{model_id}: {invalid} of {len(MESSAGES)} replies were unusable"

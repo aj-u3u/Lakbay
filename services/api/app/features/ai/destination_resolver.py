@@ -27,13 +27,16 @@ _COMMON_WORDS = frozenset(
     """.split()
 )
 
-# Words that appear in many destination names and say little about which one it is.
+# Words that appear in many destination names and say little about which one it is;
+# this includes region and province words, since a trip "in Davao" names no destination.
 _GENERIC_NAME_WORDS = frozenset(
     """
     park parks farm farms beach beaches resort resorts island islands adventure nature
     eco garden gardens mountain mountains mount mt river rivers cave caves falls fall
     waterfall waterfalls view viewpoint center centre museum hotel cafe restaurant
     city town area village bay lake lakes forest trail hills hill peak
+    davao philippines philippine national region province del sur norte oriental
+    occidental oro
     """.split()
 )
 

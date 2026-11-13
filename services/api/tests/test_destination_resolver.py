@@ -6,6 +6,7 @@ from app.features.ai.service import _restore_line_breaks
 CATALOG = [
     (1, "Bemwa Farm"),
     (8, "Samal Pearl Farm"),
+    (9, "National Museum of the Philippines - Davao"),
     (2, "Uraya's Peak Adventure Park"),
     (3, "Uraya Falls"),
     (4, "Mount Apo"),
@@ -49,6 +50,20 @@ def test_a_clearly_named_destination_is_recognized(message, expected):
 )
 def test_unclear_or_negated_requests_pick_nothing(message):
     assert pick_single_destination(message, CATALOG) is None
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "Suggest an adventure trip in Davao Region.",
+        "I want to go to Davao",
+        "somewhere in the Philippines",
+        "a national park in Davao del Sur",
+    ],
+)
+def test_region_and_province_words_alone_never_match_a_destination(message):
+    # The museum's name contains "Davao" and "Philippines", which name no destination.
+    assert [m.destination_id for m in match_destinations(message, CATALOG)] == []
 
 
 def test_equally_good_matches_are_all_offered_as_candidates():
