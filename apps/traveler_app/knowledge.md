@@ -15,7 +15,7 @@ Lakbay+ is a Flutter travel app focused on Davao destinations. Its current code 
 
 ## Development setup
 
-The API URL comes from `API_BASE_URL` in `lib/core/config/api_config.dart`. Its default is `https://lakbay-backend-final.onrender.com/api/v1`; running a backend locally may require a different host address on a device or emulator.
+The API URL comes from `API_BASE_URL` in `lib/core/config/api_config.dart`. Its default is `https://lakbay-api-sg.onrender.com/api/v1`; running a backend locally may require a different host address on a device or emulator.
 
 From the repository root, use `flutter pub get` to install dependencies, `flutter run` to launch the app, `flutter analyze` for static checks, and `flutter test` for tests. Pass a different API URL with `flutter run --dart-define=API_BASE_URL=<url>` when needed.
 

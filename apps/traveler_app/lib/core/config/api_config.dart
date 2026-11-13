@@ -8,8 +8,8 @@ class ApiConfig {
   static String get baseUrl {
     if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
-      return 'https://lakbay-backend-final.onrender.com/api/v1';
+      return 'https://lakbay-api-sg.onrender.com/api/v1';
     }
-    return 'https://lakbay-backend-final.onrender.com/api/v1';
+    return 'https://lakbay-api-sg.onrender.com/api/v1';
   }
 }

@@ -15,7 +15,7 @@ class ApiException implements Exception {
 class ApiService {
   static const String baseUrl = String.fromEnvironment(
     'API_BASE_URL',
-    defaultValue: 'https://lakbay-backend-final.onrender.com/api/v1',
+    defaultValue: 'https://lakbay-api-sg.onrender.com/api/v1',
   );
   final http.Client _client;
   final Future<String?> Function() _tokenProvider;
