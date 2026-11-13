@@ -27,6 +27,11 @@ class ItineraryOptionCard extends StatelessWidget {
   final bool busy;
   final VoidCallback? onSelect;
 
+  /// Choose-then-save flows mark the chosen card; `actionLabel` names the button.
+  final bool selected;
+  final String actionLabel;
+  final String selectedLabel;
+
   const ItineraryOptionCard({
     super.key,
     required this.option,
@@ -35,6 +40,9 @@ class ItineraryOptionCard extends StatelessWidget {
     this.badges = const [],
     this.busy = false,
     this.onSelect,
+    this.selected = false,
+    this.actionLabel = 'Save this itinerary',
+    this.selectedLabel = 'Selected',
   });
 
   int get number => (option['option_number'] as num?)?.toInt() ?? 0;
@@ -66,6 +74,25 @@ class ItineraryOptionCard extends StatelessWidget {
       count += (day['activities'] as List? ?? const []).length;
     }
     return count;
+  }
+
+  /// The places (with photos) and whole-trip budget for the cards, taken from the
+  /// planning preview and the app's destination catalog.
+  static ({List<ItineraryCardDestination> destinations, double? budget})
+  contextFrom(Map<dynamic, dynamic>? preview, List<Destination> catalog) {
+    final imagesById = {for (final d in catalog) d.id: d.imageUrl};
+    final places = [
+      for (final item
+          in (preview?['destinations'] as List? ?? const []).whereType<Map>())
+        ItineraryCardDestination(
+          name: item['name']?.toString() ?? '',
+          imageUrl: imagesById[item['destination_id']],
+        ),
+    ];
+    return (
+      destinations: places,
+      budget: double.tryParse('${preview?['whole_trip_budget']}'),
+    );
   }
 
   /// Comparison badges across a set of options, keyed by option number.
@@ -137,7 +164,9 @@ class ItineraryOptionCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppConstants.radiusL),
-          side: BorderSide(color: colors.outlineVariant),
+          side: selected
+              ? BorderSide(color: colors.primary, width: 2)
+              : BorderSide(color: colors.outlineVariant),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -225,11 +254,18 @@ class ItineraryOptionCard extends StatelessWidget {
               ),
               child: SizedBox(
                 width: double.infinity,
-                child: FilledButton(
-                  key: Key('itinerary-save-$number'),
-                  onPressed: busy ? null : onSelect,
-                  child: const Text('Save this itinerary'),
-                ),
+                child: selected
+                    ? FilledButton.tonalIcon(
+                        key: Key('itinerary-save-$number'),
+                        onPressed: busy ? null : onSelect,
+                        icon: const Icon(Icons.check_circle),
+                        label: Text(selectedLabel),
+                      )
+                    : FilledButton(
+                        key: Key('itinerary-save-$number'),
+                        onPressed: busy ? null : onSelect,
+                        child: Text(actionLabel),
+                      ),
               ),
             ),
             Theme(

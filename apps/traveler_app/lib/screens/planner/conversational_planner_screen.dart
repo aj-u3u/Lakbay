@@ -495,28 +495,18 @@ class _ConversationalPlannerScreenState
       builder: (context, provider, _) {
         final options = provider.chatAIOptions;
         if (options.isEmpty) return const SizedBox.shrink();
-        final preview = provider.chatPlanningPreview;
-        final imagesById = {
-          for (final destination in provider.destinations)
-            destination.id: destination.imageUrl,
-        };
-        final cardDestinations = [
-          for (final item
-              in (preview?['destinations'] as List? ?? const []).whereType<Map>())
-            ItineraryCardDestination(
-              name: item['name']?.toString() ?? '',
-              imageUrl: imagesById[item['destination_id']],
-            ),
-        ];
-        final budget = double.tryParse('${preview?['whole_trip_budget']}');
+        final cardContext = ItineraryOptionCard.contextFrom(
+          provider.chatPlanningPreview,
+          provider.destinations,
+        );
         final badges = ItineraryOptionCard.badgesFor(options);
         return Column(
           children: [
             for (final option in options)
               ItineraryOptionCard(
                 option: option,
-                destinations: cardDestinations,
-                wholeTripBudget: budget,
+                destinations: cardContext.destinations,
+                wholeTripBudget: cardContext.budget,
                 badges:
                     badges[(option['option_number'] as num?)?.toInt()] ??
                     const [],

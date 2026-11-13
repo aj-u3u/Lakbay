@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:lakbay_plus/models/destination.dart';
 import 'package:lakbay_plus/widgets/cards/itinerary_option_card.dart';
 
 Map<String, dynamic> _option({
@@ -190,6 +191,61 @@ void main() {
     expect(find.text('₱1,200'), findsOneWidget); // an activity's own estimate
     expect(find.text('Things to check'), findsOneWidget);
     expect(find.text('Opening hours are not verified.'), findsOneWidget);
+  });
+
+  testWidgets('a selected card says so and a custom action label is used', (
+    tester,
+  ) async {
+    await _show(
+      tester,
+      ItineraryOptionCard(
+        option: _option(),
+        actionLabel: 'Select this itinerary',
+      ),
+    );
+    expect(find.text('Select this itinerary'), findsOneWidget);
+    expect(find.text('Selected'), findsNothing);
+
+    await _show(
+      tester,
+      ItineraryOptionCard(
+        option: _option(),
+        actionLabel: 'Select this itinerary',
+        selected: true,
+      ),
+    );
+    expect(find.text('Selected'), findsOneWidget);
+    expect(find.text('Select this itinerary'), findsNothing);
+    expect(find.byIcon(Icons.check_circle), findsOneWidget);
+  });
+
+  test('contextFrom reads places, photos and budget from the preview', () {
+    final catalog = <Destination>[
+      Destination.fromJson({
+        'destination_id': 7,
+        'name': 'Beach 7',
+        'image_url': 'assets/seven.jpg',
+      }),
+    ];
+    final context = ItineraryOptionCard.contextFrom(
+      {
+        'whole_trip_budget': '12500.00',
+        'destinations': [
+          {'destination_id': 7, 'name': 'Beach 7'},
+          {'destination_id': 8, 'name': 'No photo'},
+        ],
+      },
+      catalog,
+    );
+
+    expect(context.destinations.map((d) => d.name), ['Beach 7', 'No photo']);
+    expect(context.destinations[0].imageUrl, 'assets/seven.jpg');
+    expect(context.destinations[1].imageUrl, isNull);
+    expect(context.budget, 12500.0);
+
+    final empty = ItineraryOptionCard.contextFrom(null, const []);
+    expect(empty.destinations, isEmpty);
+    expect(empty.budget, isNull);
   });
 
   testWidgets('Save calls back, and is disabled while another request runs', (

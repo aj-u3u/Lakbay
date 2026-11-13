@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../providers/trip_provider.dart';
+import '../../widgets/cards/itinerary_option_card.dart';
 import 'planning_feedback_dialog.dart';
 
 /// Shows the validated options from one AI run and saves the selected option.
@@ -83,66 +84,34 @@ class _ChatAIOptionsSheetState extends State<ChatAIOptionsSheet> {
                 ),
               ),
               Expanded(
-                child: ListView.builder(
-                  itemCount: widget.provider.chatAIOptions.length,
-                  itemBuilder: (context, index) {
-                    final option = widget.provider.chatAIOptions[index];
-                    final number = option['option_number'] as int?;
-                    final chosen =
-                        number == widget.provider.chatSelectedOptionNumber;
-                    return Card(
-                      margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                      child: Padding(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              option['title']?.toString() ?? 'Itinerary',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(option['summary']?.toString() ?? ''),
-                            const SizedBox(height: 8),
-                            Text(
-                              'AI estimate: ₱${option['estimated_total_cost']}',
-                            ),
-                            if (option['is_over_budget'] == true)
-                              Text(
-                                'Over your budget',
-                                style: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                            const SizedBox(height: 8),
-                            for (final day
-                                in (option['days'] as List? ?? const [])
-                                    .whereType<Map>())
-                              Padding(
-                                padding: const EdgeInsets.only(bottom: 4),
-                                child: Text(
-                                  'Day ${day['day']}: ${day['title']}',
-                                ),
-                              ),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton.icon(
-                                onPressed: number == null || _saving
-                                    ? null
-                                    : () => widget.provider.selectChatAIOption(
-                                        number,
-                                      ),
-                                icon: Icon(
-                                  chosen
-                                      ? Icons.check_circle
-                                      : Icons.radio_button_unchecked,
-                                ),
-                                label: Text(chosen ? 'Selected' : 'Select'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
+                child: Builder(
+                  builder: (context) {
+                    final options = widget.provider.chatAIOptions;
+                    final cardContext = ItineraryOptionCard.contextFrom(
+                      widget.provider.chatPlanningPreview,
+                      widget.provider.destinations,
+                    );
+                    final badges = ItineraryOptionCard.badgesFor(options);
+                    return ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      itemCount: options.length,
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final number = option['option_number'] as int?;
+                        return ItineraryOptionCard(
+                          option: option,
+                          destinations: cardContext.destinations,
+                          wholeTripBudget: cardContext.budget,
+                          badges: badges[number] ?? const [],
+                          selected:
+                              number == widget.provider.chatSelectedOptionNumber,
+                          actionLabel: 'Select this itinerary',
+                          busy: _saving,
+                          onSelect: number == null
+                              ? null
+                              : () => widget.provider.selectChatAIOption(number),
+                        );
+                      },
                     );
                   },
                 ),
