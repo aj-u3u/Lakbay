@@ -219,3 +219,55 @@ def test_chat_logs_stage_timings_without_user_content(client, monkeypatch, caplo
     assert {"retrieval", "model", "chat_total"} <= stages
     assert all("ms=" in line for line in lines)
     assert not any("secret-trip-message" in line for line in lines)
+
+
+def test_groq_fallback_model_is_chat_only_for_itineraries_by_default():
+    base = dict(
+        _env_file=None,
+        groq_model_fallback="qwen-model",
+        fallback_llm_api_key="key",
+        fallback_llm_model="gemini-a",
+    )
+    chat = select_fallback_models(settings=Settings(**base), primary_model_id="primary")
+    itinerary = select_fallback_models(
+        settings=Settings(**base), primary_model_id="primary", for_itinerary=True
+    )
+    opted_in = select_fallback_models(
+        settings=Settings(**base, groq_fallback_for_itineraries=True),
+        primary_model_id="primary",
+        for_itinerary=True,
+    )
+    assert [item.model_id for item in chat] == ["qwen-model", "gemini-a"]
+    assert [item.model_id for item in itinerary] == ["gemini-a"]
+    assert [item.model_id for item in opted_in] == ["qwen-model", "gemini-a"]
+
+
+def test_itinerary_skips_groq_fallback_and_uses_second_provider(client, monkeypatch):
+    from tests.test_phase5_ai_itineraries import (
+        FakeGroqClient,
+        create_destination,
+        itinerary_request,
+        valid_ai_response,
+    )
+
+    configure_ai(monkeypatch)  # sets GROQ_MODEL_FALLBACK=fallback-model
+    monkeypatch.setenv("FALLBACK_LLM_API_KEY", "key")
+    monkeypatch.setenv("FALLBACK_LLM_MODEL", "gemini-flash")
+    get_settings.cache_clear()
+    destination = create_destination(client)
+    fake = FakeGroqClient(
+        ["not json", valid_ai_response(destination_id=destination["destination_id"])]
+    )
+    client.app.dependency_overrides[get_groq_client] = lambda: fake
+
+    response = client.post(
+        "/api/v1/ai/itineraries/generate",
+        headers=user_headers(client),
+        json=itinerary_request(destination["destination_id"]),
+    )
+
+    assert response.status_code == 200
+    assert [(c["model"], c["provider"]) for c in fake.calls] == [
+        ("quality-model", "groq"),
+        ("gemini-flash", "fallback_llm"),
+    ]

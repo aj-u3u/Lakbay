@@ -489,6 +489,7 @@ class AIItineraryService:
                 select_fallback_models(
                     settings=settings,
                     primary_model_id=primary.model_id,
+                    for_itinerary=True,
                 )
             )
 

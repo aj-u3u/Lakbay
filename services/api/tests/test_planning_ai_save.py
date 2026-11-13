@@ -98,6 +98,9 @@ def test_three_stop_itinerary_follows_round_trip_through_save_and_reopen(
     client, monkeypatch, optimize_order,
 ) -> None:
     configure_ai(monkeypatch)
+    # This test retries with the Groq fallback model, which itineraries skip by default.
+    monkeypatch.setenv("GROQ_FALLBACK_FOR_ITINERARIES", "true")
+    get_settings.cache_clear()
     admin = admin_headers(client)
     user = register(client)
     selected = [

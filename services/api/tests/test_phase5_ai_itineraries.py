@@ -72,6 +72,9 @@ def configure_ai(monkeypatch, *, comparison_enabled: bool = False) -> None:
     monkeypatch.setenv("GROQ_MODEL_COMPARE_C", "compare-c-model")
     monkeypatch.setenv("AI_MODEL_COMPARISON_ENABLED", str(comparison_enabled).lower())
     monkeypatch.setenv("AI_ITINERARY_OPTION_COUNT", "5")
+    # Keep tests independent of any fallback provider configured in a local .env.
+    monkeypatch.setenv("FALLBACK_LLM_API_KEY", "")
+    monkeypatch.setenv("FALLBACK_LLM_MODEL", "")
     get_settings.cache_clear()
 
 
@@ -595,6 +598,9 @@ def test_ai_generation_retries_with_fallback_after_invalid_output(
     monkeypatch,
 ) -> None:
     configure_ai(monkeypatch)
+    # The Groq fallback model is skipped for itineraries unless explicitly enabled.
+    monkeypatch.setenv("GROQ_FALLBACK_FOR_ITINERARIES", "true")
+    get_settings.cache_clear()
     destination = create_destination(client)
     fake_client = FakeGroqClient(
         [

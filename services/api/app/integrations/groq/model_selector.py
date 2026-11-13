@@ -27,6 +27,7 @@ def select_fallback_models(
     *,
     settings: Settings,
     primary_model_id: str,
+    for_itinerary: bool = False,
 ) -> list[ModelSelection]:
     """Ordered fallback chain, tried when the primary model fails or is rate limited.
 
@@ -39,6 +40,7 @@ def select_fallback_models(
     if (
         settings.groq_model_fallback
         and settings.groq_model_fallback != primary_model_id
+        and (not for_itinerary or settings.groq_fallback_for_itineraries)
     ):
         chain.append(
             ModelSelection(

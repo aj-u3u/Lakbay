@@ -53,6 +53,9 @@ class Settings(BaseSettings):
     fallback_llm_model: str | None = None
     fallback_llm_requests_per_minute: int = Field(default=10, ge=1, le=120)
     fallback_llm_requests_per_day: int = Field(default=200, ge=1, le=14400)
+    # GROQ_MODEL_FALLBACK is tried for chat only unless this is true: some Groq models
+    # (e.g. qwen) cannot follow the strict itinerary JSON schema or fit its output size.
+    groq_fallback_for_itineraries: bool = False
 
     ai_itinerary_option_count: int = Field(default=5, ge=1, le=10)
     ai_model_comparison_enabled: bool = False
