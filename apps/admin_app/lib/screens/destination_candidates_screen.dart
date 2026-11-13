@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -21,6 +23,10 @@ class _DestinationCandidatesScreenState
   static const _pageSize = 50;
   int _offset = 0;
   String _status = 'staged';
+  // Searches the whole queue on the server, so it finds places on any page.
+  final _searchController = TextEditingController();
+  Timer? _searchDebounce;
+  String _query = '';
   Map<String, dynamic>? _selected;
   bool _busy = false;
   bool _dirty = false;
@@ -59,9 +65,35 @@ class _DestinationCandidatesScreenState
     reviewStatus: _status,
     limit: _pageSize,
     offset: _offset,
+    query: _query,
   );
 
   void _reload() => setState(() => _future = _load());
+
+  /// Waits for a pause in typing, then searches from the first page.
+  void _onSearchChanged(String text) {
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(
+      const Duration(milliseconds: 400),
+      () => _applySearch(text),
+    );
+  }
+
+  void _applySearch(String text) {
+    _searchDebounce?.cancel();
+    final query = text.trim();
+    if (!mounted || query == _query) return;
+    setState(() {
+      _query = query;
+      _offset = 0;
+      _future = _load();
+    });
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _applySearch('');
+  }
 
   void _select(Map<String, dynamic> candidate) {
     for (final entry in _fields.entries) {
@@ -413,6 +445,30 @@ class _DestinationCandidatesScreenState
                 ),
               ),
               const SizedBox(height: 20),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: TextField(
+                  key: const Key('candidate-search'),
+                  controller: _searchController,
+                  textInputAction: TextInputAction.search,
+                  onChanged: _onSearchChanged,
+                  onSubmitted: _applySearch,
+                  decoration: InputDecoration(
+                    labelText: 'Search places',
+                    hintText: 'Name, district, location, category or OSM id',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: _searchController.text.isEmpty
+                        ? null
+                        : IconButton(
+                            key: const Key('candidate-search-clear'),
+                            tooltip: 'Clear search',
+                            icon: const Icon(Icons.close),
+                            onPressed: _clearSearch,
+                          ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
               DropdownButton<String>(
                 value: _status,
                 items: const [
@@ -458,7 +514,11 @@ class _DestinationCandidatesScreenState
                     children: [
                       AdminPanel(
                         child: records.isEmpty
-                            ? const Text('No candidates on this page.')
+                            ? Text(
+                                _query.isEmpty
+                                    ? 'No candidates on this page.'
+                                    : 'No places match "$_query" in this list.',
+                              )
                             : Column(
                                 children: [
                                   for (final candidate in records)
@@ -512,6 +572,8 @@ class _DestinationCandidatesScreenState
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    _searchController.dispose();
     adminHasUnsavedChanges.value = false;
     for (final controller in _fields.values) {
       controller.dispose();

@@ -132,7 +132,10 @@ class AdminPanel extends StatelessWidget {
         border: Border.all(color: theme.dividerColor),
         borderRadius: BorderRadius.circular(16),
       ),
-      child: child,
+      // A transparent Material lets list rows and ink effects inside the panel paint
+      // correctly; without it Flutter's debug build rejects a ListTile that sits
+      // inside this colored box.
+      child: Material(type: MaterialType.transparency, child: child),
     );
   }
 }

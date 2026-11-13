@@ -236,16 +236,22 @@ class ApiService {
     }
   }
 
+  /// Lists review candidates. A non-empty [query] searches the whole queue on the
+  /// server (name, district, location, area, tag, category, notes, OSM id).
   Future<List<dynamic>> getDestinationCandidates({
     String reviewStatus = 'staged',
     int limit = 50,
     int offset = 0,
-  }) async => _list(
-    await _request(
-      'GET',
-      '/admin/destination-candidates?review_status=${Uri.encodeQueryComponent(reviewStatus)}&limit=$limit&offset=$offset',
-    ),
-  );
+    String query = '',
+  }) async {
+    final search = query.trim();
+    return _list(
+      await _request(
+        'GET',
+        '/admin/destination-candidates?review_status=${Uri.encodeQueryComponent(reviewStatus)}&limit=$limit&offset=$offset${search.isEmpty ? '' : '&q=${Uri.encodeQueryComponent(search)}'}',
+      ),
+    );
+  }
 
   Future<Map<String, dynamic>> updateDestinationCandidate(
     int id,
