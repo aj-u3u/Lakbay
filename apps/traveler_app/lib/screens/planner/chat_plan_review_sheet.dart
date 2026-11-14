@@ -28,6 +28,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
   late final TextEditingController _transportCost;
   late final TextEditingController _foodCost;
   late final TextEditingController _accommodationCost;
+  late final TextEditingController _otherCost;
   int? _destinationId;
   String? _transportOptionId;
   bool _returnToOrigin = false;
@@ -75,6 +76,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
     _accommodationCost = TextEditingController(
       text: allowance('accommodation'),
     );
+    _otherCost = TextEditingController(text: allowance('other'));
     _suggester = AllowanceSuggester(
       provider: widget.provider,
       days: _days,
@@ -83,6 +85,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
       transport: _transportCost,
       food: _foodCost,
       accommodation: _accommodationCost,
+      other: _otherCost,
       isActive: () => mounted,
     );
     final selectedOptions = state['selected_transport_option_ids'] as List?;
@@ -113,6 +116,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
       _transportCost,
       _foodCost,
       _accommodationCost,
+      _otherCost,
     ]) {
       controller.dispose();
     }
@@ -153,6 +157,10 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
     final transportCost = _money(_transportCost);
     final foodCost = _money(_foodCost);
     final accommodationCost = _money(_accommodationCost);
+    // Optional: blank is fine, but something typed must be a valid amount.
+    final otherText = _otherCost.text.trim();
+    final otherCost = otherText.isEmpty ? null : _money(_otherCost);
+    final otherInvalid = otherText.isNotEmpty && otherCost == null;
     if (_destinationId == null ||
         _origin.text.trim().isEmpty ||
         days == null ||
@@ -172,6 +180,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
         transportCost == null ||
         foodCost == null ||
         (nights > 0 && accommodationCost == null) ||
+        otherInvalid ||
         _transportOptionId == null) {
       setState(() {
         _error =
@@ -222,6 +231,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
         },
         if (nights > 0)
           {'category': 'accommodation', 'amount': accommodationCost},
+        if (otherCost != null) {'category': 'other', 'amount': otherCost},
       ],
     };
     final success = await widget.provider.updateChatPlanning(changes);
@@ -480,6 +490,11 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
                   _field(
                     _accommodationCost,
                     'Whole-trip accommodation, if overnight (₱)',
+                    number: true,
+                  ),
+                  _field(
+                    _otherCost,
+                    'Whole-trip other expenses, optional (₱)',
                     number: true,
                   ),
                   const SizedBox(height: 8),

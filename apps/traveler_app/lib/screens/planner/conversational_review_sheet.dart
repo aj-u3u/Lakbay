@@ -30,6 +30,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
   late final TextEditingController _transportCost;
   late final TextEditingController _foodCost;
   late final TextEditingController _accommodationCost;
+  late final TextEditingController _otherCost;
   final Map<int, GlobalKey<DestinationFeeFieldsState>> _destinationFeeKeys = {};
   String? _transportOptionId;
   bool _returnToOrigin = false;
@@ -70,6 +71,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     _transportCost = TextEditingController(text: amount('transportation'));
     _foodCost = TextEditingController(text: amount('food'));
     _accommodationCost = TextEditingController(text: amount('accommodation'));
+    _otherCost = TextEditingController(text: amount('other'));
     _suggester = AllowanceSuggester(
       provider: widget.provider,
       days: _days,
@@ -78,6 +80,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
       transport: _transportCost,
       food: _foodCost,
       accommodation: _accommodationCost,
+      other: _otherCost,
       isActive: () => mounted,
     );
     for (final id
@@ -108,6 +111,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
       _transportCost,
       _foodCost,
       _accommodationCost,
+      _otherCost,
     ]) {
       controller.dispose();
     }
@@ -144,6 +148,10 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     final transportCost = _money(_transportCost);
     final foodCost = _money(_foodCost);
     final accommodationCost = _money(_accommodationCost);
+    // Optional: blank is fine, but something typed must be a valid amount.
+    final otherText = _otherCost.text.trim();
+    final otherCost = otherText.isEmpty ? null : _money(_otherCost);
+    final otherInvalid = otherText.isNotEmpty && otherCost == null;
     final destinationFees = {
       for (final id in ids)
         id: _destinationFeeKeys[id]?.currentState?.validatedSelection(),
@@ -172,6 +180,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
         transportCost == null ||
         foodCost == null ||
         (nights > 0 && accommodationCost == null) ||
+        otherInvalid ||
         destinationFees.values.any((value) => value == null) ||
         activitySelection == null) {
       final destinationNames = {
@@ -201,6 +210,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
         if (foodCost == null) 'food amount (enter 0 if none)',
         if ((nights ?? 0) > 0 && accommodationCost == null)
           'lodging amount (enter 0 if none)',
+        if (otherInvalid) 'other expenses (a number, or leave it blank)',
         for (final entry in destinationFees.entries)
           if (entry.value == null)
             'fee choice for ${destinationNames[entry.key] ?? 'a destination'}',
@@ -261,6 +271,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
         },
         if (nights > 0)
           {'category': 'accommodation', 'amount': accommodationCost},
+        if (otherCost != null) {'category': 'other', 'amount': otherCost},
       ],
     });
     if (!mounted) return;
@@ -539,6 +550,11 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                   _field(
                     _accommodationCost,
                     'Your whole-trip lodging amount (₱)',
+                    number: true,
+                  ),
+                  _field(
+                    _otherCost,
+                    'Your whole-trip other expenses, optional (₱)',
                     number: true,
                   ),
                   const SizedBox(height: AppConstants.spaceM),

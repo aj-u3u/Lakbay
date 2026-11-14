@@ -138,6 +138,10 @@ void main() {
     expect(_text(tester, 'Your whole-trip transport allowance (₱)'), '2000');
     expect(_text(tester, 'Your whole-trip food amount (₱)'), '2500');
     expect(_text(tester, 'Your whole-trip lodging amount (₱)'), '3000');
+    expect(
+      _text(tester, 'Your whole-trip other expenses, optional (₱)'),
+      '500',
+    );
   });
 
   testWidgets('changing nights in the sheet then suggesting adds lodging', (

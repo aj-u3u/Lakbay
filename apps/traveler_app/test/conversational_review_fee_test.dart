@@ -166,4 +166,102 @@ void main() {
       {'category': 'activity', 'option_id': activityId, 'amount': '50.00'},
     );
   });
+
+  Future<Finder> openWithDestinationAmount(
+    WidgetTester tester,
+    _ReviewProvider provider,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: ConversationalReviewSheet(provider: provider)),
+      ),
+    );
+    final scrollable = find
+        .descendant(
+          of: find.byType(ConversationalReviewSheet),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    final destinationAmount = find.widgetWithText(
+      TextField,
+      'Whole-trip destination allowance (₱)',
+    );
+    await tester.scrollUntilVisible(
+      destinationAmount,
+      300,
+      scrollable: scrollable,
+    );
+    await tester.enterText(destinationAmount, '300');
+    return scrollable;
+  }
+
+  testWidgets('an optional other-expenses amount is submitted when filled', (
+    tester,
+  ) async {
+    final provider = _ReviewProvider();
+    final scrollable = await openWithDestinationAmount(tester, provider);
+    final other = find.widgetWithText(
+      TextField,
+      'Your whole-trip other expenses, optional (₱)',
+    );
+    await tester.scrollUntilVisible(other, 300, scrollable: scrollable);
+    await tester.enterText(other, '120');
+    await tester.scrollUntilVisible(
+      find.text('Confirm amounts'),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Confirm amounts'));
+    await tester.pumpAndSettle();
+
+    expect(
+      (provider.submitted?['cost_allowances'] as List)
+          .where((item) => item['category'] == 'other')
+          .single,
+      {'category': 'other', 'amount': '120.00'},
+    );
+  });
+
+  testWidgets('a blank other-expenses box adds no allowance', (tester) async {
+    final provider = _ReviewProvider();
+    final scrollable = await openWithDestinationAmount(tester, provider);
+    await tester.scrollUntilVisible(
+      find.text('Confirm amounts'),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Confirm amounts'));
+    await tester.pumpAndSettle();
+
+    expect(provider.submitted, isNotNull);
+    expect(
+      (provider.submitted?['cost_allowances'] as List).where(
+        (item) => item['category'] == 'other',
+      ),
+      isEmpty,
+    );
+  });
+
+  testWidgets('an invalid other-expenses amount blocks confirming', (
+    tester,
+  ) async {
+    final provider = _ReviewProvider();
+    final scrollable = await openWithDestinationAmount(tester, provider);
+    final other = find.widgetWithText(
+      TextField,
+      'Your whole-trip other expenses, optional (₱)',
+    );
+    await tester.scrollUntilVisible(other, 300, scrollable: scrollable);
+    await tester.enterText(other, 'abc');
+    await tester.scrollUntilVisible(
+      find.text('Confirm amounts'),
+      300,
+      scrollable: scrollable,
+    );
+    await tester.tap(find.text('Confirm amounts'));
+    await tester.pumpAndSettle();
+
+    expect(provider.submitted, isNull);
+    expect(find.textContaining('other expenses'), findsWidgets);
+  });
 }

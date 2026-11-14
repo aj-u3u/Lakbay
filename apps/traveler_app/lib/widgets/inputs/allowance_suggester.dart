@@ -24,6 +24,9 @@ class AllowanceSuggester {
   final TextEditingController food;
   final TextEditingController accommodation;
 
+  /// Optional box for incidental spending; not every sheet has to offer it.
+  final TextEditingController? other;
+
   /// Whether the sheet is still on screen; checked after the server call.
   final bool Function() isActive;
 
@@ -41,6 +44,7 @@ class AllowanceSuggester {
     required this.transport,
     required this.food,
     required this.accommodation,
+    this.other,
     required this.isActive,
   });
 
@@ -117,6 +121,7 @@ class AllowanceSuggester {
     fill(transport, 'transportation');
     fill(food, 'food');
     fill(accommodation, 'accommodation');
+    if (other != null) fill(other!, 'other');
     note = suggestions.isEmpty
         ? 'Enter a whole-trip budget above first, then tap the button again.'
         : filled == 0

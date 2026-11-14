@@ -59,6 +59,7 @@ class _DetailedProvider extends TripProvider {
             {'category': 'transportation', 'amount': '2000.00'},
             {'category': 'food', 'amount': '2500.00'},
             {'category': 'accommodation', 'amount': '3000.00'},
+            {'category': 'other', 'amount': '500.00'},
           ]
         : [
             {'category': 'transportation', 'amount': '2500.00'},
@@ -98,6 +99,7 @@ String _text(WidgetTester tester, String label) => tester
 const _transport = 'All transport and transfers (₱)';
 const _food = 'Whole-trip food (₱)';
 const _lodging = 'Whole-trip accommodation, if overnight (₱)';
+const _other = 'Whole-trip other expenses, optional (₱)';
 
 void main() {
   testWidgets('detailed planner suggest button fills empty boxes', (
@@ -110,6 +112,7 @@ void main() {
     expect(_text(tester, _transport), '2000');
     expect(_text(tester, _food), '2500');
     expect(_text(tester, _lodging), '3000');
+    expect(_text(tester, _other), '500');
   });
 
   testWidgets('changing nights in the sheet then suggesting adds lodging', (
