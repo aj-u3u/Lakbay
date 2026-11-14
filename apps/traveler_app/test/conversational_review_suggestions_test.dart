@@ -90,6 +90,20 @@ class _NightsProvider extends TripProvider {
   };
 }
 
+class _NoBudgetProvider extends _NightsProvider {
+  @override
+  Map<String, dynamic> get chatPlanningState => {
+    ...super.chatPlanningState,
+    'total_budget': null,
+  };
+
+  @override
+  Map<String, dynamic>? get chatPlanningPreview => {
+    ...super.chatPlanningPreview!,
+    'suggested_allowances': const [],
+  };
+}
+
 Future<ScrollableState> _open(WidgetTester tester, TripProvider provider) async {
   await tester.pumpWidget(
     MaterialApp(
@@ -161,6 +175,14 @@ void main() {
     // Boxes that still held the earlier suggestion follow the new one.
     expect(_text(tester, 'Your whole-trip transport allowance (₱)'), '2000');
     expect(_text(tester, 'Your whole-trip food amount (₱)'), '2500');
+  });
+
+  testWidgets('button is shown even before a budget is saved', (tester) async {
+    await _open(tester, _NoBudgetProvider());
+    await tester.tap(find.byKey(const Key('suggest-amounts')));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Enter a whole-trip budget'), findsOneWidget);
   });
 
   testWidgets('route line reads as plain language', (tester) async {

@@ -174,7 +174,9 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     fill(_transportCost, 'transportation');
     fill(_foodCost, 'food');
     fill(_accommodationCost, 'accommodation');
-    _suggestionNote = filled == 0
+    _suggestionNote = suggestions.isEmpty
+        ? 'Enter a whole-trip budget above first, then tap the button again.'
+        : filled == 0
         ? 'Nothing to fill: your boxes already have amounts.'
         : 'Filled $filled box(es) with system estimates. Edit any amount before confirming.';
   }
@@ -573,19 +575,19 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                             .toList(),
                   ),
                   const SizedBox(height: AppConstants.spaceM),
-                  if (_suggestions(preview).isNotEmpty) ...[
-                    OutlinedButton.icon(
-                      key: const Key('suggest-amounts'),
-                      onPressed: _suggest,
-                      icon: const Icon(Icons.auto_awesome),
-                      label: const Text('Suggest amounts from my budget'),
-                    ),
-                    Text(
-                      _suggestionNote ??
-                          'System estimates from your whole-trip budget. They only fill empty boxes, are not catalog prices, and you can edit them.',
-                    ),
-                    const SizedBox(height: AppConstants.spaceM),
-                  ],
+                  // Always shown: the budget typed in this sheet is sent first, so the
+                  // button must not depend on a budget already being saved.
+                  OutlinedButton.icon(
+                    key: const Key('suggest-amounts'),
+                    onPressed: _suggest,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('Suggest amounts from my budget'),
+                  ),
+                  Text(
+                    _suggestionNote ??
+                        'System estimates from your whole-trip budget. They only fill empty boxes, are not catalog prices, and you can edit them.',
+                  ),
+                  const SizedBox(height: AppConstants.spaceM),
                   _field(
                     _transportCost,
                     'Your whole-trip transport allowance (₱)',
