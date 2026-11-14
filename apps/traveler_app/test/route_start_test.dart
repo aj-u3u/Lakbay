@@ -23,7 +23,7 @@ void main() {
 
     expect(start.outsideRegion, isTrue);
     expect(start.location, davaoCityCenter);
-    expect(start.name, contains('outside the Davao Region'));
+    expect(start.name, 'Davao City Center (outside region)');
   });
 
   test('a Davao GPS position is used as the start', () {

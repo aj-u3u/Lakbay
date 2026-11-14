@@ -44,7 +44,7 @@ RouteStart resolveRouteStart(
     if (!isInDavaoRegion(deviceLat, deviceLng)) {
       return const RouteStart(
         davaoCityCenter,
-        'Davao City Center (your location is outside the Davao Region)',
+        'Davao City Center (outside region)',
         outsideRegion: true,
       );
     }
