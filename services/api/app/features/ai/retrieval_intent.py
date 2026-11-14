@@ -24,6 +24,7 @@ INTERESTS = {
     "mountain": r"\b(?:mountains?|hikes?|hiking)\b",
     "waterfall": r"\b(?:waterfalls?|falls)\b",
     "food": r"\b(?:food|restaurants?|cafes?)\b",
+    "nature": r"\b(?:nature|outdoors?|eco[- ]?tourism)\b",
 }
 ORIGIN_PATTERN = re.compile(
     r"\b(?:from|starting(?: out)? in|start in|departure(?: from| location)?|"
@@ -72,9 +73,9 @@ def resolve_retrieval_intent(
     """
     aliases = _location_aliases(locations or [])
     current = _parse_message(message, aliases)
-    candidates = [(current, _has_interest(message))]
+    candidates = [(current, _has_interest(message, aliases))]
     candidates.extend(
-        (_parse_message(item, aliases), _has_interest(item))
+        (_parse_message(item, aliases), _has_interest(item, aliases))
         for item in reversed(history or [])
     )
     candidates.append((
@@ -143,8 +144,24 @@ def _interest(text: str) -> tuple[str | None, bool]:
     return (found[0] if len(found) == 1 else None, len(found) > 1)
 
 
-def _has_interest(text: str) -> bool:
-    return any(re.search(pattern, _normalize(text)) for pattern in INTERESTS.values())
+def _has_interest(text: str, aliases: dict[str, str] | None = None) -> bool:
+    normalized = _mask_place_names(_normalize(text), aliases or {})
+    return any(re.search(pattern, normalized) for pattern in INTERESTS.values())
+
+
+def _mask_place_names(text: str, aliases: dict[str, str]) -> str:
+    """Blank out catalog place names that contain an interest word.
+
+    Naming "Eden Nature Park" asks for that place; it is not a request for
+    nature spots in general.
+    """
+    for alias in sorted(aliases, key=len, reverse=True):
+        if len(alias.split()) < 2 or not any(
+            re.search(pattern, alias) for pattern in INTERESTS.values()
+        ):
+            continue
+        text = re.sub(r"\b" + re.escape(alias) + r"\b", " ", text)
+    return text
 
 
 def _parse_message(message: str, aliases: dict[str, str]) -> RetrievalIntent:
@@ -159,7 +176,7 @@ def _parse_message(message: str, aliases: dict[str, str]) -> RetrievalIntent:
 
     targets = _find_places(target_text, aliases)
     region_wide = bool(REGION_PATTERN.search(target_text))
-    interest, _ = _interest(target_text)
+    interest, _ = _interest(_mask_place_names(target_text, aliases))
     clarification = len(targets) > 1
     if region_wide:
         # Whole-region requests reset specific locations from previous turns.

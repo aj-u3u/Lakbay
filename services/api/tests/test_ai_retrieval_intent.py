@@ -188,3 +188,34 @@ def test_general_help_is_not_an_unknown_target(message):
     intent = resolve_retrieval_intent(message, locations=CATALOG_LOCATIONS)
     assert intent.target_locations == ()
     assert not intent.needs_clarification
+
+
+@pytest.mark.parametrize(
+    "message",
+    ["Show me nature spots in Davao City", "any good outdoors places", "eco-tourism trips"],
+)
+def test_nature_is_a_recognized_interest(message):
+    intent = resolve_retrieval_intent(message, locations=CATALOG_LOCATIONS)
+    assert intent.interest == "nature"
+
+
+def test_naming_a_place_with_nature_in_its_name_is_not_a_nature_request():
+    locations = [*CATALOG_LOCATIONS, "Eden Nature Park"]
+    intent = resolve_retrieval_intent(
+        "Add Eden Nature Park to my plan", locations=locations,
+    )
+    assert intent.interest is None
+    assert intent.target_locations == ("eden nature park",)
+
+
+def test_a_generic_nature_request_still_works_when_such_a_place_exists():
+    locations = [*CATALOG_LOCATIONS, "Eden Nature Park"]
+    intent = resolve_retrieval_intent("Any nature spots in Davao City?", locations=locations)
+    assert intent.interest == "nature"
+
+
+def test_nature_with_another_interest_does_not_pick_one_for_the_traveler():
+    intent = resolve_retrieval_intent(
+        "nature and waterfalls in Davao City", locations=CATALOG_LOCATIONS,
+    )
+    assert intent.interest is None
