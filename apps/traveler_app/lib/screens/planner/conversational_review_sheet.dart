@@ -115,17 +115,59 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     };
   }
 
-  /// Fills only empty boxes so amounts the traveler typed are never overwritten.
+  /// What each box held right after it was last filled by a suggestion.
+  final Map<TextEditingController, String> _lastSuggested = {};
+
+  /// Sends the sheet's current days, nights and budget first, so the suggestion
+  /// matches what is on screen and not the previously saved plan.
+  Future<void> _suggest() async {
+    final state = widget.provider.chatPlanningState;
+    final days = int.tryParse(_days.text.trim());
+    final nights = int.tryParse(_nights.text.trim());
+    final budget = _money(_budget);
+    final knownDays = days ?? (state['day_count'] as num?)?.toInt();
+    final changes = <String, dynamic>{
+      if (days != null && days >= 1 && days <= 30 && days != state['day_count'])
+        'day_count': days,
+      if (nights != null &&
+          nights >= 0 &&
+          (knownDays == null || nights <= knownDays) &&
+          nights != state['night_count'])
+        'night_count': nights,
+      if (budget != null &&
+          double.parse(budget) > 0 &&
+          double.parse(budget) !=
+              double.tryParse(state['total_budget']?.toString() ?? ''))
+        'total_budget': budget,
+    };
+    if (changes.isNotEmpty) {
+      setState(() => _error = null);
+      final ok = await widget.provider.updateChatPlanning(changes);
+      if (!mounted) return;
+      if (!ok) {
+        setState(() => _error = widget.provider.errorMessage);
+        return;
+      }
+    }
+    setState(() => _applySuggestions(widget.provider.chatPlanningPreview));
+  }
+
+  /// Fills empty boxes and boxes still holding an earlier suggestion; amounts the
+  /// traveler typed themselves are never overwritten.
   void _applySuggestions(Map<String, dynamic>? preview) {
     final suggestions = _suggestions(preview);
     var filled = 0;
     void fill(TextEditingController controller, String category) {
       final value = suggestions[category];
-      if (value == null || controller.text.trim().isNotEmpty) return;
+      if (value == null) return;
+      final current = controller.text.trim();
+      if (current.isNotEmpty && current != _lastSuggested[controller]) return;
       final amount = double.tryParse(value);
-      controller.text = amount == null
+      final text = amount == null
           ? value
           : amount.toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
+      controller.text = text;
+      _lastSuggested[controller] = text;
       filled++;
     }
 
@@ -136,6 +178,13 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
         ? 'Nothing to fill: your boxes already have amounts.'
         : 'Filled $filled box(es) with system estimates. Edit any amount before confirming.';
   }
+
+  String _routeLabel(Object? status) => switch (status) {
+    'calculated' => 'calculated',
+    'needs_review' => 'needs your review',
+    'needs_details' => 'needs more details',
+    _ => 'not calculated yet (worked out when you generate)',
+  };
 
   String? _money(TextEditingController controller) {
     final amount = double.tryParse(controller.text.trim().replaceAll(',', ''));
@@ -527,7 +576,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                   if (_suggestions(preview).isNotEmpty) ...[
                     OutlinedButton.icon(
                       key: const Key('suggest-amounts'),
-                      onPressed: () => setState(() => _applySuggestions(preview)),
+                      onPressed: _suggest,
                       icon: const Icon(Icons.auto_awesome),
                       label: const Text('Suggest amounts from my budget'),
                     ),
@@ -560,7 +609,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                   Text(
                     'Projected total from confirmed amounts: ${budget['total_estimate'] == null ? 'incomplete' : '₱${budget['total_estimate']}'}',
                   ),
-                  Text('Route: ${route['status'] ?? 'not requested'}'),
+                  Text('Route: ${_routeLabel(route['status'])}'),
                   for (final warning in warnings.take(4)) Text('• $warning'),
                   if (_error != null) ...[
                     const SizedBox(height: AppConstants.spaceS),
