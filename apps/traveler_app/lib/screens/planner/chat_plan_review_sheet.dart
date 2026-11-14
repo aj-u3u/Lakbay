@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../providers/trip_provider.dart';
 import '../../widgets/inputs/activity_selection_fields.dart';
+import '../../widgets/inputs/allowance_suggester.dart';
 import '../../widgets/inputs/destination_fee_fields.dart';
 import '../../widgets/inputs/party_details_fields.dart';
 
@@ -74,6 +75,16 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
     _accommodationCost = TextEditingController(
       text: allowance('accommodation'),
     );
+    _suggester = AllowanceSuggester(
+      provider: widget.provider,
+      days: _days,
+      nights: _nights,
+      budget: _budget,
+      transport: _transportCost,
+      food: _foodCost,
+      accommodation: _accommodationCost,
+      isActive: () => mounted,
+    );
     final selectedOptions = state['selected_transport_option_ids'] as List?;
     _transportOptionId = selectedOptions?.isNotEmpty == true
         ? selectedOptions!.first.toString()
@@ -106,6 +117,15 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
       controller.dispose();
     }
     super.dispose();
+  }
+
+  late final AllowanceSuggester _suggester;
+
+  Future<void> _suggest() async {
+    setState(() => _error = null);
+    final error = await _suggester.suggest();
+    if (!mounted) return;
+    setState(() => _error = error);
   }
 
   String? _money(TextEditingController controller) {
@@ -441,6 +461,16 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
                             .whereType<Map>()
                             .toList(),
                   ),
+                  OutlinedButton.icon(
+                    key: const Key('suggest-amounts'),
+                    onPressed: _suggest,
+                    icon: const Icon(Icons.auto_awesome),
+                    label: const Text('Suggest amounts from my budget'),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, bottom: 12),
+                    child: Text(_suggester.note ?? suggestionIntro),
+                  ),
                   _field(
                     _transportCost,
                     'All transport and transfers (₱)',
@@ -461,7 +491,7 @@ class _ChatPlanReviewSheetState extends State<ChatPlanReviewSheet> {
                     Text(
                       'Estimate: ${budgetDetails['total_estimate'] == null ? 'incomplete' : '₱${budgetDetails['total_estimate']}'} • ${budgetDetails['fit'] ?? 'undetermined'}',
                     ),
-                    Text('Route: ${routeDetails['status'] ?? 'not requested'}'),
+                    Text('Route: ${routeStatusLabel(routeDetails['status'])}'),
                     for (final warning in [
                       ...missingCosts,
                       ...problems,

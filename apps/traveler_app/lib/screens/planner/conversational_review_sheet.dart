@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/constants/app_constants.dart';
 import '../../providers/trip_provider.dart';
 import '../../widgets/inputs/activity_selection_fields.dart';
+import '../../widgets/inputs/allowance_suggester.dart';
 import '../../widgets/inputs/destination_fee_fields.dart';
 import '../../widgets/inputs/party_details_fields.dart';
 
@@ -69,6 +70,16 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     _transportCost = TextEditingController(text: amount('transportation'));
     _foodCost = TextEditingController(text: amount('food'));
     _accommodationCost = TextEditingController(text: amount('accommodation'));
+    _suggester = AllowanceSuggester(
+      provider: widget.provider,
+      days: _days,
+      nights: _nights,
+      budget: _budget,
+      transport: _transportCost,
+      food: _foodCost,
+      accommodation: _accommodationCost,
+      isActive: () => mounted,
+    );
     for (final id
         in (state['destination_ids'] as List? ?? const []).whereType<int>()) {
       _destinationFeeKeys[id] = GlobalKey<DestinationFeeFieldsState>();
@@ -103,90 +114,14 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     super.dispose();
   }
 
-  String? _suggestionNote;
+  late final AllowanceSuggester _suggester;
 
-  Map<String, String> _suggestions(Map<String, dynamic>? preview) {
-    final raw = preview?['suggested_allowances'];
-    if (raw is! List) return const {};
-    return {
-      for (final item in raw.whereType<Map>())
-        if (item['category'] != null && item['amount'] != null)
-          item['category'].toString(): item['amount'].toString(),
-    };
-  }
-
-  /// What each box held right after it was last filled by a suggestion.
-  final Map<TextEditingController, String> _lastSuggested = {};
-
-  /// Sends the sheet's current days, nights and budget first, so the suggestion
-  /// matches what is on screen and not the previously saved plan.
   Future<void> _suggest() async {
-    final state = widget.provider.chatPlanningState;
-    final days = int.tryParse(_days.text.trim());
-    final nights = int.tryParse(_nights.text.trim());
-    final budget = _money(_budget);
-    final knownDays = days ?? (state['day_count'] as num?)?.toInt();
-    final changes = <String, dynamic>{
-      if (days != null && days >= 1 && days <= 30 && days != state['day_count'])
-        'day_count': days,
-      if (nights != null &&
-          nights >= 0 &&
-          (knownDays == null || nights <= knownDays) &&
-          nights != state['night_count'])
-        'night_count': nights,
-      if (budget != null &&
-          double.parse(budget) > 0 &&
-          double.parse(budget) !=
-              double.tryParse(state['total_budget']?.toString() ?? ''))
-        'total_budget': budget,
-    };
-    if (changes.isNotEmpty) {
-      setState(() => _error = null);
-      final ok = await widget.provider.updateChatPlanning(changes);
-      if (!mounted) return;
-      if (!ok) {
-        setState(() => _error = widget.provider.errorMessage);
-        return;
-      }
-    }
-    setState(() => _applySuggestions(widget.provider.chatPlanningPreview));
+    setState(() => _error = null);
+    final error = await _suggester.suggest();
+    if (!mounted) return;
+    setState(() => _error = error);
   }
-
-  /// Fills empty boxes and boxes still holding an earlier suggestion; amounts the
-  /// traveler typed themselves are never overwritten.
-  void _applySuggestions(Map<String, dynamic>? preview) {
-    final suggestions = _suggestions(preview);
-    var filled = 0;
-    void fill(TextEditingController controller, String category) {
-      final value = suggestions[category];
-      if (value == null) return;
-      final current = controller.text.trim();
-      if (current.isNotEmpty && current != _lastSuggested[controller]) return;
-      final amount = double.tryParse(value);
-      final text = amount == null
-          ? value
-          : amount.toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
-      controller.text = text;
-      _lastSuggested[controller] = text;
-      filled++;
-    }
-
-    fill(_transportCost, 'transportation');
-    fill(_foodCost, 'food');
-    fill(_accommodationCost, 'accommodation');
-    _suggestionNote = suggestions.isEmpty
-        ? 'Enter a whole-trip budget above first, then tap the button again.'
-        : filled == 0
-        ? 'Nothing to fill: your boxes already have amounts.'
-        : 'Filled $filled box(es) with system estimates. Edit any amount before confirming.';
-  }
-
-  String _routeLabel(Object? status) => switch (status) {
-    'calculated' => 'calculated',
-    'needs_review' => 'needs your review',
-    'needs_details' => 'needs more details',
-    _ => 'not calculated yet (worked out when you generate)',
-  };
 
   String? _money(TextEditingController controller) {
     final amount = double.tryParse(controller.text.trim().replaceAll(',', ''));
@@ -584,8 +519,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                     label: const Text('Suggest amounts from my budget'),
                   ),
                   Text(
-                    _suggestionNote ??
-                        'System estimates from your whole-trip budget. They only fill empty boxes, are not catalog prices, and you can edit them.',
+                    _suggester.note ?? suggestionIntro,
                   ),
                   const SizedBox(height: AppConstants.spaceM),
                   _field(
@@ -611,7 +545,7 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                   Text(
                     'Projected total from confirmed amounts: ${budget['total_estimate'] == null ? 'incomplete' : '₱${budget['total_estimate']}'}',
                   ),
-                  Text('Route: ${_routeLabel(route['status'])}'),
+                  Text('Route: ${routeStatusLabel(route['status'])}'),
                   for (final warning in warnings.take(4)) Text('• $warning'),
                   if (_error != null) ...[
                     const SizedBox(height: AppConstants.spaceS),
