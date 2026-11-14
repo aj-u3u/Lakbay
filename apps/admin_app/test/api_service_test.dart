@@ -406,4 +406,38 @@ void main() {
       await expectLater(api.getDestinations(), throwsA(isA<ApiException>()));
     },
   );
+
+  test('422 errors show field-level messages from error.details', () async {
+    final api = ApiService(
+      tokenProvider: () async => 'admin-token',
+      client: MockClient(
+        (_) async => http.Response(
+          jsonEncode({
+            'error': {
+              'code': 'validation_error',
+              'message': 'Request validation failed.',
+              'details': [
+                {
+                  'loc': ['body', 'source_url'],
+                  'msg': 'Field required',
+                },
+              ],
+            },
+          }),
+          422,
+        ),
+      ),
+    );
+    addTearDown(api.close);
+    await expectLater(
+      api.getDestinations(),
+      throwsA(
+        isA<ApiException>().having(
+          (e) => e.message,
+          'message',
+          'Source url: field required',
+        ),
+      ),
+    );
+  });
 }

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'session_manager.dart';
+import 'validation_message.dart';
 
 class ApiException implements Exception {
   final String message;
@@ -95,16 +96,12 @@ class ApiService {
               (decoded['error'] is Map ? decoded['error']['message'] : null);
           if (detail is String && detail.isNotEmpty) message = detail;
           if (detail is List) {
-            message = detail
-                .map((item) {
-                  if (item is! Map) return 'Check the entered values.';
-                  final loc = item['loc'];
-                  final field = loc is List
-                      ? loc.where((part) => part != 'body').join(' / ')
-                      : '';
-                  return '${field.isEmpty ? 'Value' : field}: ${item['msg'] ?? 'Invalid value'}';
-                })
-                .join('\n');
+            message = validationMessage(detail) ?? message;
+          }
+          final error = decoded['error'];
+          final details = error is Map ? error['details'] : null;
+          if (details is List) {
+            message = validationMessage(details) ?? message;
           }
         }
         throw ApiException(message, statusCode: response.statusCode);

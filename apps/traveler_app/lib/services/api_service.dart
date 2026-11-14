@@ -12,6 +12,7 @@ import '../models/planning_feedback.dart';
 import '../models/trip.dart';
 import '../models/user_profile.dart';
 import '../core/config/api_config.dart';
+import 'validation_message.dart';
 
 Map<String, dynamic>? _decodeJwtPayload(String token) {
   try {
@@ -151,6 +152,11 @@ class ApiService {
     try {
       final body = json.decode(response.body);
       final error = body is Map ? body['error'] : null;
+      final errorDetails = error is Map ? error['details'] : null;
+      if (errorDetails is List) {
+        final fieldMessage = validationMessage(errorDetails);
+        if (fieldMessage != null) return fieldMessage;
+      }
       final detail = body is Map
           ? body['detail'] ??
                 body['message'] ??
