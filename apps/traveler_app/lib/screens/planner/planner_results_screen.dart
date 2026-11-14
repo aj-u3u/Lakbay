@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/config/route_notes.dart';
 import '../../core/config/route_start.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
@@ -178,7 +179,10 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     }
   }
 
-  Widget _buildRouteDetails(bool isDark) {
+  Widget _buildRouteDetails(
+    bool isDark, [
+    List<int> requestedDestinationIds = const [],
+  ]) {
     if (_isLoadingRoute) {
       return const Center(child: CircularProgressIndicator());
     }
@@ -191,9 +195,10 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
     }
 
     final legs = route['legs'] is List ? route['legs'] as List : const [];
-    final warnings = route['warnings'] is List
-        ? route['warnings'] as List
-        : const [];
+    final notes = routeNotes(
+      route,
+      requestedDestinationIds: requestedDestinationIds,
+    );
     final provider = route['route_provider']?.toString() ?? 'unknown';
     final estimated = route['is_estimated'] == true;
     final verified = route['arrival_points_verified'] == true;
@@ -227,12 +232,19 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
               ),
             ),
           ],
-          for (final warning in warnings.take(2))
+          for (final note in notes)
             Padding(
               padding: const EdgeInsets.only(top: 4),
               child: Text(
-                warning.toString(),
-                style: Theme.of(context).textTheme.bodySmall,
+                note,
+                style: note.startsWith('Ferry crossing')
+                    ? Theme.of(context).textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: isDark
+                            ? Colors.amber[200]
+                            : Colors.deepOrange[700],
+                      )
+                    : Theme.of(context).textTheme.bodySmall,
               ),
             ),
           for (final legRaw in legs.whereType<Map>())
@@ -1759,7 +1771,7 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                         ),
                       ),
                       const SizedBox(height: AppConstants.spaceM),
-                      _buildRouteDetails(isDark),
+                      _buildRouteDetails(isDark, routeDestinationIds),
 
                       // 3. Accommodation & Transportation details
                       const SizedBox(height: AppConstants.spaceXL),

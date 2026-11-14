@@ -2565,6 +2565,8 @@ class ApiService {
       'arrival_points_verified': route['arrival_points_verified'] == true,
       'traffic': route['traffic'],
       'warnings': route['warnings'] ?? const [],
+      'ferry_crossings': route['ferry_crossings'] ?? const [],
+      'order_method': route['order_method'],
       'geometry': coordinates.isEmpty ? null : {'coordinates': coordinates},
     };
   }

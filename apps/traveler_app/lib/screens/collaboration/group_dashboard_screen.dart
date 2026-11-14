@@ -7,6 +7,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import '../../core/config/route_notes.dart';
 import '../../core/config/route_start.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
@@ -89,6 +90,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   List<LatLng> _roadGeometryPoints = [];
   List<Map<String, dynamic>> _routeStops = [];
   Map<String, dynamic>? _trafficSummary;
+  List<String> _routeNotes = [];
   LatLng? _lastStartLoc;
   String? _lastRouteIds;
 
@@ -131,6 +133,10 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                 .toList()
           : <Map<String, dynamic>>[];
 
+      final notes = routeNotes(
+        response,
+        requestedDestinationIds: destinationIds,
+      );
       if (response != null && response['geometry'] != null) {
         final geometry = response['geometry'];
         if (geometry['coordinates'] != null) {
@@ -146,6 +152,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               _roadGeometryPoints = points;
               _trafficSummary = trafficSummary;
               _routeStops = routeStops;
+              _routeNotes = notes;
             });
           }
           return;
@@ -156,6 +163,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           _roadGeometryPoints = [];
           _trafficSummary = trafficSummary;
           _routeStops = routeStops;
+          _routeNotes = notes;
         });
       }
       return;
@@ -168,6 +176,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         _roadGeometryPoints = [];
         _trafficSummary = null;
         _routeStops = [];
+        _routeNotes = [];
       });
     }
   }
@@ -1178,6 +1187,24 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
             const SizedBox(height: AppConstants.spaceS),
             _buildTrafficSummaryBanner(isDark),
           ],
+          for (final note in _routeNotes)
+            Padding(
+              padding: const EdgeInsets.only(top: AppConstants.spaceS),
+              child: Text(
+                note,
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: note.startsWith('Ferry crossing')
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                  color: note.startsWith('Ferry crossing')
+                      ? (isDark ? Colors.amber[200] : Colors.deepOrange[700])
+                      : (isDark
+                            ? AppTheme.textSecondaryDark
+                            : AppTheme.textSecondaryLight),
+                ),
+              ),
+            ),
           const SizedBox(height: AppConstants.spaceM),
           Container(
             height: 280,
