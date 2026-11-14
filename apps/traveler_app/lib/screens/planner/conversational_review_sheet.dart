@@ -103,6 +103,40 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
     super.dispose();
   }
 
+  String? _suggestionNote;
+
+  Map<String, String> _suggestions(Map<String, dynamic>? preview) {
+    final raw = preview?['suggested_allowances'];
+    if (raw is! List) return const {};
+    return {
+      for (final item in raw.whereType<Map>())
+        if (item['category'] != null && item['amount'] != null)
+          item['category'].toString(): item['amount'].toString(),
+    };
+  }
+
+  /// Fills only empty boxes so amounts the traveler typed are never overwritten.
+  void _applySuggestions(Map<String, dynamic>? preview) {
+    final suggestions = _suggestions(preview);
+    var filled = 0;
+    void fill(TextEditingController controller, String category) {
+      final value = suggestions[category];
+      if (value == null || controller.text.trim().isNotEmpty) return;
+      final amount = double.tryParse(value);
+      controller.text = amount == null
+          ? value
+          : amount.toStringAsFixed(amount == amount.roundToDouble() ? 0 : 2);
+      filled++;
+    }
+
+    fill(_transportCost, 'transportation');
+    fill(_foodCost, 'food');
+    fill(_accommodationCost, 'accommodation');
+    _suggestionNote = filled == 0
+        ? 'Nothing to fill: your boxes already have amounts.'
+        : 'Filled $filled box(es) with system estimates. Edit any amount before confirming.';
+  }
+
   String? _money(TextEditingController controller) {
     final amount = double.tryParse(controller.text.trim().replaceAll(',', ''));
     if (amount == null || !amount.isFinite || amount < 0) return null;
@@ -490,6 +524,19 @@ class _ConversationalReviewSheetState extends State<ConversationalReviewSheet> {
                             .toList(),
                   ),
                   const SizedBox(height: AppConstants.spaceM),
+                  if (_suggestions(preview).isNotEmpty) ...[
+                    OutlinedButton.icon(
+                      key: const Key('suggest-amounts'),
+                      onPressed: () => setState(() => _applySuggestions(preview)),
+                      icon: const Icon(Icons.auto_awesome),
+                      label: const Text('Suggest amounts from my budget'),
+                    ),
+                    Text(
+                      _suggestionNote ??
+                          'System estimates from your whole-trip budget. They only fill empty boxes, are not catalog prices, and you can edit them.',
+                    ),
+                    const SizedBox(height: AppConstants.spaceM),
+                  ],
                   _field(
                     _transportCost,
                     'Your whole-trip transport allowance (₱)',

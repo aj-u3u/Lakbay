@@ -345,6 +345,15 @@ class PlanningFuelEstimate(BaseModel):
     missing_information: list[str] = Field(default_factory=list)
 
 
+class PlanningSuggestedAllowance(BaseModel):
+    """An editable system estimate; not a catalog price or a verified cost."""
+
+    category: Literal["transportation", "food", "accommodation", "other"]
+    amount: Decimal
+    share_percent: int
+    source: Literal["system_estimate"] = "system_estimate"
+
+
 class PlanningPreviewResponse(BaseModel):
     input_revision: int
     status: Literal["needs_details", "needs_selection_review", "choices_available"]
@@ -360,6 +369,7 @@ class PlanningPreviewResponse(BaseModel):
     missing_inputs: list[str]
     selection_problems: list[PlanningSelectionProblem]
     next_actions: list[PlanningNextAction]
+    suggested_allowances: list[PlanningSuggestedAllowance] = Field(default_factory=list)
 
 
 class PlanningFeedbackFinding(BaseModel):

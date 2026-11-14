@@ -10,6 +10,7 @@ from app.features.planning.costs import build_budget
 from app.features.planning.feedback import evaluate_preview
 from app.features.planning.repository import PlanningRepository
 from app.features.planning.routing import build_route_preview
+from app.features.planning.suggestions import suggest_allowances
 from app.features.planning.schemas import (
     PlanningActivityOption,
     PlanningAccommodationOption,
@@ -159,6 +160,7 @@ class PlanningService:
             missing_inputs=missing_inputs,
             selection_problems=selection_problems,
             next_actions=next_actions,
+            suggested_allowances=suggest_allowances(whole_trip_budget, state.night_count),
         )
 
 
