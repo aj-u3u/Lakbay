@@ -1023,7 +1023,12 @@ async def _build_planning_chat_result(
             recommendation_shortfall_reason = (
                 "No travel interests were supplied, so there is no preference match to rank."
             )
-    elif not next_state.destination_ids:
+    elif not next_state.destination_ids or retrieval_interest:
+        # With stops already chosen, only rank when this message asked for more of an
+        # interest, and never offer a place that is already in the plan.
+        already_selected = set(next_state.destination_ids)
+        if already_selected:
+            ranking_interests = [retrieval_interest]
         selected_modes = tuple(next_state.selected_transport_option_ids)
         ranking_started = perf_counter()
         top_places = await RecommendationService(session).rank_top_places(
@@ -1057,10 +1062,16 @@ async def _build_planning_chat_result(
         )
         _log_timing("recommendation_ranking", ranking_started)
         recommendations = [
-            planning_recommendation_from_top_place(item) for item in top_places.items
+            planning_recommendation_from_top_place(item)
+            for item in top_places.items
+            if item.destination_id not in already_selected
         ]
         recommendation_total_candidates = top_places.total_candidates
         recommendation_shortfall_reason = top_places.shortfall_reason
+        if already_selected:
+            # The plan already has stops, so a thin result is not worth replacing the
+            # model's reply with a shortfall message.
+            recommendation_shortfall_reason = None
         if recommendation_shortfall_reason is not None:
             # Catalog and route checks are authoritative over model prose.
             chat_response = recommendation_shortfall_reason

@@ -175,13 +175,15 @@ class _ConversationalPlannerScreenState
     final success = await provider.sendFreeFormChat(text, history: history);
     if (!mounted) return;
     List<ChatDestinationSuggestion> suggestions = const [];
-    if (success &&
-        provider.chatPlanningState['destination_ids'] is List &&
-        (provider.chatPlanningState['destination_ids'] as List).isEmpty) {
-      final available = provider.chatSuggestions;
-      if (available.isNotEmpty) {
-        suggestions = List.of(available);
-      }
+    if (success) {
+      // Keep offering cards after a stop is added, minus places already planned.
+      final selected = (provider.chatPlanningState['destination_ids'] as List? ??
+              const [])
+          .whereType<int>()
+          .toSet();
+      suggestions = provider.chatSuggestions
+          .where((item) => !selected.contains(item.id))
+          .toList();
     }
     setState(() {
       _pending = false;

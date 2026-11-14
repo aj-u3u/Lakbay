@@ -944,6 +944,38 @@ def test_interest_detected_in_the_message_ranks_when_model_omits_it(client, monk
     assert planning["state_updates"] == {}  # the saved plan is not changed by the fallback
 
 
+def test_more_places_can_be_offered_after_a_stop_is_selected(client, monkeypatch) -> None:
+    configure_ai(monkeypatch)
+    admin = admin_headers(client)
+    first = create_destination(client, headers=admin, name="Beach One", **verified_arrival(0))
+    second = create_destination(client, headers=admin, name="Beach Two", **verified_arrival(1))
+    monkeypatch.setattr(ai_router_module, "get_osrm_client", lambda: CandidateOSRM())
+    client.app.dependency_overrides[get_groq_client] = lambda: FakeGroqClient([
+        json.dumps({"chat_response": "Here are more beaches.", "state_updates": {}}),
+    ])
+
+    response = client.post(
+        "/api/v1/ai/chat",
+        headers=user_headers(client),
+        json={
+            "message": "Find me more beaches in Davao",
+            "use_rag": True,
+            "planning_state": {
+                "origin": {"label": "Davao City", "lat": 7.0731, "lng": 125.6128},
+                "destination_ids": [first["destination_id"]],
+                "selected_transport_option_ids": ["mode:personal_vehicle"],
+            },
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    planning = response.json()["planning"]
+    ids = [item["destination_id"] for item in planning["recommendations"]]
+    assert second["destination_id"] in ids
+    assert first["destination_id"] not in ids
+    assert response.json()["chat_response"] == "Here are more beaches."
+
+
 def _named_chat(client, message, *, destinations, model_reply, planning_state=None):
     admin = admin_headers(client)
     created = {
