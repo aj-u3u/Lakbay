@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../../core/config/route_start.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
@@ -908,7 +909,11 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
       dest,
       _commuterStartPoint,
       budgetStyle,
-      _userPosition,
+      // A position outside the Davao Region is not a local start.
+      _userPosition != null &&
+              isInDavaoRegion(_userPosition!.latitude, _userPosition!.longitude)
+          ? _userPosition
+          : null,
     );
     double totalCost = 0.0;
     for (final step in steps) {
@@ -1197,24 +1202,13 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
         final transOpt = _getBudgetTransport(dest, budgetStyle);
 
         // Define starting coordinates based on commuter starting point
-        LatLng startLocation;
-        String startName;
-        if (_commuterStartPoint == 'Panabo') {
-          startLocation = const LatLng(7.3079, 125.6811); // Panabo Terminal
-          startName = 'Panabo Terminal';
-        } else if (_commuterStartPoint == 'Current Location' &&
-            _userPosition != null) {
-          startLocation = LatLng(
-            _userPosition!.latitude,
-            _userPosition!.longitude,
-          );
-          startName = 'Your Location';
-        } else {
-          startLocation = const LatLng(7.0706, 125.6092); // Davao City Center
-          startName = _commuterStartPoint == 'Current Location'
-              ? 'Davao City Center (GPS Loading...)'
-              : 'Davao City Center';
-        }
+        final routeStart = resolveRouteStart(
+          _commuterStartPoint,
+          deviceLat: _userPosition?.latitude,
+          deviceLng: _userPosition?.longitude,
+        );
+        final LatLng startLocation = routeStart.location;
+        final String startName = routeStart.name;
 
         final routeDestinationIds = trip.destinationIds.isNotEmpty
             ? trip.destinationIds
