@@ -9,6 +9,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../core/config/route_notes.dart';
 import '../../core/config/route_start.dart';
+import '../../widgets/map/ferry_markers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/constants/app_constants.dart';
 import '../../core/routes/app_routes.dart';
@@ -91,6 +92,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
   List<Map<String, dynamic>> _routeStops = [];
   Map<String, dynamic>? _trafficSummary;
   List<String> _routeNotes = [];
+  Map<String, dynamic>? _routeSummary;
   LatLng? _lastStartLoc;
   String? _lastRouteIds;
 
@@ -153,6 +155,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
               _trafficSummary = trafficSummary;
               _routeStops = routeStops;
               _routeNotes = notes;
+              _routeSummary = response;
             });
           }
           return;
@@ -164,6 +167,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
           _trafficSummary = trafficSummary;
           _routeStops = routeStops;
           _routeNotes = notes;
+          _routeSummary = response;
         });
       }
       return;
@@ -177,6 +181,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
         _trafficSummary = null;
         _routeStops = [];
         _routeNotes = [];
+        _routeSummary = null;
       });
     }
   }
@@ -1235,12 +1240,14 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                     ),
                     if (_roadGeometryPoints.length >= 2)
                       PolylineLayer(
-                        polylines: [
-                          Polyline(
+                        polylines: <Polyline<Object>>[
+                          Polyline<Object>(
                             points: _roadGeometryPoints,
                             color: AppTheme.primaryBlue,
                             strokeWidth: 4,
                           ),
+                          // Water legs are dashed so they are not read as road.
+                          ...ferryPolylines(_routeSummary),
                         ],
                       ),
                     MarkerLayer(
@@ -1285,6 +1292,7 @@ class _GroupDashboardScreenState extends State<GroupDashboardScreen> {
                               ),
                             );
                           }),
+                        ...ferryPoints(_routeSummary).map(ferryMarker),
                       ],
                     ),
                   ],

@@ -5,6 +5,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../core/config/route_notes.dart';
 import '../../core/config/route_start.dart';
+import '../../widgets/map/ferry_markers.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:provider/provider.dart';
 
@@ -1624,15 +1625,16 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                   userAgentPackageName: 'com.lakbay.plus',
                                 ),
                                 PolylineLayer(
-                                  polylines: _roadGeometryPoints.length < 2
-                                      ? <Polyline<Object>>[]
-                                      : <Polyline<Object>>[
-                                          Polyline<Object>(
-                                            points: _roadGeometryPoints,
-                                            color: AppTheme.primaryBlue,
-                                            strokeWidth: 4,
-                                          ),
-                                        ],
+                                  polylines: <Polyline<Object>>[
+                                    if (_roadGeometryPoints.length >= 2)
+                                      Polyline<Object>(
+                                        points: _roadGeometryPoints,
+                                        color: AppTheme.primaryBlue,
+                                        strokeWidth: 4,
+                                      ),
+                                    // Water legs are dashed so they are not read as road.
+                                    ...ferryPolylines(_routeSummary),
+                                  ],
                                 ),
                                 MarkerLayer(
                                   markers: [
@@ -1685,6 +1687,9 @@ class _PlannerResultsScreenState extends State<PlannerResultsScreen> {
                                           ),
                                         );
                                       }),
+                                    ...ferryPoints(
+                                      _routeSummary,
+                                    ).map(ferryMarker),
                                   ],
                                 ),
                               ],
